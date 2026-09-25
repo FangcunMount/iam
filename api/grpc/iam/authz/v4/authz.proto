@@ -7,6 +7,8 @@ option go_package = "github.com/FangcunMount/iam/v5/api/grpc/iam/authz/v4;authzv
 service AuthorizationService {
   rpc Check(CheckRequest) returns (CheckResponse);
   rpc GetAuthorizationSnapshot(GetAuthorizationSnapshotRequest) returns (GetAuthorizationSnapshotResponse);
+  // Reads the committed policy version, independently of the in-memory runtime.
+  rpc GetCommittedPolicyVersion(GetCommittedPolicyVersionRequest) returns (GetCommittedPolicyVersionResponse);
   rpc GrantAssignment(GrantAssignmentRequest) returns (GrantAssignmentResponse);
   rpc RevokeAssignment(RevokeAssignmentRequest) returns (RevokeAssignmentResponse);
   rpc ReplaceManagedAssignments(ReplaceManagedAssignmentsRequest) returns (ReplaceManagedAssignmentsResponse);
@@ -175,4 +177,10 @@ message AssignmentScopeFact {
  AssignmentRoleFact role = 2;
  // Absent means unconfigured, never all stores.
  DataScope scope = 3;
+}
+
+message GetCommittedPolicyVersionRequest {}
+
+message GetCommittedPolicyVersionResponse {
+  int64 policy_version = 1;
 }

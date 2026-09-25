@@ -43,3 +43,16 @@ func (c *Client) GetAuthorizationSnapshot(ctx context.Context, req *authzv4.GetA
 	}
 	return resp, nil
 }
+
+// GetCommittedPolicyVersion reads the persisted global policy version. It is
+// independent of the version currently loaded into IAM's authorization runtime.
+func (c *Client) GetCommittedPolicyVersion(ctx context.Context) (int64, error) {
+	resp, err := c.authorizationService.GetCommittedPolicyVersion(ctx, &authzv4.GetCommittedPolicyVersionRequest{})
+	if err != nil {
+		return 0, errors.Wrap(err)
+	}
+	if resp == nil || resp.GetPolicyVersion() <= 0 {
+		return 0, fmt.Errorf("committed authorization policy version unavailable")
+	}
+	return resp.GetPolicyVersion(), nil
+}

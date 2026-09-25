@@ -73,3 +73,51 @@ func TestMTLSAuthorizationWithoutServiceToken(t *testing.T) {
 		})
 	}
 }
+
+func TestCommittedPolicyVersionRequiresQSServiceCertificate(t *testing.T) {
+	ca := tlsfixture.New(t)
+	serverPair := ca.Issue(t, "server.test", false)
+	cfg := servergrpc.NewConfig()
+	cfg.Insecure = false
+	cfg.TLSCertFile = serverPair.CertFile
+	cfg.TLSKeyFile = serverPair.KeyFile
+	cfg.MTLS.Enabled = true
+	cfg.MTLS.CAFile = ca.CAFile
+	cfg.MTLS.RequireClientCert = true
+	cfg.MTLS.EnableAutoReload = false
+	cfg.ACL.Enabled = true
+	cfg.ACL.ConfigFile = "../../../../../../configs/grpc_acl.yaml"
+	srv, err := servergrpc.NewServer(cfg)
+	require.NoError(t, err)
+	t.Cleanup(srv.Server.Stop)
+	authzv4.RegisterAuthorizationServiceServer(srv.Server, &authorizationServer{
+		committedVersionReader: committedVersionReaderFunc(func(context.Context) (int64, error) { return 42, nil }),
+	})
+	lis, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = lis.Close() })
+	go func() { _ = srv.Server.Serve(lis) }()
+
+	for _, test := range []struct {
+		name string
+		want codes.Code
+	}{
+		{name: "qs-apiserver.svc", want: codes.OK},
+		{name: "qs-collection-server.svc", want: codes.PermissionDenied},
+		{name: "unknown.svc", want: codes.PermissionDenied},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			pair := ca.Issue(t, test.name, false)
+			conn, err := grpc.NewClient(lis.Addr().String(), grpc.WithTransportCredentials(credentials.NewTLS(ca.Client(&pair))))
+			require.NoError(t, err)
+			defer func() { _ = conn.Close() }()
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			defer cancel()
+			response, err := authzv4.NewAuthorizationServiceClient(conn).GetCommittedPolicyVersion(ctx, &authzv4.GetCommittedPolicyVersionRequest{})
+			require.Equal(t, test.want, status.Code(err))
+			if test.want == codes.OK {
+				require.EqualValues(t, 42, response.GetPolicyVersion())
+			}
+		})
+	}
+}

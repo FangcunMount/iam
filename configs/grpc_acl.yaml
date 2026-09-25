@@ -58,6 +58,7 @@ services:
       # AuthorizationService - PDP（策略判定）
       - /iam.authz.v4.AuthorizationService/Check
       - /iam.authz.v4.AuthorizationService/GetAuthorizationSnapshot
+      - /iam.authz.v4.AuthorizationService/GetCommittedPolicyVersion
       - /iam.authz.v4.AuthorizationService/GrantAssignment
       - /iam.authz.v4.AuthorizationService/RevokeAssignment
       - /iam.authz.v4.AuthorizationService/ReplaceManagedAssignments

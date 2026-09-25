@@ -14,6 +14,7 @@ func CollectGRPC(available bool, mod *AuthzModule, registrations *[]grpctranspor
 	service := authzgrpc.NewService(
 		caps.AuthorizationDecisions,
 		caps.AuthorizationSnapshotReader,
+		caps.CommittedPolicyVersionReader,
 		caps.AssignmentCommands,
 		caps.AssignmentAdmissionPolicy,
 	)

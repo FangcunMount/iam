@@ -5,6 +5,7 @@ import (
 	authorizationApp "github.com/FangcunMount/iam/v5/internal/apiserver/application/authz/authorization"
 	"github.com/FangcunMount/iam/v5/internal/apiserver/application/authz/management"
 	permissionGrantApp "github.com/FangcunMount/iam/v5/internal/apiserver/application/authz/permissiongrant"
+	policyVersionApp "github.com/FangcunMount/iam/v5/internal/apiserver/application/authz/policyversion"
 	resourceApp "github.com/FangcunMount/iam/v5/internal/apiserver/application/authz/resource"
 	roleApp "github.com/FangcunMount/iam/v5/internal/apiserver/application/authz/role"
 )
@@ -37,4 +38,5 @@ func (m *AuthzModule) initializeApplication(
 
 	m.routeDecisionService = authorizationApp.NewRouteDecisionService(m.authorizationDecisions)
 	m.authorizationSnapshotReader = authorizationApp.NewSnapshotReader(infra.authorizationRuntime)
+	m.committedPolicyVersionReader = policyVersionApp.NewReader(infra.policyVersionRepository)
 }

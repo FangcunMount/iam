@@ -21,6 +21,7 @@ const _ = grpc.SupportPackageIsVersion9
 const (
 	AuthorizationService_Check_FullMethodName                     = "/iam.authz.v4.AuthorizationService/Check"
 	AuthorizationService_GetAuthorizationSnapshot_FullMethodName  = "/iam.authz.v4.AuthorizationService/GetAuthorizationSnapshot"
+	AuthorizationService_GetCommittedPolicyVersion_FullMethodName = "/iam.authz.v4.AuthorizationService/GetCommittedPolicyVersion"
 	AuthorizationService_GrantAssignment_FullMethodName           = "/iam.authz.v4.AuthorizationService/GrantAssignment"
 	AuthorizationService_RevokeAssignment_FullMethodName          = "/iam.authz.v4.AuthorizationService/RevokeAssignment"
 	AuthorizationService_ReplaceManagedAssignments_FullMethodName = "/iam.authz.v4.AuthorizationService/ReplaceManagedAssignments"
@@ -33,6 +34,8 @@ const (
 type AuthorizationServiceClient interface {
 	Check(ctx context.Context, in *CheckRequest, opts ...grpc.CallOption) (*CheckResponse, error)
 	GetAuthorizationSnapshot(ctx context.Context, in *GetAuthorizationSnapshotRequest, opts ...grpc.CallOption) (*GetAuthorizationSnapshotResponse, error)
+	// Reads the committed policy version, independently of the in-memory runtime.
+	GetCommittedPolicyVersion(ctx context.Context, in *GetCommittedPolicyVersionRequest, opts ...grpc.CallOption) (*GetCommittedPolicyVersionResponse, error)
 	GrantAssignment(ctx context.Context, in *GrantAssignmentRequest, opts ...grpc.CallOption) (*GrantAssignmentResponse, error)
 	RevokeAssignment(ctx context.Context, in *RevokeAssignmentRequest, opts ...grpc.CallOption) (*RevokeAssignmentResponse, error)
 	ReplaceManagedAssignments(ctx context.Context, in *ReplaceManagedAssignmentsRequest, opts ...grpc.CallOption) (*ReplaceManagedAssignmentsResponse, error)
@@ -63,6 +66,16 @@ func (c *authorizationServiceClient) GetAuthorizationSnapshot(ctx context.Contex
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetAuthorizationSnapshotResponse)
 	err := c.cc.Invoke(ctx, AuthorizationService_GetAuthorizationSnapshot_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authorizationServiceClient) GetCommittedPolicyVersion(ctx context.Context, in *GetCommittedPolicyVersionRequest, opts ...grpc.CallOption) (*GetCommittedPolicyVersionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetCommittedPolicyVersionResponse)
+	err := c.cc.Invoke(ctx, AuthorizationService_GetCommittedPolicyVersion_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -115,6 +128,8 @@ func (c *authorizationServiceClient) ReplaceScopedAssignments(ctx context.Contex
 type AuthorizationServiceServer interface {
 	Check(context.Context, *CheckRequest) (*CheckResponse, error)
 	GetAuthorizationSnapshot(context.Context, *GetAuthorizationSnapshotRequest) (*GetAuthorizationSnapshotResponse, error)
+	// Reads the committed policy version, independently of the in-memory runtime.
+	GetCommittedPolicyVersion(context.Context, *GetCommittedPolicyVersionRequest) (*GetCommittedPolicyVersionResponse, error)
 	GrantAssignment(context.Context, *GrantAssignmentRequest) (*GrantAssignmentResponse, error)
 	RevokeAssignment(context.Context, *RevokeAssignmentRequest) (*RevokeAssignmentResponse, error)
 	ReplaceManagedAssignments(context.Context, *ReplaceManagedAssignmentsRequest) (*ReplaceManagedAssignmentsResponse, error)
@@ -136,6 +151,9 @@ func (UnimplementedAuthorizationServiceServer) Check(context.Context, *CheckRequ
 }
 func (UnimplementedAuthorizationServiceServer) GetAuthorizationSnapshot(context.Context, *GetAuthorizationSnapshotRequest) (*GetAuthorizationSnapshotResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetAuthorizationSnapshot not implemented")
+}
+func (UnimplementedAuthorizationServiceServer) GetCommittedPolicyVersion(context.Context, *GetCommittedPolicyVersionRequest) (*GetCommittedPolicyVersionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetCommittedPolicyVersion not implemented")
 }
 func (UnimplementedAuthorizationServiceServer) GrantAssignment(context.Context, *GrantAssignmentRequest) (*GrantAssignmentResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GrantAssignment not implemented")
@@ -202,6 +220,24 @@ func _AuthorizationService_GetAuthorizationSnapshot_Handler(srv interface{}, ctx
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(AuthorizationServiceServer).GetAuthorizationSnapshot(ctx, req.(*GetAuthorizationSnapshotRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthorizationService_GetCommittedPolicyVersion_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetCommittedPolicyVersionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthorizationServiceServer).GetCommittedPolicyVersion(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthorizationService_GetCommittedPolicyVersion_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthorizationServiceServer).GetCommittedPolicyVersion(ctx, req.(*GetCommittedPolicyVersionRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -292,6 +328,10 @@ var AuthorizationService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetAuthorizationSnapshot",
 			Handler:    _AuthorizationService_GetAuthorizationSnapshot_Handler,
+		},
+		{
+			MethodName: "GetCommittedPolicyVersion",
+			Handler:    _AuthorizationService_GetCommittedPolicyVersion_Handler,
 		},
 		{
 			MethodName: "GrantAssignment",

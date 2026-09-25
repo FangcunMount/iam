@@ -1395,6 +1395,86 @@ func (x *AssignmentScopeFact) GetScope() *DataScope {
 	return nil
 }
 
+type GetCommittedPolicyVersionRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetCommittedPolicyVersionRequest) Reset() {
+	*x = GetCommittedPolicyVersionRequest{}
+	mi := &file_iam_authz_v4_authz_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetCommittedPolicyVersionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetCommittedPolicyVersionRequest) ProtoMessage() {}
+
+func (x *GetCommittedPolicyVersionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_iam_authz_v4_authz_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetCommittedPolicyVersionRequest.ProtoReflect.Descriptor instead.
+func (*GetCommittedPolicyVersionRequest) Descriptor() ([]byte, []int) {
+	return file_iam_authz_v4_authz_proto_rawDescGZIP(), []int{18}
+}
+
+type GetCommittedPolicyVersionResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	PolicyVersion int64                  `protobuf:"varint,1,opt,name=policy_version,json=policyVersion,proto3" json:"policy_version,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetCommittedPolicyVersionResponse) Reset() {
+	*x = GetCommittedPolicyVersionResponse{}
+	mi := &file_iam_authz_v4_authz_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetCommittedPolicyVersionResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetCommittedPolicyVersionResponse) ProtoMessage() {}
+
+func (x *GetCommittedPolicyVersionResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_iam_authz_v4_authz_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetCommittedPolicyVersionResponse.ProtoReflect.Descriptor instead.
+func (*GetCommittedPolicyVersionResponse) Descriptor() ([]byte, []int) {
+	return file_iam_authz_v4_authz_proto_rawDescGZIP(), []int{19}
+}
+
+func (x *GetCommittedPolicyVersionResponse) GetPolicyVersion() int64 {
+	if x != nil {
+		return x.PolicyVersion
+	}
+	return 0
+}
+
 var File_iam_authz_v4_authz_proto protoreflect.FileDescriptor
 
 const file_iam_authz_v4_authz_proto_rawDesc = "" +
@@ -1492,7 +1572,10 @@ const file_iam_authz_v4_authz_proto_rawDesc = "" +
 	"\x13AssignmentScopeFact\x12#\n" +
 	"\rassignment_id\x18\x01 \x01(\tR\fassignmentId\x124\n" +
 	"\x04role\x18\x02 \x01(\v2 .iam.authz.v4.AssignmentRoleFactR\x04role\x12-\n" +
-	"\x05scope\x18\x03 \x01(\v2\x17.iam.authz.v4.DataScopeR\x05scope*i\n" +
+	"\x05scope\x18\x03 \x01(\v2\x17.iam.authz.v4.DataScopeR\x05scope\"\"\n" +
+	" GetCommittedPolicyVersionRequest\"J\n" +
+	"!GetCommittedPolicyVersionResponse\x12%\n" +
+	"\x0epolicy_version\x18\x01 \x01(\x03R\rpolicyVersion*i\n" +
 	"\x11AuthorizationMode\x12\"\n" +
 	"\x1eAUTHORIZATION_MODE_UNSPECIFIED\x10\x00\x12\x11\n" +
 	"\rUNCONDITIONAL\x10\x01\x12\x1d\n" +
@@ -1507,10 +1590,11 @@ const file_iam_authz_v4_authz_proto_rawDesc = "" +
 	"\n" +
 	"ALL_STORES\x10\x01\x12\n" +
 	"\n" +
-	"\x06STORES\x10\x022\x90\x05\n" +
+	"\x06STORES\x10\x022\x8e\x06\n" +
 	"\x14AuthorizationService\x12@\n" +
 	"\x05Check\x12\x1a.iam.authz.v4.CheckRequest\x1a\x1b.iam.authz.v4.CheckResponse\x12y\n" +
-	"\x18GetAuthorizationSnapshot\x12-.iam.authz.v4.GetAuthorizationSnapshotRequest\x1a..iam.authz.v4.GetAuthorizationSnapshotResponse\x12^\n" +
+	"\x18GetAuthorizationSnapshot\x12-.iam.authz.v4.GetAuthorizationSnapshotRequest\x1a..iam.authz.v4.GetAuthorizationSnapshotResponse\x12|\n" +
+	"\x19GetCommittedPolicyVersion\x12..iam.authz.v4.GetCommittedPolicyVersionRequest\x1a/.iam.authz.v4.GetCommittedPolicyVersionResponse\x12^\n" +
 	"\x0fGrantAssignment\x12$.iam.authz.v4.GrantAssignmentRequest\x1a%.iam.authz.v4.GrantAssignmentResponse\x12a\n" +
 	"\x10RevokeAssignment\x12%.iam.authz.v4.RevokeAssignmentRequest\x1a&.iam.authz.v4.RevokeAssignmentResponse\x12|\n" +
 	"\x19ReplaceManagedAssignments\x12..iam.authz.v4.ReplaceManagedAssignmentsRequest\x1a/.iam.authz.v4.ReplaceManagedAssignmentsResponse\x12z\n" +
@@ -1529,7 +1613,7 @@ func file_iam_authz_v4_authz_proto_rawDescGZIP() []byte {
 }
 
 var file_iam_authz_v4_authz_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_iam_authz_v4_authz_proto_msgTypes = make([]protoimpl.MessageInfo, 18)
+var file_iam_authz_v4_authz_proto_msgTypes = make([]protoimpl.MessageInfo, 20)
 var file_iam_authz_v4_authz_proto_goTypes = []any{
 	(AuthorizationMode)(0),                    // 0: iam.authz.v4.AuthorizationMode
 	(DecisionReason)(0),                       // 1: iam.authz.v4.DecisionReason
@@ -1552,6 +1636,8 @@ var file_iam_authz_v4_authz_proto_goTypes = []any{
 	(*ScopedRoleAssignment)(nil),              // 18: iam.authz.v4.ScopedRoleAssignment
 	(*ReplaceScopedAssignmentsRequest)(nil),   // 19: iam.authz.v4.ReplaceScopedAssignmentsRequest
 	(*AssignmentScopeFact)(nil),               // 20: iam.authz.v4.AssignmentScopeFact
+	(*GetCommittedPolicyVersionRequest)(nil),  // 21: iam.authz.v4.GetCommittedPolicyVersionRequest
+	(*GetCommittedPolicyVersionResponse)(nil), // 22: iam.authz.v4.GetCommittedPolicyVersionResponse
 }
 var file_iam_authz_v4_authz_proto_depIdxs = []int32{
 	3,  // 0: iam.authz.v4.ObjectContext.attributes:type_name -> iam.authz.v4.ObjectAttribute
@@ -1569,18 +1655,20 @@ var file_iam_authz_v4_authz_proto_depIdxs = []int32{
 	7,  // 12: iam.authz.v4.AssignmentScopeFact.scope:type_name -> iam.authz.v4.DataScope
 	5,  // 13: iam.authz.v4.AuthorizationService.Check:input_type -> iam.authz.v4.CheckRequest
 	9,  // 14: iam.authz.v4.AuthorizationService.GetAuthorizationSnapshot:input_type -> iam.authz.v4.GetAuthorizationSnapshotRequest
-	11, // 15: iam.authz.v4.AuthorizationService.GrantAssignment:input_type -> iam.authz.v4.GrantAssignmentRequest
-	13, // 16: iam.authz.v4.AuthorizationService.RevokeAssignment:input_type -> iam.authz.v4.RevokeAssignmentRequest
-	15, // 17: iam.authz.v4.AuthorizationService.ReplaceManagedAssignments:input_type -> iam.authz.v4.ReplaceManagedAssignmentsRequest
-	19, // 18: iam.authz.v4.AuthorizationService.ReplaceScopedAssignments:input_type -> iam.authz.v4.ReplaceScopedAssignmentsRequest
-	6,  // 19: iam.authz.v4.AuthorizationService.Check:output_type -> iam.authz.v4.CheckResponse
-	10, // 20: iam.authz.v4.AuthorizationService.GetAuthorizationSnapshot:output_type -> iam.authz.v4.GetAuthorizationSnapshotResponse
-	12, // 21: iam.authz.v4.AuthorizationService.GrantAssignment:output_type -> iam.authz.v4.GrantAssignmentResponse
-	14, // 22: iam.authz.v4.AuthorizationService.RevokeAssignment:output_type -> iam.authz.v4.RevokeAssignmentResponse
-	16, // 23: iam.authz.v4.AuthorizationService.ReplaceManagedAssignments:output_type -> iam.authz.v4.ReplaceManagedAssignmentsResponse
-	16, // 24: iam.authz.v4.AuthorizationService.ReplaceScopedAssignments:output_type -> iam.authz.v4.ReplaceManagedAssignmentsResponse
-	19, // [19:25] is the sub-list for method output_type
-	13, // [13:19] is the sub-list for method input_type
+	21, // 15: iam.authz.v4.AuthorizationService.GetCommittedPolicyVersion:input_type -> iam.authz.v4.GetCommittedPolicyVersionRequest
+	11, // 16: iam.authz.v4.AuthorizationService.GrantAssignment:input_type -> iam.authz.v4.GrantAssignmentRequest
+	13, // 17: iam.authz.v4.AuthorizationService.RevokeAssignment:input_type -> iam.authz.v4.RevokeAssignmentRequest
+	15, // 18: iam.authz.v4.AuthorizationService.ReplaceManagedAssignments:input_type -> iam.authz.v4.ReplaceManagedAssignmentsRequest
+	19, // 19: iam.authz.v4.AuthorizationService.ReplaceScopedAssignments:input_type -> iam.authz.v4.ReplaceScopedAssignmentsRequest
+	6,  // 20: iam.authz.v4.AuthorizationService.Check:output_type -> iam.authz.v4.CheckResponse
+	10, // 21: iam.authz.v4.AuthorizationService.GetAuthorizationSnapshot:output_type -> iam.authz.v4.GetAuthorizationSnapshotResponse
+	22, // 22: iam.authz.v4.AuthorizationService.GetCommittedPolicyVersion:output_type -> iam.authz.v4.GetCommittedPolicyVersionResponse
+	12, // 23: iam.authz.v4.AuthorizationService.GrantAssignment:output_type -> iam.authz.v4.GrantAssignmentResponse
+	14, // 24: iam.authz.v4.AuthorizationService.RevokeAssignment:output_type -> iam.authz.v4.RevokeAssignmentResponse
+	16, // 25: iam.authz.v4.AuthorizationService.ReplaceManagedAssignments:output_type -> iam.authz.v4.ReplaceManagedAssignmentsResponse
+	16, // 26: iam.authz.v4.AuthorizationService.ReplaceScopedAssignments:output_type -> iam.authz.v4.ReplaceManagedAssignmentsResponse
+	20, // [20:27] is the sub-list for method output_type
+	13, // [13:20] is the sub-list for method input_type
 	13, // [13:13] is the sub-list for extension type_name
 	13, // [13:13] is the sub-list for extension extendee
 	0,  // [0:13] is the sub-list for field type_name
@@ -1602,7 +1690,7 @@ func file_iam_authz_v4_authz_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_iam_authz_v4_authz_proto_rawDesc), len(file_iam_authz_v4_authz_proto_rawDesc)),
 			NumEnums:      3,
-			NumMessages:   18,
+			NumMessages:   20,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

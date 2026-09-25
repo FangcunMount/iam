@@ -31,17 +31,23 @@ type authorizationSnapshotReader interface {
 	Read(context.Context, subject.Ref, string) (authzapp.SubjectSnapshot, error)
 }
 
+type committedPolicyVersionReader interface {
+	ReadCommittedVersion(context.Context) (int64, error)
+}
+
 type Service struct{ srv authorizationServer }
 
 func NewService(
 	checker authorizationChecker,
 	snapshotReader authorizationSnapshotReader,
+	committedVersionReader committedPolicyVersionReader,
 	assignments assignmentApp.NamedCommands,
 	assignmentPolicy assignmentadmission.Policy,
 ) *Service {
 	return &Service{srv: authorizationServer{
 		checker: checker, snapshotReader: snapshotReader,
-		assignments: assignments, assignmentAdmission: assignmentPolicy,
+		committedVersionReader: committedVersionReader,
+		assignments:            assignments, assignmentAdmission: assignmentPolicy,
 	}}
 }
 
@@ -54,10 +60,11 @@ func (s *Service) Register(server *grpc.Server) {
 
 type authorizationServer struct {
 	authzv4.UnimplementedAuthorizationServiceServer
-	checker             authorizationChecker
-	snapshotReader      authorizationSnapshotReader
-	assignments         assignmentApp.NamedCommands
-	assignmentAdmission assignmentadmission.Policy
+	checker                authorizationChecker
+	snapshotReader         authorizationSnapshotReader
+	committedVersionReader committedPolicyVersionReader
+	assignments            assignmentApp.NamedCommands
+	assignmentAdmission    assignmentadmission.Policy
 }
 
 func (s *authorizationServer) Check(ctx context.Context, req *authzv4.CheckRequest) (*authzv4.CheckResponse, error) {
@@ -142,6 +149,24 @@ func (s *authorizationServer) GetAuthorizationSnapshot(ctx context.Context, req 
 		response.AssignmentFactsComplete = true
 	}
 	return response, nil
+}
+
+func (s *authorizationServer) GetCommittedPolicyVersion(ctx context.Context, _ *authzv4.GetCommittedPolicyVersionRequest) (*authzv4.GetCommittedPolicyVersionResponse, error) {
+	caller, err := requireServiceIdentity(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if caller != "qs-apiserver.svc" {
+		return nil, status.Error(codes.PermissionDenied, "service is not allowed to read committed policy version")
+	}
+	if s.committedVersionReader == nil {
+		return nil, status.Error(codes.Unavailable, "committed authorization policy version unavailable")
+	}
+	version, err := s.committedVersionReader.ReadCommittedVersion(ctx)
+	if err != nil || version <= 0 {
+		return nil, status.Error(codes.Unavailable, "committed authorization policy version unavailable")
+	}
+	return &authzv4.GetCommittedPolicyVersionResponse{PolicyVersion: version}, nil
 }
 
 func (s *authorizationServer) GrantAssignment(ctx context.Context, req *authzv4.GrantAssignmentRequest) (*authzv4.GrantAssignmentResponse, error) {

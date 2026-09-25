@@ -134,7 +134,7 @@ func TestReliableMessagingIAMQSBusinessRoundtrip(t *testing.T) {
 	server, err := servergrpc.NewServer(grpcConfig)
 	require.NoError(t, err)
 	grpcServer := server.Server
-	authzgrpc.NewService(authzapp.NewDecisionService(runtime), authzapp.NewSnapshotReader(runtime), nil, nil).Register(grpcServer)
+	authzgrpc.NewService(authzapp.NewDecisionService(runtime), authzapp.NewSnapshotReader(runtime), nil, nil, nil).Register(grpcServer)
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
 	defer grpcServer.Stop()

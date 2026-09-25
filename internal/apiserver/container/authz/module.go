@@ -10,6 +10,7 @@ import (
 	authorizationApp "github.com/FangcunMount/iam/v5/internal/apiserver/application/authz/authorization"
 	permissionGrantApp "github.com/FangcunMount/iam/v5/internal/apiserver/application/authz/permissiongrant"
 	policychange "github.com/FangcunMount/iam/v5/internal/apiserver/application/authz/policychange"
+	policyVersionApp "github.com/FangcunMount/iam/v5/internal/apiserver/application/authz/policyversion"
 	resourceApp "github.com/FangcunMount/iam/v5/internal/apiserver/application/authz/resource"
 	roleApp "github.com/FangcunMount/iam/v5/internal/apiserver/application/authz/role"
 	assignmentConstraints "github.com/FangcunMount/iam/v5/internal/apiserver/infra/authz/assignmentconstraints"
@@ -17,22 +18,23 @@ import (
 
 // AuthzModule 授权模块
 type AuthzModule struct {
-	syncOnce                    sync.Once
-	policySync                  *policySyncSubscriber
-	routeDecisionService        authorizationApp.RoutePermissionChecker
-	effectiveRoles              EffectiveRoleReader
-	runtimeHealth               RuntimeHealthReporter
-	policyReloader              policychange.RuntimePolicyReloader
-	resourceCatalog             resourceApp.Catalog
-	resourceDirectory           resourceApp.Directory
-	roleCatalog                 roleApp.Catalog
-	roleDirectory               roleApp.Directory
-	permissionGrantService      *permissionGrantApp.Service
-	assignmentCommands          assignmentApp.Commands
-	assignmentDirectory         assignmentApp.Directory
-	authorizationDecisions      *authorizationApp.DecisionService
-	authorizationSnapshotReader *authorizationApp.SnapshotReader
-	assignmentAdmissionPolicy   assignmentAdmissionApp.Policy
+	syncOnce                     sync.Once
+	policySync                   *policySyncSubscriber
+	routeDecisionService         authorizationApp.RoutePermissionChecker
+	effectiveRoles               EffectiveRoleReader
+	runtimeHealth                RuntimeHealthReporter
+	policyReloader               policychange.RuntimePolicyReloader
+	resourceCatalog              resourceApp.Catalog
+	resourceDirectory            resourceApp.Directory
+	roleCatalog                  roleApp.Catalog
+	roleDirectory                roleApp.Directory
+	permissionGrantService       *permissionGrantApp.Service
+	assignmentCommands           assignmentApp.Commands
+	assignmentDirectory          assignmentApp.Directory
+	authorizationDecisions       *authorizationApp.DecisionService
+	authorizationSnapshotReader  *authorizationApp.SnapshotReader
+	committedPolicyVersionReader *policyVersionApp.Reader
+	assignmentAdmissionPolicy    assignmentAdmissionApp.Policy
 }
 
 // NewAuthzModule 创建授权模块
@@ -81,18 +83,19 @@ func (m *AuthzModule) ApplicationCapabilities() ApplicationCapabilities {
 		return ApplicationCapabilities{}
 	}
 	return ApplicationCapabilities{
-		ResourceCatalog:             m.resourceCatalog,
-		ResourceDirectory:           m.resourceDirectory,
-		RoleCatalog:                 m.roleCatalog,
-		RoleDirectory:               m.roleDirectory,
-		PermissionGrantService:      m.permissionGrantService,
-		AssignmentCommands:          m.assignmentCommands,
-		AssignmentDirectory:         m.assignmentDirectory,
-		RoutePermissionChecker:      m.routeDecisionService,
-		RuntimeHealth:               m.runtimeHealth,
-		AuthorizationDecisions:      m.authorizationDecisions,
-		AuthorizationSnapshotReader: m.authorizationSnapshotReader,
-		AssignmentAdmissionPolicy:   m.assignmentAdmissionPolicy,
+		ResourceCatalog:              m.resourceCatalog,
+		ResourceDirectory:            m.resourceDirectory,
+		RoleCatalog:                  m.roleCatalog,
+		RoleDirectory:                m.roleDirectory,
+		PermissionGrantService:       m.permissionGrantService,
+		AssignmentCommands:           m.assignmentCommands,
+		AssignmentDirectory:          m.assignmentDirectory,
+		RoutePermissionChecker:       m.routeDecisionService,
+		RuntimeHealth:                m.runtimeHealth,
+		AuthorizationDecisions:       m.authorizationDecisions,
+		AuthorizationSnapshotReader:  m.authorizationSnapshotReader,
+		CommittedPolicyVersionReader: m.committedPolicyVersionReader,
+		AssignmentAdmissionPolicy:    m.assignmentAdmissionPolicy,
 	}
 }
 
