@@ -5,29 +5,35 @@ import (
 	"testing"
 	"time"
 
+	testutil "github.com/FangcunMount/iam/v5/internal/apiserver/application/identity/testutil"
 	domain "github.com/FangcunMount/iam/v5/internal/apiserver/domain/authn/loginidentity"
 	"github.com/FangcunMount/iam/v5/internal/pkg/meta"
 	"github.com/stretchr/testify/require"
-	"gorm.io/driver/sqlite"
-	"gorm.io/gorm"
 )
 
 func TestListActiveMiniProgramByUserIDsRestrictsProviderRealmAndStatus(t *testing.T) {
-	db, err := gorm.Open(sqlite.Open("file:"+t.Name()+"?mode=memory&cache=shared"), &gorm.Config{})
-	require.NoError(t, err)
-	require.NoError(t, db.AutoMigrate(&PO{}))
+	db := testutil.OpenDBForIntegrationTest(t, &PO{})
 	repo := NewRepository(db)
+	user1, user2, user3 := meta.New(), meta.New(), meta.New()
+	appA, appB := "wx-app-a-"+user1.String(), "wx-app-b-"+user1.String()
+	var created []meta.ID
+	t.Cleanup(func() {
+		if len(created) > 0 {
+			_ = db.Unscoped().Delete(&PO{}, "id IN ?", created).Error
+		}
+	})
 	for _, identity := range []*domain.LoginIdentity{
-		{ID: 11, UserID: 1, Provider: domain.ProviderWechatMinip, Realm: "wx-app-a", Identifier: "open-a", Status: domain.StatusActive, LinkedAt: time.Now()},
-		{ID: 12, UserID: 1, Provider: domain.ProviderWechatMinip, Realm: "wx-app-b", Identifier: "open-b", Status: domain.StatusActive, LinkedAt: time.Now()},
-		{ID: 13, UserID: 2, Provider: domain.ProviderWechatMinip, Realm: "wx-app-a", Identifier: "open-disabled", Status: domain.StatusDisabled, LinkedAt: time.Now()},
-		{ID: 14, UserID: 3, Provider: domain.ProviderWechatMinip, Realm: "wx-app-a", Identifier: "other-user", Status: domain.StatusActive, LinkedAt: time.Now()},
-		{ID: 15, UserID: 1, Provider: domain.ProviderWechatOpen, Realm: "wx-app-a", Identifier: "wrong-provider", Status: domain.StatusActive, LinkedAt: time.Now()},
+		{UserID: user1, Provider: domain.ProviderWechatMinip, Realm: appA, Identifier: "open-a-" + user1.String(), Status: domain.StatusActive, LinkedAt: time.Now()},
+		{UserID: user1, Provider: domain.ProviderWechatMinip, Realm: appB, Identifier: "open-b-" + user1.String(), Status: domain.StatusActive, LinkedAt: time.Now()},
+		{UserID: user2, Provider: domain.ProviderWechatMinip, Realm: appA, Identifier: "open-disabled-" + user2.String(), Status: domain.StatusDisabled, LinkedAt: time.Now()},
+		{UserID: user3, Provider: domain.ProviderWechatMinip, Realm: appA, Identifier: "other-user-" + user3.String(), Status: domain.StatusActive, LinkedAt: time.Now()},
+		{UserID: user1, Provider: domain.ProviderWechatOpen, Realm: appA, Identifier: "wrong-provider-" + user1.String(), Status: domain.StatusActive, LinkedAt: time.Now()},
 	} {
 		require.NoError(t, repo.Create(context.Background(), identity))
+		created = append(created, identity.ID)
 	}
-	items, err := repo.ListActiveMiniProgramByUserIDs(context.Background(), []meta.ID{1, 2}, "wx-app-a")
+	items, err := repo.ListActiveMiniProgramByUserIDs(context.Background(), []meta.ID{user1, user2}, appA)
 	require.NoError(t, err)
 	require.Len(t, items, 1)
-	require.Equal(t, meta.ID(11), items[0].ID)
+	require.Equal(t, created[0], items[0].ID)
 }
