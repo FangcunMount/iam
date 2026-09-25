@@ -22,6 +22,7 @@ api/grpc/iam/
 | [iam/authn/v3/authn.proto](iam/authn/v3/authn.proto) | `AuthSignupService` | SignUpWithWechatMiniProgram |
 | [iam/authn/v3/authn.proto](iam/authn/v3/authn.proto) | `AuthChallengeService` | SendLoginPhoneOTP |
 | [iam/authn/v3/authn.proto](iam/authn/v3/authn.proto) | `LoginIdentityService` | ListLoginIdentities、SendPhoneLinkChallenge、LinkPhone、LinkWechatMiniProgram、LinkWecom、UnlinkLoginIdentity |
+| [iam/authn/v3/authn.proto](iam/authn/v3/authn.proto) | `NotificationRecipientService` | ResolveMiniProgramRecipients（仅受授权的 QS 服务和 AppID） |
 | [iam/authn/v3/authn.proto](iam/authn/v3/authn.proto) | `JWKSService` | GetJWKS |
 | [iam/authz/v4/authz.proto](iam/authz/v4/authz.proto) | `AuthorizationService` | Check、GetAuthorizationSnapshot、GetCommittedPolicyVersion、GrantAssignment、RevokeAssignment、ReplaceManagedAssignments、ReplaceScopedAssignments |
 | [iam/identity/v2/identity.proto](iam/identity/v2/identity.proto) | `IdentityRead` | GetUser、BatchGetUsers、SearchUsers、GetProfile、BatchGetProfiles |

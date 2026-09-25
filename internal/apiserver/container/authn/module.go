@@ -8,6 +8,7 @@ import (
 	challengeApp "github.com/FangcunMount/iam/v5/internal/apiserver/application/authn/challenge"
 	jwksApp "github.com/FangcunMount/iam/v5/internal/apiserver/application/authn/jwks"
 	linkingApp "github.com/FangcunMount/iam/v5/internal/apiserver/application/authn/linking"
+	notificationrecipient "github.com/FangcunMount/iam/v5/internal/apiserver/application/authn/notificationrecipient"
 	"github.com/FangcunMount/iam/v5/internal/apiserver/application/authn/session"
 	"github.com/FangcunMount/iam/v5/internal/apiserver/application/authn/signin"
 	signingkeyApp "github.com/FangcunMount/iam/v5/internal/apiserver/application/authn/signingkey"
@@ -25,6 +26,8 @@ type AuthnModule struct {
 	// 应用服务
 	signupService                signupApp.SignupService
 	loginIdentityLinking         linkingApp.Linker
+	notificationRecipientAppIDs  []string
+	notificationRecipientQuery   *notificationrecipient.Query
 	sessionService               session.ApplicationService
 	sessionRevokeApp             session.Revoker
 	challengeService             challengeApp.Service
@@ -92,6 +95,8 @@ func (m *AuthnModule) InitializeWithDeps(deps AuthnModuleDeps) error {
 	if err := m.initializeApplication(infra, domain, hasher, deps.Auth, deps.WechatOpen, deps.SMS); err != nil {
 		return err
 	}
+	m.notificationRecipientAppIDs = append([]string(nil), deps.Auth.NotificationRecipientAppIDs...)
+	m.notificationRecipientQuery = notificationrecipient.NewQuery(infra.loginIdentityStore, deps.UserStatusReader)
 
 	// 初始化调度器
 	m.initializeSchedulers(deps.JWKS)
@@ -134,6 +139,8 @@ func (m *AuthnModule) ApplicationCapabilities() ApplicationCapabilities {
 	return ApplicationCapabilities{
 		SignupService:                m.signupService,
 		LoginIdentityLinking:         m.loginIdentityLinking,
+		NotificationRecipientAppIDs:  append([]string(nil), m.notificationRecipientAppIDs...),
+		NotificationRecipientQuery:   m.notificationRecipientQuery,
 		SessionService:               m.sessionService,
 		SessionRevoker:               m.sessionRevokeApp,
 		LoginPhoneOTPSender:          m.challengeService,

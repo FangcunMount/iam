@@ -214,6 +214,26 @@ func (r *Repository) ListByUserID(ctx context.Context, userID meta.ID) ([]*domai
 	return result, nil
 }
 
+// ListActiveMiniProgramByUserIDs reads only the explicitly requested realm.
+// OpenIDs must not be exposed through generic User or ProfileLink responses.
+func (r *Repository) ListActiveMiniProgramByUserIDs(ctx context.Context, userIDs []meta.ID, appID string) ([]*domain.LoginIdentity, error) {
+	if len(userIDs) == 0 {
+		return nil, nil
+	}
+	var pos []PO
+	err := r.WithContext(ctx).
+		Where("user_id IN ? AND provider = ? AND realm = ? AND status = ?", userIDs, domain.ProviderWechatMinip, appID, domain.StatusActive).
+		Order("user_id ASC, id ASC").Find(&pos).Error
+	if err != nil {
+		return nil, fmt.Errorf("failed to list mini-program notification identities: %w", err)
+	}
+	result := make([]*domain.LoginIdentity, 0, len(pos))
+	for i := range pos {
+		result = append(result, r.mapper.ToDO(&pos[i]))
+	}
+	return result, nil
+}
+
 func (r *Repository) UnlinkOwnedUnlessLastActive(
 	ctx context.Context,
 	userID meta.ID,

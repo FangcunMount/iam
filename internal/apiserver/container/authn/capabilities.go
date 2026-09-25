@@ -6,6 +6,7 @@ import (
 	challengeApp "github.com/FangcunMount/iam/v5/internal/apiserver/application/authn/challenge"
 	jwksApp "github.com/FangcunMount/iam/v5/internal/apiserver/application/authn/jwks"
 	linkingApp "github.com/FangcunMount/iam/v5/internal/apiserver/application/authn/linking"
+	notificationrecipient "github.com/FangcunMount/iam/v5/internal/apiserver/application/authn/notificationrecipient"
 	sessionApp "github.com/FangcunMount/iam/v5/internal/apiserver/application/authn/session"
 	"github.com/FangcunMount/iam/v5/internal/apiserver/application/authn/signin"
 	signingkeyApp "github.com/FangcunMount/iam/v5/internal/apiserver/application/authn/signingkey"
@@ -26,6 +27,8 @@ type KeyRotationScheduler interface {
 type ApplicationCapabilities struct {
 	SignupService                signupApp.SignupService
 	LoginIdentityLinking         linkingApp.Linker
+	NotificationRecipientAppIDs  []string
+	NotificationRecipientQuery   *notificationrecipient.Query
 	SessionService               sessionApp.ApplicationService
 	SessionRevoker               sessionApp.Revoker
 	LoginPhoneOTPSender          challengeApp.LoginPhoneOTPSender

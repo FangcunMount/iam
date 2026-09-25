@@ -19,10 +19,12 @@ func CollectGRPC(available bool, mod *AuthnModule, registrations *[]grpctranspor
 		caps.PhoneLinkOTPSender,
 		caps.LoginIdentityLinking,
 		caps.KeyPublishApp,
+		caps.NotificationRecipientQuery,
+		caps.NotificationRecipientAppIDs,
 	)
 	*registrations = append(*registrations, grpctransport.Registration{
 		Module:      "authn",
-		Description: "AuthService, AuthSignupService, AuthChallengeService, LoginIdentityService, JWKSService",
+		Description: "AuthService, AuthSignupService, AuthChallengeService, LoginIdentityService, NotificationRecipientService, JWKSService",
 		Register:    service.Register,
 	})
 }

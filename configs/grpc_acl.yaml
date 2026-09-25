@@ -48,6 +48,7 @@ services:
       # AuthService - Token 验证和管理
       - /iam.authn.v3.AuthService/VerifyToken
       - /iam.authn.v3.AuthService/RefreshToken
+      - /iam.authn.v3.NotificationRecipientService/ResolveMiniProgramRecipients
       
       # JWKSService - 公钥获取
       - /iam.authn.v3.JWKSService/GetJWKS
