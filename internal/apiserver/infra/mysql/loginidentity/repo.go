@@ -222,7 +222,7 @@ func (r *Repository) ListActiveMiniProgramByUserIDs(ctx context.Context, userIDs
 	}
 	var pos []PO
 	err := r.WithContext(ctx).
-		Where("user_id IN ? AND provider = ? AND realm = ? AND status = ?", userIDs, domain.ProviderWechatMinip, appID, domain.StatusActive).
+		Where("user_id IN ? AND provider = ? AND realm = ? AND status = ? AND deleted_at IS NULL", userIDs, domain.ProviderWechatMinip, appID, domain.StatusActive).
 		Order("user_id ASC, id ASC").Find(&pos).Error
 	if err != nil {
 		return nil, fmt.Errorf("failed to list mini-program notification identities: %w", err)

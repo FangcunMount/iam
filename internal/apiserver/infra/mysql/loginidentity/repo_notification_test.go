@@ -32,6 +32,10 @@ func TestListActiveMiniProgramByUserIDsRestrictsProviderRealmAndStatus(t *testin
 		require.NoError(t, repo.Create(context.Background(), identity))
 		created = append(created, identity.ID)
 	}
+	deleted := &domain.LoginIdentity{UserID: user1, Provider: domain.ProviderWechatMinip, Realm: appA, Identifier: "deleted-" + user1.String(), Status: domain.StatusActive, LinkedAt: time.Now()}
+	require.NoError(t, repo.Create(context.Background(), deleted))
+	created = append(created, deleted.ID)
+	require.NoError(t, db.Model(&PO{}).Where("id = ?", deleted.ID).Update("deleted_at", time.Now()).Error)
 	items, err := repo.ListActiveMiniProgramByUserIDs(context.Background(), []meta.ID{user1, user2}, appA)
 	require.NoError(t, err)
 	require.Len(t, items, 1)
