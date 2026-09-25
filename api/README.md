@@ -50,7 +50,7 @@ AuthZ REST v3 是角色、Assignment、RoleInheritance、PermissionGrant 与 Res
 | 契约 | 服务 |
 | ---- | ---- |
 | [grpc/iam/authn/v3/authn.proto](grpc/iam/authn/v3/authn.proto) | `AuthService`、`AuthSignupService`、`AuthChallengeService`、`LoginIdentityService`、`JWKSService` |
-| [grpc/iam/authz/v4/authz.proto](grpc/iam/authz/v4/authz.proto) | `AuthorizationService`：Check、授权快照和 Assignment 服务间写入 |
+| [grpc/iam/authz/v4/authz.proto](grpc/iam/authz/v4/authz.proto) | `AuthorizationService`：Check、授权快照、受限的已提交策略版本读取和 Assignment 服务间写入 |
 | [grpc/iam/identity/v2/identity.proto](grpc/iam/identity/v2/identity.proto) | `IdentityRead`、`ProfileLinkQuery`、`ProfileCommand`、`ProfileLinkCommand`、`IdentityLifecycle` |
 | [grpc/iam/idp/v2/idp.proto](grpc/iam/idp/v2/idp.proto) | `IDPService` |
 

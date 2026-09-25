@@ -2,6 +2,7 @@ package authz
 
 import (
 	"context"
+	"errors"
 	policyDomain "github.com/FangcunMount/iam/v5/internal/apiserver/domain/authz/policy"
 	"github.com/FangcunMount/iam/v5/internal/apiserver/domain/authz/scope"
 	"net"
@@ -30,6 +31,42 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/grpc/test/bufconn"
 )
+
+type committedVersionReaderFunc func(context.Context) (int64, error)
+
+func (f committedVersionReaderFunc) ReadCommittedVersion(ctx context.Context) (int64, error) {
+	return f(ctx)
+}
+
+func TestGetCommittedPolicyVersionIsScopedAndFailsClosed(t *testing.T) {
+	calls := 0
+	srv := &authorizationServer{committedVersionReader: committedVersionReaderFunc(func(context.Context) (int64, error) {
+		calls++
+		return 42, nil
+	})}
+	request := &authzv4.GetCommittedPolicyVersionRequest{}
+	response, err := srv.GetCommittedPolicyVersion(serviceContext("qs-apiserver.svc"), request)
+	require.NoError(t, err)
+	require.EqualValues(t, 42, response.GetPolicyVersion())
+	_, err = srv.GetCommittedPolicyVersion(serviceContext("qs-collection-server.svc"), request)
+	require.Equal(t, codes.PermissionDenied, status.Code(err))
+	_, err = srv.GetCommittedPolicyVersion(context.Background(), request)
+	require.Equal(t, codes.PermissionDenied, status.Code(err))
+	require.Equal(t, 1, calls, "unauthorized callers must not read the repository")
+
+	for _, reader := range []committedVersionReaderFunc{
+		func(context.Context) (int64, error) { return 0, nil },
+		func(context.Context) (int64, error) { return 0, errors.New("private database error") },
+	} {
+		srv.committedVersionReader = reader
+		_, err = srv.GetCommittedPolicyVersion(serviceContext("qs-apiserver.svc"), request)
+		require.Equal(t, codes.Unavailable, status.Code(err))
+		require.NotContains(t, err.Error(), "private database error")
+	}
+	srv.committedVersionReader = nil
+	_, err = srv.GetCommittedPolicyVersion(serviceContext("qs-apiserver.svc"), request)
+	require.Equal(t, codes.Unavailable, status.Code(err))
+}
 
 const assessmentResource = authzfixture.Resource
 

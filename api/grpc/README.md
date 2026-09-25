@@ -23,7 +23,7 @@ api/grpc/iam/
 | [iam/authn/v3/authn.proto](iam/authn/v3/authn.proto) | `AuthChallengeService` | SendLoginPhoneOTP |
 | [iam/authn/v3/authn.proto](iam/authn/v3/authn.proto) | `LoginIdentityService` | ListLoginIdentities、SendPhoneLinkChallenge、LinkPhone、LinkWechatMiniProgram、LinkWecom、UnlinkLoginIdentity |
 | [iam/authn/v3/authn.proto](iam/authn/v3/authn.proto) | `JWKSService` | GetJWKS |
-| [iam/authz/v4/authz.proto](iam/authz/v4/authz.proto) | `AuthorizationService` | Check、GetAuthorizationSnapshot、GrantAssignment、RevokeAssignment、ReplaceManagedAssignments、ReplaceScopedAssignments |
+| [iam/authz/v4/authz.proto](iam/authz/v4/authz.proto) | `AuthorizationService` | Check、GetAuthorizationSnapshot、GetCommittedPolicyVersion、GrantAssignment、RevokeAssignment、ReplaceManagedAssignments、ReplaceScopedAssignments |
 | [iam/identity/v2/identity.proto](iam/identity/v2/identity.proto) | `IdentityRead` | GetUser、BatchGetUsers、SearchUsers、GetProfile、BatchGetProfiles |
 | [iam/identity/v2/identity.proto](iam/identity/v2/identity.proto) | `ProfileLinkQuery` | HasProfileLink、ListProfiles、ListProfileLinks |
 | [iam/identity/v2/identity.proto](iam/identity/v2/identity.proto) | `ProfileCommand` | CreateProfile |
@@ -63,6 +63,8 @@ linked, err := identityClient.HasProfileLink(ctx, &identityv2.HasProfileLinkRequ
 ```
 
 AuthZ v4 的 `Check` 是可信服务使用的动作判定入口；REST 负责权限事实管理。角色继承已退役，快照 `roles` 与 `direct_roles` 使用相同应用过滤并表示直接角色集合。`ReplaceManagedAssignments` 只替换调用服务受管的角色子集；其响应 `direct_roles` 当前表示目标受管子集，若要读取持久化后的全部直接角色，应再次调用 `GetAuthorizationSnapshot`。
+
+`GetCommittedPolicyVersion` 只允许 `qs-apiserver.svc` 服务证书调用，从 IAM 主业务库读取已提交的全局策略版本；它不返回用户权限，也不表示 IAM 内存授权快照已加载该版本。QS 必须在版本前进时淘汰旧缓存，并在 `GetAuthorizationSnapshot` 的 `policy_version` 追上已提交版本之前拒绝旧授权。调用失败或版本回退不能刷新 QS 的核验时限。
 
 ## 验证
 

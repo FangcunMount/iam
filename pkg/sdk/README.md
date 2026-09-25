@@ -26,6 +26,8 @@
 
 Go module major 与线协议版本分别管理。AuthZ 使用 `api/grpc/iam/authz/v4`；不要仅因升级 SDK import path 而改写服务协议路径。
 
+`sdk.Client.Authz().GetCommittedPolicyVersion(ctx)` 为 QS 授权缓存核验读取 IAM 已提交的全局策略版本。它不返回用户授权快照，不能单凭 RPC 成功就继续使用版本落后的缓存；此候选须随 IAM 服务端上线并单独发布 SDK 版本后才能由 QS 使用。
+
 ## 30 秒结论
 
 - 如果你要接 IAM，优先从 `sdk.NewClient(...)` 开始。
