@@ -5,6 +5,7 @@ import (
 	challengeApp "github.com/FangcunMount/iam/v5/internal/apiserver/application/authn/challenge"
 	jwksApp "github.com/FangcunMount/iam/v5/internal/apiserver/application/authn/jwks"
 	linkingApp "github.com/FangcunMount/iam/v5/internal/apiserver/application/authn/linking"
+	notificationrecipient "github.com/FangcunMount/iam/v5/internal/apiserver/application/authn/notificationrecipient"
 	sessionApp "github.com/FangcunMount/iam/v5/internal/apiserver/application/authn/session"
 	signupApp "github.com/FangcunMount/iam/v5/internal/apiserver/application/authn/signup"
 	tokenApp "github.com/FangcunMount/iam/v5/internal/apiserver/application/authn/token"
@@ -13,11 +14,12 @@ import (
 
 // Service 聚合 authn 模块的 gRPC 服务
 type Service struct {
-	auth          authServiceServer
-	signup        authSignupServiceServer
-	challenge     authChallengeServiceServer
-	loginIdentity loginIdentityServiceServer
-	jwks          jwksServiceServer
+	auth                  authServiceServer
+	signup                authSignupServiceServer
+	challenge             authChallengeServiceServer
+	loginIdentity         loginIdentityServiceServer
+	notificationRecipient notificationRecipientServiceServer
+	jwks                  jwksServiceServer
 }
 
 // NewService 创建 authn gRPC 服务
@@ -29,6 +31,8 @@ func NewService(
 	phoneLinkOTPSender challengeApp.PhoneLinkOTPSender,
 	linkingSvc linkingApp.Linker,
 	keyPublish *jwksApp.KeyPublishAppService,
+	recipientQuery *notificationrecipient.Query,
+	notificationRecipientAppIDs []string,
 ) *Service {
 	return &Service{
 		auth: authServiceServer{
@@ -45,6 +49,10 @@ func NewService(
 		loginIdentity: loginIdentityServiceServer{
 			linking:            linkingSvc,
 			phoneLinkOTPSender: phoneLinkOTPSender,
+		},
+		notificationRecipient: notificationRecipientServiceServer{
+			recipientQuery: recipientQuery,
+			allowedAppIDs:  newNotificationAppIDSet(notificationRecipientAppIDs),
 		},
 		jwks: jwksServiceServer{
 			keyPublish: keyPublish,
@@ -68,6 +76,9 @@ func (s *Service) Register(server *grpc.Server) {
 	}
 	if s.loginIdentity.linking != nil {
 		authnv3.RegisterLoginIdentityServiceServer(server, &s.loginIdentity)
+	}
+	if s.notificationRecipient.recipientQuery != nil {
+		authnv3.RegisterNotificationRecipientServiceServer(server, &s.notificationRecipient)
 	}
 	if s.jwks.keyPublish != nil {
 		authnv3.RegisterJWKSServiceServer(server, &s.jwks)

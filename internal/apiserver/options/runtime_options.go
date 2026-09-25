@@ -16,13 +16,16 @@ type RemovedAppOptions struct {
 
 // AuthOptions configures JWT token issuing and verification.
 type AuthOptions struct {
-	ResourceAudience    string                 `json:"resource_audience" mapstructure:"resource_audience"`
-	JWTIssuer           string                 `json:"jwt_issuer" mapstructure:"jwt_issuer"`
-	AccessTokenAudience []string               `json:"access_token_audience" mapstructure:"access_token_audience"`
-	AccessTokenTTL      time.Duration          `json:"access_token_ttl" mapstructure:"access_token_ttl"`
-	RefreshTokenTTL     time.Duration          `json:"refresh_token_ttl" mapstructure:"refresh_token_ttl"`
-	SessionMaxTTL       time.Duration          `json:"session_max_ttl" mapstructure:"session_max_ttl"`
-	PasswordLockout     PasswordLockoutOptions `json:"password_lockout" mapstructure:"password_lockout"`
+	ResourceAudience string `json:"resource_audience" mapstructure:"resource_audience"`
+	// Empty by default: the service-only recipient lookup stays disabled until
+	// the permitted mini-program AppIDs are explicitly configured.
+	NotificationRecipientAppIDs []string               `json:"notification_recipient_app_ids" mapstructure:"notification_recipient_app_ids"`
+	JWTIssuer                   string                 `json:"jwt_issuer" mapstructure:"jwt_issuer"`
+	AccessTokenAudience         []string               `json:"access_token_audience" mapstructure:"access_token_audience"`
+	AccessTokenTTL              time.Duration          `json:"access_token_ttl" mapstructure:"access_token_ttl"`
+	RefreshTokenTTL             time.Duration          `json:"refresh_token_ttl" mapstructure:"refresh_token_ttl"`
+	SessionMaxTTL               time.Duration          `json:"session_max_ttl" mapstructure:"session_max_ttl"`
+	PasswordLockout             PasswordLockoutOptions `json:"password_lockout" mapstructure:"password_lockout"`
 }
 
 // PasswordLockoutOptions configures consecutive password failure lockout.

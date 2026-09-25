@@ -17,11 +17,12 @@ import (
 //   - 生产 AuthN 契约（Signup、Challenge、LoginIdentity）
 //   - JWKS 管理（GetJWKS）
 type Client struct {
-	authService          authnv3.AuthServiceClient
-	authSignupService    authnv3.AuthSignupServiceClient
-	authChallengeService authnv3.AuthChallengeServiceClient
-	loginIdentityService authnv3.LoginIdentityServiceClient
-	jwksService          authnv3.JWKSServiceClient
+	authService                  authnv3.AuthServiceClient
+	authSignupService            authnv3.AuthSignupServiceClient
+	authChallengeService         authnv3.AuthChallengeServiceClient
+	loginIdentityService         authnv3.LoginIdentityServiceClient
+	notificationRecipientService authnv3.NotificationRecipientServiceClient
+	jwksService                  authnv3.JWKSServiceClient
 }
 
 // NewClient 创建认证服务客户端。
@@ -42,9 +43,24 @@ func NewClient(
 			c.authChallengeService = typed
 		case authnv3.LoginIdentityServiceClient:
 			c.loginIdentityService = typed
+		case authnv3.NotificationRecipientServiceClient:
+			c.notificationRecipientService = typed
 		}
 	}
 	return c
+}
+
+// ResolveMiniProgramRecipients reads only the AppID-scoped recipient identities
+// exposed to an authorized service client; callers must avoid logging OpenIDs.
+func (c *Client) ResolveMiniProgramRecipients(ctx context.Context, req *authnv3.ResolveMiniProgramNotificationRecipientsRequest) (*authnv3.ResolveMiniProgramNotificationRecipientsResponse, error) {
+	if c == nil || c.notificationRecipientService == nil {
+		return nil, status.Error(codes.Unavailable, "notification recipient service is unavailable")
+	}
+	resp, err := c.notificationRecipientService.ResolveMiniProgramRecipients(ctx, req)
+	if err != nil {
+		return nil, errors.Wrap(err)
+	}
+	return resp, nil
 }
 
 // VerifyToken 在线验证 Access Token。

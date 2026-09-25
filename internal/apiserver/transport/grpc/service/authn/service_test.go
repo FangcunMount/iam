@@ -131,6 +131,8 @@ func TestAuthNGRPCRuntimeRegistersProductionServices(t *testing.T) {
 		challengeServiceStub{},
 		linkerStub{},
 		nil,
+		nil,
+		nil,
 	).Register(server)
 
 	info := server.GetServiceInfo()

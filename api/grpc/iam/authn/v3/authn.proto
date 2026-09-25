@@ -205,6 +205,24 @@ message ListLoginIdentitiesResponse {
   repeated LoginIdentity items = 1;
 }
 
+// Service-only lookup for a bounded set of notification recipients. The caller
+// must be authorized for app_id; this is not a general login-identity listing.
+message ResolveMiniProgramNotificationRecipientsRequest {
+  repeated string user_ids = 1;
+  string app_id = 2;
+}
+
+message MiniProgramNotificationRecipient {
+  string user_id = 1;
+  string login_identity_id = 2;
+  string app_id = 3;
+  string open_id = 4;
+}
+
+message ResolveMiniProgramNotificationRecipientsResponse {
+  repeated MiniProgramNotificationRecipient items = 1;
+}
+
 message SendPhoneLinkChallengeRequest {
   AuthenticatedUserContext actor = 1;
   string phone = 2;
@@ -245,6 +263,11 @@ service LoginIdentityService {
   rpc LinkWechatMiniProgram(LinkWechatMiniProgramRequest) returns (LinkLoginIdentityResponse);
   rpc LinkWecom(LinkWecomRequest) returns (LinkLoginIdentityResponse);
   rpc UnlinkLoginIdentity(UnlinkLoginIdentityRequest) returns (MessageResponse);
+}
+
+// A separate service boundary for privileged, AppID-scoped notification reads.
+service NotificationRecipientService {
+  rpc ResolveMiniProgramRecipients(ResolveMiniProgramNotificationRecipientsRequest) returns (ResolveMiniProgramNotificationRecipientsResponse);
 }
 
 // ============= JWKSService =============

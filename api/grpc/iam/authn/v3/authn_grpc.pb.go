@@ -769,6 +769,113 @@ var LoginIdentityService_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
+	NotificationRecipientService_ResolveMiniProgramRecipients_FullMethodName = "/iam.authn.v3.NotificationRecipientService/ResolveMiniProgramRecipients"
+)
+
+// NotificationRecipientServiceClient is the client API for NotificationRecipientService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+//
+// A separate service boundary for privileged, AppID-scoped notification reads.
+type NotificationRecipientServiceClient interface {
+	ResolveMiniProgramRecipients(ctx context.Context, in *ResolveMiniProgramNotificationRecipientsRequest, opts ...grpc.CallOption) (*ResolveMiniProgramNotificationRecipientsResponse, error)
+}
+
+type notificationRecipientServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewNotificationRecipientServiceClient(cc grpc.ClientConnInterface) NotificationRecipientServiceClient {
+	return &notificationRecipientServiceClient{cc}
+}
+
+func (c *notificationRecipientServiceClient) ResolveMiniProgramRecipients(ctx context.Context, in *ResolveMiniProgramNotificationRecipientsRequest, opts ...grpc.CallOption) (*ResolveMiniProgramNotificationRecipientsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ResolveMiniProgramNotificationRecipientsResponse)
+	err := c.cc.Invoke(ctx, NotificationRecipientService_ResolveMiniProgramRecipients_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// NotificationRecipientServiceServer is the server API for NotificationRecipientService service.
+// All implementations must embed UnimplementedNotificationRecipientServiceServer
+// for forward compatibility.
+//
+// A separate service boundary for privileged, AppID-scoped notification reads.
+type NotificationRecipientServiceServer interface {
+	ResolveMiniProgramRecipients(context.Context, *ResolveMiniProgramNotificationRecipientsRequest) (*ResolveMiniProgramNotificationRecipientsResponse, error)
+	mustEmbedUnimplementedNotificationRecipientServiceServer()
+}
+
+// UnimplementedNotificationRecipientServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedNotificationRecipientServiceServer struct{}
+
+func (UnimplementedNotificationRecipientServiceServer) ResolveMiniProgramRecipients(context.Context, *ResolveMiniProgramNotificationRecipientsRequest) (*ResolveMiniProgramNotificationRecipientsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ResolveMiniProgramRecipients not implemented")
+}
+func (UnimplementedNotificationRecipientServiceServer) mustEmbedUnimplementedNotificationRecipientServiceServer() {
+}
+func (UnimplementedNotificationRecipientServiceServer) testEmbeddedByValue() {}
+
+// UnsafeNotificationRecipientServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to NotificationRecipientServiceServer will
+// result in compilation errors.
+type UnsafeNotificationRecipientServiceServer interface {
+	mustEmbedUnimplementedNotificationRecipientServiceServer()
+}
+
+func RegisterNotificationRecipientServiceServer(s grpc.ServiceRegistrar, srv NotificationRecipientServiceServer) {
+	// If the following call panics, it indicates UnimplementedNotificationRecipientServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&NotificationRecipientService_ServiceDesc, srv)
+}
+
+func _NotificationRecipientService_ResolveMiniProgramRecipients_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ResolveMiniProgramNotificationRecipientsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NotificationRecipientServiceServer).ResolveMiniProgramRecipients(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NotificationRecipientService_ResolveMiniProgramRecipients_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NotificationRecipientServiceServer).ResolveMiniProgramRecipients(ctx, req.(*ResolveMiniProgramNotificationRecipientsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// NotificationRecipientService_ServiceDesc is the grpc.ServiceDesc for NotificationRecipientService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var NotificationRecipientService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "iam.authn.v3.NotificationRecipientService",
+	HandlerType: (*NotificationRecipientServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "ResolveMiniProgramRecipients",
+			Handler:    _NotificationRecipientService_ResolveMiniProgramRecipients_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "iam/authn/v3/authn.proto",
+}
+
+const (
 	JWKSService_GetJWKS_FullMethodName = "/iam.authn.v3.JWKSService/GetJWKS"
 )
 

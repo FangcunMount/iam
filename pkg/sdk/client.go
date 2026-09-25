@@ -67,6 +67,7 @@ func (c *Client) initSubClients() {
 	authSignupService := authnv3.NewAuthSignupServiceClient(c.conn)
 	authChallengeService := authnv3.NewAuthChallengeServiceClient(c.conn)
 	loginIdentityService := authnv3.NewLoginIdentityServiceClient(c.conn)
+	notificationRecipientService := authnv3.NewNotificationRecipientServiceClient(c.conn)
 	jwksService := authnv3.NewJWKSServiceClient(c.conn)
 	c.authClient = authclient.NewClient(
 		authService,
@@ -74,6 +75,7 @@ func (c *Client) initSubClients() {
 		authSignupService,
 		authChallengeService,
 		loginIdentityService,
+		notificationRecipientService,
 	)
 
 	authorizationService := authzv4.NewAuthorizationServiceClient(c.conn)
