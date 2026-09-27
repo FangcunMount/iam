@@ -69,8 +69,7 @@ func TestReliableShutdownRetainsResourcesUntilRetryDrains(t *testing.T) {
 	lifecycle.AddShutdownHook("remaining lifecycle", func() error { order = append(order, "hooks"); return nil })
 	deps := shutdownSequenceDeps{
 		lifecycle: lifecycle, stopReliable: runtime.Stop, reliableShutdownTimeout: 20 * time.Millisecond,
-		closeReliableProducer: func() { order = append(order, "producer") },
-		closeDatabase:         func() error { order = append(order, "database"); return nil },
+		closeDatabase: func() error { order = append(order, "database"); return nil },
 	}
 	err = runShutdownSequence(deps)
 	require.ErrorIs(t, err, context.DeadlineExceeded)
@@ -84,7 +83,7 @@ func TestReliableShutdownRetainsResourcesUntilRetryDrains(t *testing.T) {
 	require.Empty(t, order, "publisher drain failure must retain resources")
 	publisher.fail = false
 	require.NoError(t, runShutdownSequence(deps))
-	require.Equal(t, []string{"producer", "hooks", "database"}, order)
+	require.Equal(t, []string{"hooks", "database"}, order)
 }
 
 func TestPolicySubscriberDrainGatesMySQLClose(t *testing.T) {

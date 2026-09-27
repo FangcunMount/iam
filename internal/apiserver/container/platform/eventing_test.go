@@ -24,7 +24,6 @@ func TestInitEventingKeepsOutboxPendingWhenEventBusUnavailable(t *testing.T) {
 	require.Nil(t, eventing.Relay)
 	require.Same(t, eventing.Outbox, eventing.Stager)
 	require.Nil(t, eventing.ReliableRuntime)
-	require.Nil(t, eventing.CloseReliableProducer)
 }
 
 func TestInitReliableEventingFailsWithoutDependencies(t *testing.T) {

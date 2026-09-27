@@ -27,7 +27,6 @@ type ReliableMessagingRuntime interface {
 type RuntimeDeps struct {
 	ReliableMessaging       ReliableMessagingRuntime
 	ReliableShutdownTimeout time.Duration
-	CloseReliableProducer   func()
 	RotationScheduler       RotationScheduler
 	OutboxRelay             OutboxRelay
 	AuthzPolicySync         authz.PolicySyncSubscriber
@@ -54,7 +53,6 @@ func (c *Container) runtimeHooks() RuntimeDeps {
 	if c.reliableRuntime != nil {
 		deps.ReliableMessaging = c.reliableRuntime
 		deps.ReliableShutdownTimeout = c.runtimeOptions.Events.ReliableMessaging.ShutdownTimeout
-		deps.CloseReliableProducer = c.closeReliableProducer
 	}
 	if c.sdkPolicySync != nil {
 		deps.AuthzPolicySync = c.sdkPolicySync

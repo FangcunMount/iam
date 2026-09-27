@@ -33,14 +33,13 @@ type Container struct {
 	eventBus messaging.EventBus
 
 	// 事件平台
-	eventCatalog          *eventcatalog.Catalog
-	eventPublisher        event.Publisher
-	outboxStore           outboxport.StatusReader
-	eventStager           event.Stager
-	reliableRuntime       *messagingInfra.ReliableRuntime
-	sdkPolicySync         authz.PolicySyncSubscriber
-	closeReliableProducer func()
-	outboxRelay           messagingInfra.OutboxRelay
+	eventCatalog    *eventcatalog.Catalog
+	eventPublisher  event.Publisher
+	outboxStore     outboxport.StatusReader
+	eventStager     event.Stager
+	reliableRuntime *messagingInfra.ReliableRuntime
+	sdkPolicySync   authz.PolicySyncSubscriber
+	outboxRelay     messagingInfra.OutboxRelay
 
 	// 业务模块
 	AuthnModule            *authn.AuthnModule

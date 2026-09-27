@@ -37,7 +37,6 @@ func (c *Container) initEventing() error {
 	c.outboxStore = eventing.Outbox
 	c.eventStager = eventing.Stager
 	c.reliableRuntime = eventing.ReliableRuntime
-	c.closeReliableProducer = eventing.CloseReliableProducer
 	c.outboxRelay = eventing.Relay
 	return nil
 }

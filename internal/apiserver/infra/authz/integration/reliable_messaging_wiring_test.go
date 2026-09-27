@@ -53,7 +53,6 @@ func TestReliableMessagingPlatformWiring(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 		defer cancel()
 		require.NoError(t, platformEventing.ReliableRuntime.Stop(ctx))
-		platformEventing.CloseReliableProducer()
 	})
 	topic, ok := platformEventing.Catalog.GetTopicForEvent("iam.authz.version_changed.v2")
 	require.True(t, ok)

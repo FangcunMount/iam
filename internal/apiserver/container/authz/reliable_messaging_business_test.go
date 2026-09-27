@@ -82,7 +82,6 @@ func TestReliableMessagingIAMQSBusinessRoundtrip(t *testing.T) {
 		stopCtx, stop := context.WithTimeout(context.Background(), 5*time.Second)
 		defer stop()
 		require.NoError(t, owner.ReliableRuntime.Stop(stopCtx))
-		owner.CloseReliableProducer()
 	}()
 	uow := authzuow.NewUnitOfWork(db, nil, owner.Stager)
 	probeRole, err := role.NewRole("qs:m3-probe", "isolated MQ probe")

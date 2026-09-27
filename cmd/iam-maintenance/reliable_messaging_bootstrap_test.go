@@ -186,7 +186,6 @@ func TestMaintenanceBootstrapHandoffChild(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
 			require.NoError(t, owner.ReliableRuntime.Stop(ctx))
-			owner.CloseReliableProducer()
 		}()
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)

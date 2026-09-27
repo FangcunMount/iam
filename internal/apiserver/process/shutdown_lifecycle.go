@@ -169,7 +169,6 @@ type shutdownSequenceDeps struct {
 	stopReliable            func(context.Context) error
 	stopPolicySync          func(context.Context) error
 	reliableShutdownTimeout time.Duration
-	closeReliableProducer   func()
 	lifecycle               processruntime.Lifecycle
 	beginDrain              func()
 	drainDelay              time.Duration
@@ -192,7 +191,6 @@ func (s *apiServer) buildShutdownSequenceDeps(lifecycle processruntime.Lifecycle
 		if runtimeDeps.ReliableMessaging != nil {
 			deps.stopReliable = runtimeDeps.ReliableMessaging.Stop
 			deps.reliableShutdownTimeout = runtimeDeps.ReliableShutdownTimeout
-			deps.closeReliableProducer = runtimeDeps.CloseReliableProducer
 		}
 		deps.stopPolicySync = runtimeDeps.PolicySyncDrain
 		deps.suggestCleanup = runtimeDeps.SuggestCleanup
@@ -260,9 +258,6 @@ func runShutdownSequence(deps shutdownSequenceDeps) error {
 		if err != nil {
 			log.Errorw("reliable messaging did not drain; host resources retained", "stage", "shutdown")
 			return fmt.Errorf("stop reliable messaging before closing resources: %w", err)
-		}
-		if deps.closeReliableProducer != nil {
-			deps.closeReliableProducer()
 		}
 	}
 	// 运行生命周期

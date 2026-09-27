@@ -21,9 +21,9 @@ type ReliablePublisherDrain interface {
 }
 
 // ReliableRuntime supervises one host-owned Relay and drains its publisher.
-// It owns neither the database nor the producer. Production wiring must only
-// close those resources after Stop succeeds. A timeout is not a successful drain;
-// the host may interrupt its producer and retry Stop with a new deadline.
+// It owns neither the database nor the transport. The supplied publisher may
+// close its SDK-owned producer as part of Drain. A timeout is not a successful
+// drain; the host may interrupt that producer and retry Stop with a new deadline.
 type ReliableRuntime struct {
 	runner    ReliableRunner
 	publisher ReliablePublisherDrain
@@ -88,7 +88,7 @@ func (r *ReliableRuntime) supervise(ctx context.Context) {
 
 // Stop first cancels admission, joins the Relay (including admitted writebacks),
 // then drains publisher driver calls. Concurrent calls are safe provided the
-// borrowed publisher supports concurrent Drain, as the SDK NSQ adapter does.
+// publisher supports concurrent Drain, as the SDK NSQ adapter does.
 // Stop before Start permanently closes admission and still drains the publisher.
 func (r *ReliableRuntime) Stop(ctx context.Context) error {
 	r.mu.Lock()

@@ -34,13 +34,12 @@ type EventingDeps struct {
 
 // Eventing holds initialized event platform collaborators.
 type Eventing struct {
-	Stager                event.Stager
-	ReliableRuntime       *messagingInfra.ReliableRuntime
-	CloseReliableProducer func()
-	Catalog               *eventcatalog.Catalog
-	Publisher             event.Publisher
-	Outbox                outboxport.StatusReader
-	Relay                 messagingInfra.OutboxRelay
+	Stager          event.Stager
+	ReliableRuntime *messagingInfra.ReliableRuntime
+	Catalog         *eventcatalog.Catalog
+	Publisher       event.Publisher
+	Outbox          outboxport.StatusReader
+	Relay           messagingInfra.OutboxRelay
 }
 
 // InitEventing loads the catalog, publisher, and optional outbox relay.
