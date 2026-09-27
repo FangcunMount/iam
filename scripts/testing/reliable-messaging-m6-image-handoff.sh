@@ -135,7 +135,7 @@ wait_http() {
 }
 
 policy_channel_counters() {
-  "${compose[@]}" exec -T nsqd wget -qO- http://127.0.0.1:4151/stats?format=json | python3 -c '
+  "${compose[@]}" exec -T nsqd wget -qO- 'http://127.0.0.1:4151/stats?format=json&include_clients=true' | python3 -c '
 import json, sys
 topics = json.load(sys.stdin)["topics"]
 channels = [c for t in topics if t["topic_name"] == "iam.authz.version.v2"
@@ -143,7 +143,8 @@ channels = [c for t in topics if t["topic_name"] == "iam.authz.version.v2"
             and c["channel_name"].endswith("#ephemeral") and c["client_count"] > 0]
 assert len(channels) == 1, channels
 c = channels[0]
-print("{}:{}:{}:{}".format(c["finish_count"], c["depth"], c["in_flight_count"], c["deferred_count"]))
+assert len(c["clients"]) == c["client_count"], c
+print("{}:{}:{}:{}:{}".format(c["channel_name"], sum(client["finish_count"] for client in c["clients"]), c["depth"], c["in_flight_count"], c["deferred_count"]))
 '
 }
 
@@ -358,7 +359,7 @@ docker run --rm --network "$network" \
 printf 'PASS lost-confirmation image handoff: original intent retry_wait:1:1 -> published:2:1; NSQ physical count %s -> %s.\n' "$unknown_nsq_count" "$recovered_nsq_count"
 
 for _ in {1..30}; do
-  IFS=: read -r finish_before depth inflight deferred <<<"$(policy_channel_counters)"
+  IFS=: read -r channel_before finish_before depth inflight deferred <<<"$(policy_channel_counters)"
   if ((depth == 0 && inflight == 0 && deferred == 0)); then break; fi
   sleep 1
 done
@@ -382,10 +383,11 @@ docker run --rm --network "$network" \
   -e RM_IAM_M6_AUTHZ_KEY=/tmp/iam-m6-client.key \
   "$new_image"
 for _ in {1..30}; do
-  IFS=: read -r finish_after depth inflight deferred <<<"$(policy_channel_counters)"
+  IFS=: read -r channel_after finish_after depth inflight deferred <<<"$(policy_channel_counters)"
   if ((finish_after >= finish_before + 3 && depth == 0 && inflight == 0 && deferred == 0)); then break; fi
   sleep 1
 done
 test "$finish_after" -eq "$((finish_before + 3))"
+test "$channel_after" = "$channel_before"
 test "$depth:$inflight:$deferred" = '0:0:0'
 printf 'PASS IAM image SDK policy channel FIN advanced %s -> %s for three business notifications.\n' "$finish_before" "$finish_after"
