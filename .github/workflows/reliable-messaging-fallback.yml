@@ -27,6 +27,8 @@ jobs:
     steps:
       - name: Checkout IAM fallback candidate
         uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - name: Checkout released SDK fixture
         uses: actions/checkout@v6
         with:
@@ -34,6 +36,11 @@ jobs:
           ref: v0.2.1
           path: reliable-messaging
           persist-credentials: false
+      - name: Verify fallback source identity
+        run: |
+          expected='${{ github.event.pull_request.head.sha || github.sha }}'
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "$expected"
       - name: Setup Go
         uses: actions/setup-go@v6
         with:
@@ -43,4 +50,6 @@ jobs:
       - name: Run isolated schema 39 IAM wiring proof
         run: bash scripts/testing/reliable-messaging-fallback-proof.sh "$GITHUB_WORKSPACE/reliable-messaging"
       - name: Build exact fallback image without publishing
-        run: docker build --file build/docker/Dockerfile --tag "iam-fallback-isolated:${GITHUB_SHA}" --build-arg "GIT_COMMIT=${GITHUB_SHA}" .
+        run: |
+          candidate_sha="$(git rev-parse HEAD)"
+          docker build --file build/docker/Dockerfile --tag "iam-fallback-isolated:${candidate_sha}" --build-arg "GIT_COMMIT=${candidate_sha}" .
