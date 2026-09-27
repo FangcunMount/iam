@@ -26,7 +26,7 @@ func TestReliableMessagingPlatformWiring(t *testing.T) {
 	require.NotEmpty(t, os.Getenv("RM_IAM_NSQ_TCP"))
 	db := authzdb.Open(t, true)
 	require.NoError(t, db.Exec("DROP TABLE domain_event_outbox").Error)
-	for _, variable := range []string{"RM_IAM_OUTBOX_SCHEMA", "RM_IAM_OUTBOX_UPGRADE"} {
+	for _, variable := range []string{"RM_IAM_OUTBOX_SCHEMA", "RM_IAM_OUTBOX_UPGRADE", "RM_IAM_OUTBOX_FAILURE_UPGRADE"} {
 		ddl, err := os.ReadFile(os.Getenv(variable))
 		require.NoError(t, err)
 		require.NoError(t, db.Exec(string(ddl)).Error)
@@ -41,7 +41,7 @@ func TestReliableMessagingPlatformWiring(t *testing.T) {
 	// This fixture records the already installed exact schema; full migrator
 	// correctness is separately proven by the complete migration/bootstrap test.
 	require.NoError(t, db.Exec("CREATE TABLE schema_migrations(version BIGINT NOT NULL PRIMARY KEY, dirty BOOLEAN NOT NULL)").Error)
-	require.NoError(t, db.Exec("INSERT INTO schema_migrations VALUES(38,TRUE)").Error)
+	require.NoError(t, db.Exec("INSERT INTO schema_migrations VALUES(39,TRUE)").Error)
 	_, err = platform.InitEventing(deps)
 	require.ErrorContains(t, err, "clean migration")
 	require.NoError(t, db.Exec("UPDATE schema_migrations SET dirty=FALSE").Error)

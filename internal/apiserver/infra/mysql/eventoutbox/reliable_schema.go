@@ -20,13 +20,14 @@ func CheckReliableSchema(ctx context.Context, db *gorm.DB) error {
 	if err := db.WithContext(ctx).Raw("SELECT version, dirty FROM schema_migrations").Scan(&versions).Error; err != nil {
 		return err
 	}
-	if len(versions) != 1 || versions[0].Dirty || versions[0].Version < 38 {
-		return errors.New("reliable messaging requires clean migration 38 or later")
+	if len(versions) != 1 || versions[0].Dirty || versions[0].Version < 39 {
+		return errors.New("reliable messaging requires clean migration 39 or later")
 	}
 	// Resolve every required column even on an empty table. Exact column/index
-	// definitions are owned by migration 38 and its real MySQL contract tests.
+	// definitions are owned by migrations 38/39 and their real MySQL tests.
 	return db.WithContext(ctx).Exec(`SELECT id, producer, message_id, destination, event_type, schema_version, scope,
         content_type, occurred_at, payload, fingerprint, state, next_attempt_at,
-        claim_token, lease_until, version, attempt_count, last_error_code,
-        transport_confirmed_at, created_at FROM rm_outbox LIMIT 0`).Error
+        claim_token, lease_until, version, attempt_count, failure_count,
+        last_error_code, transport_confirmed_at, created_at, updated_at
+        FROM rm_outbox LIMIT 0`).Error
 }

@@ -49,7 +49,7 @@ func TestReliableMessagingIAMQSBusinessRoundtrip(t *testing.T) {
 	db := authzdb.Open(t, true)
 	require.NoError(t, db.Exec(sdkmysql.Schema).Error)
 	require.NoError(t, db.Exec("CREATE TABLE schema_migrations(version BIGINT PRIMARY KEY,dirty BOOLEAN NOT NULL)").Error)
-	require.NoError(t, db.Exec("INSERT INTO schema_migrations VALUES(38,FALSE)").Error)
+	require.NoError(t, db.Exec("INSERT INTO schema_migrations VALUES(39,FALSE)").Error)
 	require.NoError(t, db.Exec("INSERT INTO users(id,status) VALUES(2,1)").Error)
 	cfg := cbmessaging.DefaultConfig()
 	cfg.NSQ.NSQdAddr = os.Getenv("RM_IAM_NSQ_TCP")

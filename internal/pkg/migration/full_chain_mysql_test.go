@@ -37,7 +37,7 @@ func TestFullMigrationChainAndBootstrapMySQL(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !migrated || version != 38 {
+	if !migrated || version != 39 {
 		t.Fatalf("migration version=%d changed=%v", version, migrated)
 	}
 	db := openMigrationMySQL(t)

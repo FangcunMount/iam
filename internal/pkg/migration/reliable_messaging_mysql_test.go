@@ -1,9 +1,13 @@
 package migration
 
 import (
-	"github.com/stretchr/testify/require"
+	"context"
 	"os"
 	"testing"
+	"time"
+
+	sdkmysql "github.com/FangcunMount/reliable-messaging/storage/mysql"
+	"github.com/stretchr/testify/require"
 )
 
 func TestReliableMessagingSchemaUpgradeAndRollbackMySQL(t *testing.T) {
@@ -55,4 +59,25 @@ func TestReliableMessagingSchemaUpgradeAndRollbackMySQL(t *testing.T) {
 	assertLegacy()
 	require.NoError(t, db.QueryRow("SELECT COUNT(DISTINCT INDEX_NAME) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='rm_outbox' AND INDEX_NAME IN ('identity_key','due_idx','lease_idx')").Scan(&indexes))
 	require.Equal(t, 3, indexes)
+	// The released v0.2.1 Store refuses migration 38 even when no row is due.
+	store, err := sdkmysql.New(db)
+	require.NoError(t, err)
+	_, err = store.ClaimDue(context.Background(), 1, time.Minute)
+	require.Error(t, err)
+	up39 := read("000039_reliable_messaging_failure_state.up.sql")
+	down39 := read("000039_reliable_messaging_failure_state.down.sql")
+	_, err = db.Exec(up39)
+	require.NoError(t, err)
+	claims, err := store.ClaimDue(context.Background(), 1, time.Minute)
+	require.NoError(t, err)
+	require.Empty(t, claims)
+	var failures int
+	var updated time.Time
+	require.NoError(t, db.QueryRow("SELECT failure_count,updated_at FROM rm_outbox WHERE message_id='retained'").Scan(&failures, &updated))
+	require.Zero(t, failures, "old claim attempts cannot be inferred as failures")
+	require.False(t, updated.IsZero())
+	_, err = db.Exec(down39)
+	require.Error(t, err, "used table must retain additive failure state on rollback")
+	require.NoError(t, db.QueryRow("SELECT COUNT(*) FROM rm_outbox WHERE message_id='retained' AND state='published'").Scan(&retained))
+	require.Equal(t, 1, retained)
 }
