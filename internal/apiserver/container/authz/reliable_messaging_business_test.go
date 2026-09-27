@@ -6,7 +6,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log/slog"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -16,8 +15,6 @@ import (
 	"testing"
 	"time"
 
-	cbmessaging "github.com/FangcunMount/component-base/pkg/messaging"
-	cbnsq "github.com/FangcunMount/component-base/pkg/messaging/nsq"
 	authzapp "github.com/FangcunMount/iam/v5/internal/apiserver/application/authz/authorization"
 	appuow "github.com/FangcunMount/iam/v5/internal/apiserver/application/authz/uow"
 	"github.com/FangcunMount/iam/v5/internal/apiserver/container/platform"
@@ -28,6 +25,7 @@ import (
 	"github.com/FangcunMount/iam/v5/internal/apiserver/domain/authz/resource"
 	"github.com/FangcunMount/iam/v5/internal/apiserver/domain/authz/role"
 	authzruntime "github.com/FangcunMount/iam/v5/internal/apiserver/infra/authz/runtime"
+	"github.com/FangcunMount/iam/v5/internal/apiserver/infra/mysql/messagefailure"
 	authzuow "github.com/FangcunMount/iam/v5/internal/apiserver/infra/mysql/uow/authz"
 	"github.com/FangcunMount/iam/v5/internal/apiserver/options"
 	"github.com/FangcunMount/iam/v5/internal/apiserver/testfixtures/authzdb"
@@ -36,29 +34,34 @@ import (
 	"github.com/FangcunMount/iam/v5/internal/pkg/meta"
 	"github.com/FangcunMount/iam/v5/internal/testutil/tlsfixture"
 	sdkmysql "github.com/FangcunMount/reliable-messaging/storage/mysql"
+	sdknsq "github.com/FangcunMount/reliable-messaging/transport/nsq"
+	"github.com/nsqio/go-nsq"
 	"github.com/stretchr/testify/require"
 )
 
 func TestReliableMessagingIAMQSBusinessRoundtrip(t *testing.T) {
 	require.Equal(t, "1", os.Getenv("RM_BUSINESS_REQUIRED"))
-	for _, key := range []string{"IAM_AUTHZ_TEST_MYSQL_DSN", "RM_IAM_EVENTS_CATALOG", "RM_IAM_NSQ_TCP", "RM_IAM_NSQ_HTTP", "RM_NSQ_LOOKUP", "RM_QS_PROOF"} {
+	for _, key := range []string{"IAM_AUTHZ_TEST_MYSQL_DSN", "RM_IAM_EVENTS_CATALOG", "RM_IAM_FAILURE_AUDIT_DDL", "RM_IAM_NSQ_TCP", "RM_IAM_NSQ_HTTP", "RM_NSQ_LOOKUP", "RM_QS_PROOF"} {
 		require.NotEmpty(t, os.Getenv(key), key)
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Second)
 	defer cancel()
 	db := authzdb.Open(t, true)
 	require.NoError(t, db.Exec(sdkmysql.Schema).Error)
-	require.NoError(t, db.Exec("CREATE TABLE schema_migrations(version BIGINT PRIMARY KEY,dirty BOOLEAN NOT NULL)").Error)
-	require.NoError(t, db.Exec("INSERT INTO schema_migrations VALUES(39,FALSE)").Error)
-	require.NoError(t, db.Exec("INSERT INTO users(id,status) VALUES(2,1)").Error)
-	cfg := cbmessaging.DefaultConfig()
-	cfg.NSQ.NSQdAddr = os.Getenv("RM_IAM_NSQ_TCP")
-	cfg.NSQ.LookupdAddrs = []string{os.Getenv("RM_NSQ_LOOKUP")}
-	bus, err := cbmessaging.NewEventBus(cfg)
+	auditDDL, err := os.ReadFile(os.Getenv("RM_IAM_FAILURE_AUDIT_DDL"))
 	require.NoError(t, err)
-	defer func() { require.NoError(t, bus.Close()) }()
+	require.NoError(t, db.Exec(string(auditDDL)).Error)
+	require.NoError(t, db.Exec("CREATE TABLE schema_migrations(version BIGINT PRIMARY KEY,dirty BOOLEAN NOT NULL)").Error)
+	require.NoError(t, db.Exec("INSERT INTO schema_migrations VALUES(40,FALSE)").Error)
+	require.NoError(t, db.Exec("INSERT INTO users(id,status) VALUES(2,1)").Error)
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	audit, err := messagefailure.New(sqlDB)
+	require.NoError(t, err)
 	const topic = "iam.authz.version.v2"
-	require.NoError(t, cbnsq.NewTopicCreator(cfg.NSQ.NSQdAddr, slog.Default()).EnsureTopics([]string{topic}))
+	provisioner, err := sdknsq.NewProvisioner(&http.Client{Timeout: 5 * time.Second}, []string{os.Getenv("RM_IAM_NSQ_HTTP")})
+	require.NoError(t, err)
+	require.NoError(t, provisioner.EnsureTopic(ctx, topic))
 	httpClient := &http.Client{Timeout: time.Second}
 	get := func(url string, value any) bool {
 		response, e := httpClient.Get(url)
@@ -76,8 +79,9 @@ func TestReliableMessagingIAMQSBusinessRoundtrip(t *testing.T) {
 	}, 5*time.Second, 20*time.Millisecond)
 	opts := options.DefaultReliableMessagingOptions()
 	opts.Enabled = true
-	owner, err := platform.InitEventing(platform.EventingDeps{DB: db, EventBus: bus, CatalogPath: os.Getenv("RM_IAM_EVENTS_CATALOG"), NSQEnabled: true, NSQAddress: cfg.NSQ.NSQdAddr, ReliableMessaging: opts, OutboxInterval: 10 * time.Millisecond})
+	owner, err := platform.InitEventing(platform.EventingDeps{DB: db, CatalogPath: os.Getenv("RM_IAM_EVENTS_CATALOG"), NSQEnabled: true, NSQAddress: os.Getenv("RM_IAM_NSQ_TCP"), ReliableMessaging: opts, OutboxInterval: 10 * time.Millisecond})
 	require.NoError(t, err)
+	require.Nil(t, owner.Relay, "standard mode must not retain the legacy relay")
 	defer func() {
 		stopCtx, stop := context.WithTimeout(context.Background(), 5*time.Second)
 		defer stop()
@@ -113,9 +117,22 @@ func TestReliableMessagingIAMQSBusinessRoundtrip(t *testing.T) {
 	runtime, err := authzruntime.NewRuntime(ctx, authzruntime.NewMySQLSource(db), authorization.NewEvaluator())
 	require.NoError(t, err)
 	module := &AuthzModule{policyReloader: runtime, runtimeHealth: runtime}
-	syncer := module.PolicySyncSubscriber(bus.Subscriber())
+	driver := nsq.NewConfig()
+	driver.DialTimeout = 5 * time.Second
+	subscriber, err := sdknsq.NewSubscriber(sdknsq.SubscriberConfig{
+		NSQDAddresses: []string{os.Getenv("RM_IAM_NSQ_TCP")}, Driver: driver,
+		MaxAttempts: 5, MaxInFlight: 1, FailedHandoffGroup: ChannelPrefix,
+	})
+	require.NoError(t, err)
+	syncer := module.SDKPolicySyncSubscriber(subscriber, provisioner, audit.Record)
+	require.NotNil(t, syncer)
 	require.NoError(t, syncer.Start(ctx))
-	defer func() { require.NoError(t, syncer.Stop()) }()
+	defer func() {
+		stopCtx, stop := context.WithTimeout(context.Background(), 5*time.Second)
+		defer stop()
+		require.NoError(t, syncer.StopWithContext(stopCtx))
+	}()
+	require.True(t, syncer.registered, "SDK subscription and durable failure handoff must be ready")
 	// Ephemeral certificates exercise the actual mTLS/ACL stack; they make no
 	// claim about production certificate validity or deployment configuration.
 	ca := tlsfixture.New(t)
@@ -234,6 +251,9 @@ func TestReliableMessagingIAMQSBusinessRoundtrip(t *testing.T) {
 	require.NoError(t, db.Table("rm_outbox").Where("state='published'").Count(&published).Error)
 	require.EqualValues(t, 2, total)
 	require.Equal(t, total, published)
+	var failedHandoffs int64
+	require.NoError(t, db.Table("iam_nsq_failure_audit").Count(&failedHandoffs).Error)
+	require.Zero(t, failedHandoffs)
 	var legacy int64
 	require.NoError(t, db.Table("domain_event_outbox").Count(&legacy).Error)
 	require.Zero(t, legacy)
