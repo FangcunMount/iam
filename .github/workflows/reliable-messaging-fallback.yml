@@ -9,6 +9,8 @@ on:
       - internal/apiserver/process/reliable_messaging_fallback_startup_test.go
       - build/docker/Dockerfile
       - internal/apiserver/container/platform/**
+      - internal/apiserver/infra/token/keyset/**
+      - internal/apiserver/infra/mysql/jwks/**
       - internal/apiserver/infra/mysql/eventoutbox/**
       - internal/pkg/migration/migrations/000039_reliable_messaging_failure_state.*.sql
       - internal/pkg/migration/migrations/000040_iam_nsq_failure_audit.*.sql
