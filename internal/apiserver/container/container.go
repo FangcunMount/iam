@@ -38,6 +38,7 @@ type Container struct {
 	outboxStore           outboxport.StatusReader
 	eventStager           event.Stager
 	reliableRuntime       *messagingInfra.ReliableRuntime
+	sdkPolicySync         authz.PolicySyncSubscriber
 	closeReliableProducer func()
 	outboxRelay           messagingInfra.OutboxRelay
 

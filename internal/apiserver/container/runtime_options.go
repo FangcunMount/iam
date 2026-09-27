@@ -11,6 +11,12 @@ import (
 type RuntimeOptions struct {
 	NSQEnabled                    bool
 	NSQAddress                    string
+	NSQConsumerSDKEnabled         bool
+	NSQLookupdAddresses           []string
+	NSQDHTTPAddresses             []string
+	NSQMaxAttempts                uint16
+	NSQMaxInFlight                int
+	NSQRequeueDelaySeconds        int
 	Authz                         apiserveroptions.AuthzOptions
 	Environment                   genericapiserver.Environment
 	Auth                          apiserveroptions.AuthOptions
@@ -52,6 +58,12 @@ func RuntimeOptionsFromAPIServerOptions(opts *apiserveroptions.Options, environm
 	if opts.NSQOptions != nil {
 		runtime.NSQEnabled = opts.NSQOptions.Enabled
 		runtime.NSQAddress = opts.NSQOptions.NSQdAddr
+		runtime.NSQConsumerSDKEnabled = opts.NSQOptions.ConsumerSDKEnabled
+		runtime.NSQLookupdAddresses = append([]string(nil), opts.NSQOptions.LookupdAddrs...)
+		runtime.NSQDHTTPAddresses = append([]string(nil), opts.NSQOptions.NSQdHTTPAddrs...)
+		runtime.NSQMaxAttempts = opts.NSQOptions.MaxAttempts
+		runtime.NSQMaxInFlight = opts.NSQOptions.MaxInFlight
+		runtime.NSQRequeueDelaySeconds = opts.NSQOptions.RequeueDelay
 	}
 	if opts.Authz != nil {
 		runtime.Authz = *opts.Authz

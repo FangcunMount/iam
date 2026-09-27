@@ -10,6 +10,9 @@ import (
 	cbmessaging "github.com/FangcunMount/component-base/pkg/messaging"
 	"github.com/FangcunMount/iam/v5/internal/apiserver/application/authz/policypublication"
 	authzruntime "github.com/FangcunMount/iam/v5/internal/apiserver/infra/authz/runtime"
+	sdktransport "github.com/FangcunMount/reliable-messaging/transport"
+	sdknsq "github.com/FangcunMount/reliable-messaging/transport/nsq"
+	"github.com/FangcunMount/reliable-messaging/wire/legacy"
 )
 
 type policySyncRuntime interface {
@@ -36,6 +39,9 @@ func (m *AuthzModule) PolicySyncSubscriber(subscriber cbmessaging.Subscriber) *p
 
 type policySyncSubscriber struct {
 	subscriber       cbmessaging.Subscriber
+	sdkSubscriber    *sdknsq.Subscriber
+	sdkProvisioner   *sdknsq.Provisioner
+	sdkFailed        func(context.Context, legacy.FailedHandoff) error
 	handler          *policypublication.Service
 	channel          string
 	runtime          policySyncRuntime
@@ -45,12 +51,37 @@ type policySyncSubscriber struct {
 	started, stopped bool
 	registered       bool // owned by the single synchronization loop
 	stopOnce         sync.Once
+	sdkStopMu        sync.Mutex
+	sdkClosed        bool
+}
+
+// SDKPolicySyncSubscriber retains the existing per-process business channel
+// and uses a stable failure group so a replacement process can audit failures
+// left by its predecessor. Only one of the legacy and SDK constructors may be
+// selected for a module instance.
+func (m *AuthzModule) SDKPolicySyncSubscriber(subscriber *sdknsq.Subscriber, provisioner *sdknsq.Provisioner, failed func(context.Context, legacy.FailedHandoff) error) *policySyncSubscriber {
+	if m == nil || subscriber == nil || provisioner == nil || failed == nil || m.policyReloader == nil {
+		return nil
+	}
+	m.syncOnce.Do(func() {
+		recorder, _ := m.runtimeHealth.(policypublication.PolicyVersionEventRecorder)
+		runtime, _ := m.policyReloader.(policySyncRuntime)
+		channel := CurrentInstanceChannel()
+		if setter, ok := m.runtimeHealth.(interface{ SetPolicySyncChannel(string) }); ok {
+			setter.SetPolicySyncChannel(channel)
+		}
+		m.policySync = &policySyncSubscriber{
+			sdkSubscriber: subscriber, sdkProvisioner: provisioner, sdkFailed: failed,
+			handler: policypublication.NewService(m.policyReloader, recorder), channel: channel, runtime: runtime,
+		}
+	})
+	return m.policySync
 }
 
 // Start establishes a managed loop even if the first subscription attempt fails.
 // The failure is reflected in readiness and retried; the lifecycle always owns Stop.
 func (s *policySyncSubscriber) Start(ctx context.Context) error {
-	if s == nil || s.subscriber == nil || s.handler == nil {
+	if s == nil || (s.subscriber == nil && s.sdkSubscriber == nil) || s.handler == nil {
 		return fmt.Errorf("policy sync dependencies unavailable")
 	}
 	s.mu.Lock()
@@ -106,16 +137,24 @@ func (s *policySyncSubscriber) step(ctx context.Context) {
 		return
 	}
 	if !s.registered {
-		err := s.subscriber.Subscribe(policypublication.Topic, s.Channel(), func(deliveryCtx context.Context, msg *cbmessaging.Message) error {
-			if msg == nil {
-				return nil
+		var err error
+		if s.sdkSubscriber != nil {
+			failureTopic := legacy.FailedHandoffTopicForGroup(policypublication.Topic, ChannelPrefix)
+			err = s.sdkProvisioner.EnsureChannel(ctx, failureTopic, legacy.FailedHandoffChannel)
+			if err == nil {
+				err = s.sdkSubscriber.Subscribe(ctx, policypublication.Topic, s.Channel(), func(deliveryCtx context.Context, delivery sdktransport.Delivery) error {
+					message := delivery.Message()
+					return s.handle(ctx, deliveryCtx, message.Payload, message.Metadata["event_type"])
+				}, s.sdkFailed)
 			}
-			callbackCtx, cancel := context.WithCancel(deliveryCtx)
-			defer cancel()
-			stop := context.AfterFunc(ctx, cancel)
-			defer stop()
-			return s.handler.Handle(callbackCtx, msg.Payload, msg.Metadata["event_type"])
-		})
+		} else {
+			err = s.subscriber.Subscribe(policypublication.Topic, s.Channel(), func(deliveryCtx context.Context, msg *cbmessaging.Message) error {
+				if msg == nil {
+					return nil
+				}
+				return s.handle(ctx, deliveryCtx, msg.Payload, msg.Metadata["event_type"])
+			})
+		}
 		s.registered = err == nil
 		if err != nil {
 			log.Errorw("authz policy subscription failed; retrying", "error", err)
@@ -128,6 +167,14 @@ func (s *policySyncSubscriber) step(ctx context.Context) {
 		}
 	}
 }
+
+func (s *policySyncSubscriber) handle(runCtx, deliveryCtx context.Context, payload []byte, eventType string) error {
+	callbackCtx, cancel := context.WithCancel(deliveryCtx)
+	defer cancel()
+	stop := context.AfterFunc(runCtx, cancel)
+	defer stop()
+	return s.handler.Handle(callbackCtx, payload, eventType)
+}
 func (s *policySyncSubscriber) Channel() string {
 	if s == nil {
 		return ""
@@ -137,6 +184,11 @@ func (s *policySyncSubscriber) Channel() string {
 func (s *policySyncSubscriber) Stop() error {
 	if s == nil {
 		return nil
+	}
+	if s.sdkSubscriber != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		return s.StopWithContext(ctx)
 	}
 	s.stopOnce.Do(func() {
 		s.mu.Lock()
@@ -151,5 +203,35 @@ func (s *policySyncSubscriber) Stop() error {
 			s.subscriber.Stop()
 		}
 	})
+	return nil
+}
+
+// StopWithContext is a retryable resource-close gate for the SDK path. A
+// timeout leaves IAM's MySQL connection open for the next drain attempt.
+func (s *policySyncSubscriber) StopWithContext(ctx context.Context) error {
+	if s == nil || s.sdkSubscriber == nil {
+		return s.Stop()
+	}
+	s.sdkStopMu.Lock()
+	defer s.sdkStopMu.Unlock()
+	if s.sdkClosed {
+		return nil
+	}
+	s.mu.Lock()
+	s.stopped = true
+	cancel, done := s.cancel, s.done
+	s.mu.Unlock()
+	if cancel != nil {
+		cancel()
+		select {
+		case <-done:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+	if err := s.sdkSubscriber.Close(ctx); err != nil {
+		return err
+	}
+	s.sdkClosed = true
 	return nil
 }

@@ -1,0 +1,62 @@
+name: IAM M6 SDK subscriber isolation
+
+on:
+  pull_request:
+    paths:
+      - go.mod
+      - go.sum
+      - internal/apiserver/container/**
+      - internal/apiserver/infra/mysql/messagefailure/**
+      - internal/pkg/migration/migrations/000040_iam_nsq_failure_audit.*.sql
+      - .github/workflows/reliable-messaging-m6-subscriber.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  mysql-nsq:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: iam_m6_subscriber
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -uroot -proot --silent"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=30
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Start disposable NSQ
+        run: |
+          set -euo pipefail
+          docker run -d --name iam-m6-test-nsqd -p 127.0.0.1:4150:4150 -p 127.0.0.1:4151:4151 nsqio/nsq:v1.3.0 /nsqd
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:4151/ping >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          docker logs iam-m6-test-nsqd
+          exit 1
+      - name: Verify retained failure handoff and IAM MySQL audit
+        env:
+          RM_IAM_M6_REQUIRED: "1"
+          RM_IAM_M6_MYSQL_DSN: "root:root@tcp(127.0.0.1:3306)/iam_m6_subscriber?parseTime=true&loc=UTC"
+          RM_IAM_NSQ_TCP: 127.0.0.1:4150
+          RM_IAM_NSQ_HTTP: http://127.0.0.1:4151
+        run: |
+          set -euo pipefail
+          go test -tags reliable_messaging ./internal/apiserver/container/authz \
+            -run '^TestSDKPolicySyncFailureHandoffAcrossEphemeralChannels$' -count=1 -v
+      - name: Remove disposable NSQ
+        if: always()
+        run: docker rm -f iam-m6-test-nsqd || true

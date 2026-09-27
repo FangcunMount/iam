@@ -84,7 +84,11 @@ func (s *apiServer) startRuntimeTasks(lifecycle *processruntime.Lifecycle) error
 		log.Infow("Outbox relay initialized", "description", "domain event outbox relay started")
 	}
 	if sync := deps.AuthzPolicySync; sync != nil {
-		startAuthzPolicySync(lifecycle, sync)
+		if deps.PolicySyncDrain != nil {
+			startAuthzPolicySync(nil, sync) // SDK close is a database resource gate below.
+		} else {
+			startAuthzPolicySync(lifecycle, sync)
+		}
 	}
 	// 如果生命周期不为空，且停止旋转调度器不为空，则添加关闭钩子
 	if lifecycle != nil && stopRotationScheduler != nil {
@@ -163,6 +167,7 @@ func (s *apiServer) registerShutdownCallbacks(lifecycle processruntime.Lifecycle
 // shutdownSequenceDeps 关闭序列依赖
 type shutdownSequenceDeps struct {
 	stopReliable            func(context.Context) error
+	stopPolicySync          func(context.Context) error
 	reliableShutdownTimeout time.Duration
 	closeReliableProducer   func()
 	lifecycle               processruntime.Lifecycle
@@ -189,6 +194,7 @@ func (s *apiServer) buildShutdownSequenceDeps(lifecycle processruntime.Lifecycle
 			deps.reliableShutdownTimeout = runtimeDeps.ReliableShutdownTimeout
 			deps.closeReliableProducer = runtimeDeps.CloseReliableProducer
 		}
+		deps.stopPolicySync = runtimeDeps.PolicySyncDrain
 		deps.suggestCleanup = runtimeDeps.SuggestCleanup
 		deps.identityCleanup = runtimeDeps.IdentityCleanup
 		deps.beginDrain = s.container.MarkDraining
@@ -231,6 +237,17 @@ func runShutdownSequence(deps shutdownSequenceDeps) error {
 			wait = time.Sleep
 		}
 		wait(deps.drainDelay)
+	}
+	if deps.stopPolicySync != nil {
+		if deps.reliableShutdownTimeout <= 0 {
+			return fmt.Errorf("policy subscriber shutdown timeout required")
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), deps.reliableShutdownTimeout)
+		err := deps.stopPolicySync(ctx)
+		cancel()
+		if err != nil {
+			return fmt.Errorf("stop policy subscriber before closing MySQL: %w", err)
+		}
 	}
 	// Reliable drain is a resource-close gate, not a best-effort lifecycle hook.
 	if deps.stopReliable != nil {

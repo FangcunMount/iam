@@ -2,6 +2,8 @@ package container
 
 import (
 	"fmt"
+	"net/http"
+	"time"
 
 	cachegovernance "github.com/FangcunMount/iam/v5/internal/apiserver/application/cachegovernance"
 	"github.com/FangcunMount/iam/v5/internal/apiserver/container/authn"
@@ -10,6 +12,9 @@ import (
 	"github.com/FangcunMount/iam/v5/internal/apiserver/container/idp"
 	"github.com/FangcunMount/iam/v5/internal/apiserver/container/platform"
 	"github.com/FangcunMount/iam/v5/internal/apiserver/container/suggest"
+	"github.com/FangcunMount/iam/v5/internal/apiserver/infra/mysql/messagefailure"
+	sdknsq "github.com/FangcunMount/reliable-messaging/transport/nsq"
+	"github.com/nsqio/go-nsq"
 )
 
 func (c *Container) initEventing() error {
@@ -61,6 +66,58 @@ func (c *Container) initAuthzModule() error {
 		return fmt.Errorf("failed to initialize authz module: %w", err)
 	}
 	c.AuthzModule = authzModule
+	if c.runtimeOptions.NSQConsumerSDKEnabled {
+		if err := c.initSDKPolicySync(authzModule); err != nil {
+			return fmt.Errorf("initialize SDK policy subscriber: %w", err)
+		}
+	}
+	return nil
+}
+
+func (c *Container) initSDKPolicySync(module *authz.AuthzModule) error {
+	if !c.runtimeOptions.NSQEnabled || c.mysqlDB == nil {
+		return fmt.Errorf("SDK policy subscriber requires NSQ and IAM MySQL")
+	}
+	// A missing audit table cannot be discovered only after terminal failure:
+	// reject this cutover while the old consumer is still the selected path.
+	if err := c.mysqlDB.Exec("SELECT id FROM iam_nsq_failure_audit LIMIT 0").Error; err != nil {
+		return fmt.Errorf("schema 40 terminal failure audit required: %w", err)
+	}
+	sqlDB, err := c.mysqlDB.DB()
+	if err != nil {
+		return err
+	}
+	audit, err := messagefailure.New(sqlDB)
+	if err != nil {
+		return err
+	}
+	provisioner, err := sdknsq.NewProvisioner(&http.Client{Timeout: 7 * time.Second}, c.runtimeOptions.NSQDHTTPAddresses)
+	if err != nil {
+		return err
+	}
+	driver := nsq.NewConfig()
+	driver.DialTimeout = 5 * time.Second
+	driver.ReadTimeout = 60 * time.Second
+	driver.WriteTimeout = 5 * time.Second
+	config := sdknsq.SubscriberConfig{
+		Driver: driver, MaxAttempts: c.runtimeOptions.NSQMaxAttempts,
+		MaxInFlight:        c.runtimeOptions.NSQMaxInFlight,
+		FailedHandoffGroup: authz.ChannelPrefix,
+		Retry:              sdknsq.Backoff{BaseDelay: time.Duration(c.runtimeOptions.NSQRequeueDelaySeconds) * time.Second, MaxDelay: 5 * time.Minute},
+	}
+	if len(c.runtimeOptions.NSQLookupdAddresses) > 0 {
+		config.LookupdAddresses = c.runtimeOptions.NSQLookupdAddresses
+	} else {
+		config.NSQDAddresses = []string{c.runtimeOptions.NSQAddress}
+	}
+	subscriber, err := sdknsq.NewSubscriber(config)
+	if err != nil {
+		return err
+	}
+	c.sdkPolicySync = module.SDKPolicySyncSubscriber(subscriber, provisioner, audit.Record)
+	if c.sdkPolicySync == nil {
+		return fmt.Errorf("SDK policy subscriber dependencies unavailable")
+	}
 	return nil
 }
 

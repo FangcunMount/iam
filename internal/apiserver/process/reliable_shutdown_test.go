@@ -87,6 +87,28 @@ func TestReliableShutdownRetainsResourcesUntilRetryDrains(t *testing.T) {
 	require.Equal(t, []string{"producer", "hooks", "database"}, order)
 }
 
+func TestPolicySubscriberDrainGatesMySQLClose(t *testing.T) {
+	var order []string
+	fail := true
+	deps := shutdownSequenceDeps{
+		reliableShutdownTimeout: time.Second,
+		stopPolicySync: func(context.Context) error {
+			order = append(order, "policy subscriber")
+			if fail {
+				return errors.New("failed audit still in flight")
+			}
+			return nil
+		},
+		stopReliable:  func(context.Context) error { order = append(order, "relay"); return nil },
+		closeDatabase: func() error { order = append(order, "mysql"); return nil },
+	}
+	require.ErrorContains(t, runShutdownSequence(deps), "failed audit still in flight")
+	require.Equal(t, []string{"policy subscriber"}, order)
+	fail = false
+	require.NoError(t, runShutdownSequence(deps))
+	require.Equal(t, []string{"policy subscriber", "policy subscriber", "relay", "mysql"}, order)
+}
+
 func waitReliableShutdownSignal(t *testing.T, signal <-chan struct{}) {
 	t.Helper()
 	select {
