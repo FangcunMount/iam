@@ -15,17 +15,21 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 )
 
-const identity = "m6-standard-handoff-fixture"
+const defaultIdentity = "m6-standard-handoff-fixture"
 
 func main() {
-	if err := run(); err != nil {
+	identity := os.Getenv("RM_IAM_M6_FIXTURE_ID")
+	if identity == "" {
+		identity = defaultIdentity
+	}
+	if err := run(identity); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 	fmt.Println("committed host fact and standard intent:", identity)
 }
 
-func run() error {
+func run(identity string) error {
 	dsn := os.Getenv("RM_IAM_M6_FIXTURE_DSN")
 	if dsn == "" {
 		return fmt.Errorf("disposable MySQL DSN required")
@@ -40,7 +44,7 @@ func run() error {
 	if err := db.PingContext(ctx); err != nil {
 		return err
 	}
-	if _, err := db.ExecContext(ctx, `CREATE TABLE m6_handoff_fact (
+	if _, err := db.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS m6_handoff_fact (
   id VARBINARY(128) NOT NULL PRIMARY KEY,
   created_at DATETIME(6) NOT NULL
 ) ENGINE=InnoDB`); err != nil {

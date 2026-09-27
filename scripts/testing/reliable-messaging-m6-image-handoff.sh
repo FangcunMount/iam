@@ -6,13 +6,17 @@ set -euo pipefail
 sdk=${1:?Usage: run.sh SDK_CHECKOUT IAM_CHECKOUT NEW_IMAGE FALLBACK_IMAGE}
 iam=${2:?Usage: run.sh SDK_CHECKOUT IAM_CHECKOUT NEW_IMAGE FALLBACK_IMAGE}
 new_image=${3:?Usage: run.sh SDK_CHECKOUT IAM_CHECKOUT NEW_IMAGE FALLBACK_IMAGE}
-fallback_image=${4:?Usage: run.sh SDK_CHECKOUT IAM_CHECKOUT NEW_IMAGE FALLBACK_IMAGE FIXTURE_BINARY}
-fixture=${5:?Usage: run.sh SDK_CHECKOUT IAM_CHECKOUT NEW_IMAGE FALLBACK_IMAGE FIXTURE_BINARY}
+fallback_image=${4:?Usage: run.sh SDK_CHECKOUT IAM_CHECKOUT NEW_IMAGE FALLBACK_IMAGE FIXTURE_BINARY PROXY_BINARY}
+fixture=${5:?Usage: run.sh SDK_CHECKOUT IAM_CHECKOUT NEW_IMAGE FALLBACK_IMAGE FIXTURE_BINARY PROXY_BINARY}
+proxy_binary=${6:?Usage: run.sh SDK_CHECKOUT IAM_CHECKOUT NEW_IMAGE FALLBACK_IMAGE FIXTURE_BINARY PROXY_BINARY}
+probe_binary=${7:?Usage: run.sh SDK_CHECKOUT IAM_CHECKOUT NEW_IMAGE FALLBACK_IMAGE FIXTURE_BINARY PROXY_BINARY PROBE_BINARY}
 [[ "$sdk" = /* && -f "$sdk/tests/integration/compose.yaml" && "$iam" = /* && -f "$iam/scripts/testing/reliable-messaging-business-compose.yaml" ]] || {
   echo 'Isolated SDK and IAM Compose fixtures are required' >&2
   exit 1
 }
 [[ "$fixture" = /* && -x "$fixture" ]] || { echo 'Executable disposable transaction fixture required' >&2; exit 1; }
+[[ "$proxy_binary" = /* && -x "$proxy_binary" ]] || { echo 'Executable disposable NSQ proxy required' >&2; exit 1; }
+[[ "$probe_binary" = /* && -x "$probe_binary" ]] || { echo 'Executable disposable NSQ probe required' >&2; exit 1; }
 new_sha=${RM_NEW_SHA:?Exact new image source SHA required}
 fallback_sha=${RM_FALLBACK_SHA:?Exact fallback image source SHA required}
 [[ "$new_sha" =~ ^[0-9a-f]{40}$ && "$fallback_sha" =~ ^[0-9a-f]{40}$ ]]
@@ -23,6 +27,7 @@ project="rm-iam-image-${GITHUB_RUN_ID:-local}-$$"
 network="${project}_default"
 app="${project}-apiserver"
 redis="${project}-redis"
+proxy="${project}-nsq-proxy"
 keys="${project}-keys"
 compose=(docker compose --project-name "$project" --file "$sdk/tests/integration/compose.yaml" --file "$iam/scripts/testing/reliable-messaging-business-compose.yaml")
 scratch=$(mktemp -d "${RUNNER_TEMP:-/tmp}/${project}.XXXXXX")
@@ -33,7 +38,7 @@ cleanup() {
     docker logs --tail 60 "$app" 2>/dev/null || true
     "${compose[@]}" logs --tail 30 --no-color mysql nsqd nsqlookupd 2>/dev/null || true
   fi
-  docker rm -f "$app" "$redis" >/dev/null 2>&1 || true
+  docker rm -f "$app" "$redis" "$proxy" >/dev/null 2>&1 || true
   docker volume rm "$keys" >/dev/null 2>&1 || true
   "${compose[@]}" down --volumes --remove-orphans --timeout 10 >/dev/null || result=1
   rm -rf -- "$scratch"
@@ -75,7 +80,7 @@ chmod 644 "$scratch/grpc/ca/ca-chain.crt" "$scratch/grpc/server/iam-apiserver.cr
 docker volume create "$keys" >/dev/null
 
 start_app() {
-  local image=$1 mode=$2 sdk_consumer=$3
+  local image=$1 mode=$2 sdk_consumer=$3 nsqd_address=${4:-nsqd:4150} retry_delay=${5:-10s}
   docker run -d --name "$app" --network "$network" \
     --mount "type=volume,source=$keys,target=/app/data/keys" \
     --mount "type=bind,source=$scratch/grpc/ca/ca-chain.crt,target=/etc/iam/grpc/ca/ca-chain.crt,readonly" \
@@ -92,11 +97,12 @@ start_app() {
     -e IAM_APISERVER_IDP_ENCRYPTION_KEY=0123456789abcdef0123456789abcdef \
     -e IAM_APISERVER_SEED_MOCK_AUTH_ENABLED=false \
     -e IAM_APISERVER_NSQ_ENABLED=true \
-    -e IAM_APISERVER_NSQ_NSQD_ADDR=nsqd:4150 \
+    -e IAM_APISERVER_NSQ_NSQD_ADDR="$nsqd_address" \
     -e IAM_APISERVER_NSQ_LOOKUPD_ADDRS=nsqlookupd:4161 \
     -e IAM_APISERVER_NSQ_NSQD_HTTP_ADDRS=http://nsqd:4151 \
     -e IAM_APISERVER_NSQ_CONSUMER_SDK_ENABLED="$sdk_consumer" \
     -e IAM_APISERVER_EVENTS_RELIABLE_MESSAGING_ENABLED="$mode" \
+    -e IAM_APISERVER_EVENTS_OUTBOX_RELAY_RETRY_DELAY="$retry_delay" \
     "$image" >/dev/null
 }
 
@@ -232,3 +238,93 @@ test "$(docker inspect "$app" --format '{{.State.Running}}')" = true
 "${compose[@]}" exec -T mysql mysql -uroot -N -e \
   "SELECT CONCAT(version, ':', dirty + 0) FROM iam.schema_migrations" | grep -qx '40:0'
 printf 'PASS fallback -> SDK policy subscriber -> fallback image sequence on schema40; retained audit, disposable dependencies, HTTP/gRPC readiness.\n'
+
+# A second committed intent exercises the distinct unknown-confirmation case.
+# Only the disposable proxy drops one PUB OK; nsqd still accepts the bytes.
+# Keep the retry delay long enough to inspect the first failure before the
+# compatible image resumes it. Never let the fallback claim this row.
+docker stop --time 20 "$app" >/dev/null
+docker rm "$app" >/dev/null
+mkdir -p "$scratch/proxy"
+chmod 755 "$scratch/proxy"
+docker run -d --name "$proxy" --network "$network" \
+  --mount "type=bind,source=$proxy_binary,target=/tmp/iam-m6-nsq-proxy,readonly" \
+  --mount "type=bind,source=$scratch/proxy,target=/tmp/iam-m6-proxy-state,readonly" \
+  --entrypoint /tmp/iam-m6-nsq-proxy \
+  -e RM_IAM_M6_PROXY_UPSTREAM=nsqd:4150 \
+  -e RM_IAM_M6_PROXY_ARM_FILE=/tmp/iam-m6-proxy-state/arm \
+  -e RM_IAM_M6_PROXY_TOPIC=iam.authz.version.v2 \
+  "$new_image" >/dev/null
+for _ in {1..30}; do
+  if docker logs "$proxy" 2>&1 | grep -Fq 'NSQ test proxy ready'; then break; fi
+  sleep 1
+done
+docker logs "$proxy" 2>&1 | grep -Fq 'NSQ test proxy ready'
+start_app "$new_image" true true "$proxy:4150" 60s
+wait_http 9080 /readyz
+"${compose[@]}" exec -T nsqd wget -qO- \
+  'http://127.0.0.1:4151/channel/create?topic=iam.authz.version.v2&channel=m6-unknown-proof' >/dev/null
+touch "$scratch/proxy/arm"
+docker run --rm --network "$network" \
+  --mount "type=bind,source=$fixture,target=/tmp/iam-m6-handoff-fixture,readonly" \
+  --entrypoint /tmp/iam-m6-handoff-fixture \
+  -e 'RM_IAM_M6_FIXTURE_DSN=root@tcp(mysql:3306)/iam?parseTime=true&loc=UTC' \
+  -e RM_IAM_M6_FIXTURE_ID=m6-standard-unknown-fixture \
+  "$new_image"
+for _ in {1..45}; do
+  if docker logs "$proxy" 2>&1 | grep -Fq 'DROPPED_PUB_OK_AFTER_BROKER_ACCEPT'; then break; fi
+  sleep 1
+done
+docker logs "$proxy" 2>&1 | grep -Fq 'DROPPED_PUB_OK_AFTER_BROKER_ACCEPT'
+unknown_state=''
+for _ in {1..30}; do
+  unknown_state=$("${compose[@]}" exec -T mysql mysql -uroot -N -e \
+    "SELECT CONCAT(state, ':', attempt_count, ':', failure_count) FROM iam.rm_outbox WHERE message_id='m6-standard-unknown-fixture'")
+  if [[ "$unknown_state" = 'retry_wait:1:1' ]]; then break; fi
+  sleep 1
+done
+test "$unknown_state" = 'retry_wait:1:1'
+unknown_nsq_count=$("${compose[@]}" exec -T nsqd wget -qO- http://127.0.0.1:4151/stats?format=json | python3 -c '
+import json, sys
+topics = json.load(sys.stdin)["topics"]
+print(next((t["message_count"] for t in topics if t["topic_name"] == "iam.authz.version.v2"), 0))
+')
+test "$unknown_nsq_count" -eq "$((standard_nsq_count + 1))"
+docker kill "$app" >/dev/null
+docker rm "$app" >/dev/null
+printf 'NSQ accepted the second original intent; IAM retained retry_wait:1:1 after lost PUB OK.\n'
+
+start_app "$fallback_image" false false
+if wait_http 9080 /healthz; then
+  echo 'fallback image incorrectly started with unknown standard work' >&2
+  exit 1
+fi
+test "$(docker inspect "$app" --format '{{.State.Running}}')" = false
+fallback_log=$(docker logs "$app" 2>&1)
+grep -Fq 'message handoff would leave unfinished records without their owner' <<<"$fallback_log"
+docker rm "$app" >/dev/null
+"${compose[@]}" exec -T mysql mysql -uroot -N -e \
+  "SELECT CONCAT(state, ':', attempt_count, ':', failure_count) FROM iam.rm_outbox WHERE message_id='m6-standard-unknown-fixture'" | grep -qx 'retry_wait:1:1'
+
+start_app "$new_image" true true
+wait_http 9080 /readyz
+for _ in {1..90}; do
+  unknown_state=$("${compose[@]}" exec -T mysql mysql -uroot -N -e \
+    "SELECT CONCAT(state, ':', attempt_count, ':', failure_count) FROM iam.rm_outbox WHERE message_id='m6-standard-unknown-fixture'")
+  if [[ "$unknown_state" = 'published:2:1' ]]; then break; fi
+  sleep 1
+done
+test "$unknown_state" = 'published:2:1'
+recovered_nsq_count=$("${compose[@]}" exec -T nsqd wget -qO- http://127.0.0.1:4151/stats?format=json | python3 -c '
+import json, sys
+topics = json.load(sys.stdin)["topics"]
+print(next((t["message_count"] for t in topics if t["topic_name"] == "iam.authz.version.v2"), 0))
+')
+test "$recovered_nsq_count" -eq "$((unknown_nsq_count + 1))"
+docker run --rm --network "$network" \
+  --mount "type=bind,source=$probe_binary,target=/tmp/iam-m6-nsq-message-probe,readonly" \
+  --entrypoint /tmp/iam-m6-nsq-message-probe \
+  -e RM_IAM_M6_PROBE_NSQD=nsqd:4150 \
+  -e RM_IAM_M6_PROBE_ID=m6-standard-unknown-fixture \
+  "$new_image"
+printf 'PASS lost-confirmation image handoff: original intent retry_wait:1:1 -> published:2:1; NSQ physical count %s -> %s.\n' "$unknown_nsq_count" "$recovered_nsq_count"
