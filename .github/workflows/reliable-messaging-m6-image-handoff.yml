@@ -59,6 +59,8 @@ jobs:
             -o "$RUNNER_TEMP/iam-m6-nsq-ack-drop-proxy" ./scripts/testing/m6_nsq_ack_drop_proxy
           CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
             -o "$RUNNER_TEMP/iam-m6-nsq-message-probe" ./scripts/testing/m6_nsq_message_probe
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+            -o "$RUNNER_TEMP/iam-m6-authz-image-probe" ./scripts/testing/m6_authz_image_probe
       - name: Build both images without publication
         shell: bash
         run: |
@@ -84,4 +86,4 @@ jobs:
             "$GITHUB_WORKSPACE/sdk" "$GITHUB_WORKSPACE/iam-new" \
             "iam-new-isolated:${RM_NEW_SHA}" "iam-fallback-isolated:${RM_FALLBACK_SHA}" \
             "$RUNNER_TEMP/iam-m6-handoff-fixture" "$RUNNER_TEMP/iam-m6-nsq-ack-drop-proxy" \
-            "$RUNNER_TEMP/iam-m6-nsq-message-probe"
+            "$RUNNER_TEMP/iam-m6-nsq-message-probe" "$RUNNER_TEMP/iam-m6-authz-image-probe"

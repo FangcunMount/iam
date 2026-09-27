@@ -10,6 +10,7 @@ fallback_image=${4:?Usage: run.sh SDK_CHECKOUT IAM_CHECKOUT NEW_IMAGE FALLBACK_I
 fixture=${5:?Usage: run.sh SDK_CHECKOUT IAM_CHECKOUT NEW_IMAGE FALLBACK_IMAGE FIXTURE_BINARY PROXY_BINARY}
 proxy_binary=${6:?Usage: run.sh SDK_CHECKOUT IAM_CHECKOUT NEW_IMAGE FALLBACK_IMAGE FIXTURE_BINARY PROXY_BINARY}
 probe_binary=${7:?Usage: run.sh SDK_CHECKOUT IAM_CHECKOUT NEW_IMAGE FALLBACK_IMAGE FIXTURE_BINARY PROXY_BINARY PROBE_BINARY}
+authz_probe_binary=${8:?Usage: run.sh SDK_CHECKOUT IAM_CHECKOUT NEW_IMAGE FALLBACK_IMAGE FIXTURE_BINARY PROXY_BINARY PROBE_BINARY AUTHZ_PROBE_BINARY}
 [[ "$sdk" = /* && -f "$sdk/tests/integration/compose.yaml" && "$iam" = /* && -f "$iam/scripts/testing/reliable-messaging-business-compose.yaml" ]] || {
   echo 'Isolated SDK and IAM Compose fixtures are required' >&2
   exit 1
@@ -17,6 +18,7 @@ probe_binary=${7:?Usage: run.sh SDK_CHECKOUT IAM_CHECKOUT NEW_IMAGE FALLBACK_IMA
 [[ "$fixture" = /* && -x "$fixture" ]] || { echo 'Executable disposable transaction fixture required' >&2; exit 1; }
 [[ "$proxy_binary" = /* && -x "$proxy_binary" ]] || { echo 'Executable disposable NSQ proxy required' >&2; exit 1; }
 [[ "$probe_binary" = /* && -x "$probe_binary" ]] || { echo 'Executable disposable NSQ probe required' >&2; exit 1; }
+[[ "$authz_probe_binary" = /* && -x "$authz_probe_binary" ]] || { echo 'Executable disposable AuthZ probe required' >&2; exit 1; }
 new_sha=${RM_NEW_SHA:?Exact new image source SHA required}
 fallback_sha=${RM_FALLBACK_SHA:?Exact fallback image source SHA required}
 [[ "$new_sha" =~ ^[0-9a-f]{40}$ && "$fallback_sha" =~ ^[0-9a-f]{40}$ ]]
@@ -62,7 +64,7 @@ docker exec "$redis" redis-cli ping | grep -qx PONG
 
 # Disposable mTLS material keeps the bundled production-style gRPC config
 # active without borrowing serverB certificates.
-mkdir -p "$scratch/grpc/ca" "$scratch/grpc/server"
+mkdir -p "$scratch/grpc/ca" "$scratch/grpc/server" "$scratch/grpc/client"
 openssl req -x509 -newkey rsa:2048 -nodes -days 1 \
   -keyout "$scratch/grpc/ca/ca.key" -out "$scratch/grpc/ca/ca-chain.crt" \
   -subj '/CN=iam-image-fixture-ca' >/dev/null 2>&1
@@ -75,12 +77,21 @@ openssl x509 -req -days 1 \
   -CA "$scratch/grpc/ca/ca-chain.crt" -CAkey "$scratch/grpc/ca/ca.key" \
   -CAcreateserial -out "$scratch/grpc/server/iam-apiserver.crt" \
   -extfile <(printf 'subjectAltName=DNS:iam-apiserver,DNS:localhost,IP:127.0.0.1\n') >/dev/null 2>&1
-chmod 755 "$scratch" "$scratch/grpc" "$scratch/grpc/ca" "$scratch/grpc/server"
-chmod 644 "$scratch/grpc/ca/ca-chain.crt" "$scratch/grpc/server/iam-apiserver.crt" "$scratch/grpc/server/iam-apiserver.key"
+openssl req -newkey rsa:2048 -nodes \
+  -keyout "$scratch/grpc/client/qs-apiserver.key" \
+  -out "$scratch/grpc/client/qs-apiserver.csr" \
+  -subj '/CN=qs-apiserver.svc/OU=QS' >/dev/null 2>&1
+openssl x509 -req -days 1 \
+  -in "$scratch/grpc/client/qs-apiserver.csr" \
+  -CA "$scratch/grpc/ca/ca-chain.crt" -CAkey "$scratch/grpc/ca/ca.key" \
+  -CAcreateserial -out "$scratch/grpc/client/qs-apiserver.crt" \
+  -extfile <(printf 'extendedKeyUsage=clientAuth\nsubjectAltName=DNS:qs-apiserver.svc\n') >/dev/null 2>&1
+chmod 755 "$scratch" "$scratch/grpc" "$scratch/grpc/ca" "$scratch/grpc/server" "$scratch/grpc/client"
+chmod 644 "$scratch/grpc/ca/ca-chain.crt" "$scratch/grpc/server/iam-apiserver.crt" "$scratch/grpc/server/iam-apiserver.key" "$scratch/grpc/client/qs-apiserver.crt" "$scratch/grpc/client/qs-apiserver.key"
 docker volume create "$keys" >/dev/null
 
 start_app() {
-  local image=$1 mode=$2 sdk_consumer=$3 nsqd_address=${4:-nsqd:4150} retry_delay=${5:-10s}
+  local image=$1 mode=$2 sdk_consumer=$3 nsqd_address=${4:-nsqd:4150} retry_delay=${5:-10s} check_interval=${6:-10s}
   docker run -d --name "$app" --network "$network" \
     --mount "type=volume,source=$keys,target=/app/data/keys" \
     --mount "type=bind,source=$scratch/grpc/ca/ca-chain.crt,target=/etc/iam/grpc/ca/ca-chain.crt,readonly" \
@@ -103,6 +114,7 @@ start_app() {
     -e IAM_APISERVER_NSQ_CONSUMER_SDK_ENABLED="$sdk_consumer" \
     -e IAM_APISERVER_EVENTS_RELIABLE_MESSAGING_ENABLED="$mode" \
     -e IAM_APISERVER_EVENTS_OUTBOX_RELAY_RETRY_DELAY="$retry_delay" \
+    -e IAM_APISERVER_AUTHZ_POLICY_SYNC_CHECK_INTERVAL="$check_interval" \
     "$image" >/dev/null
 }
 
@@ -309,7 +321,7 @@ docker rm "$app" >/dev/null
 "${compose[@]}" exec -T mysql mysql -uroot -N -e \
   "SELECT CONCAT(state, ':', attempt_count, ':', failure_count) FROM iam.rm_outbox WHERE message_id='m6-standard-unknown-fixture'" | grep -qx 'retry_wait:1:1'
 
-start_app "$new_image" true true
+start_app "$new_image" true true nsqd:4150 10s 45s
 wait_http 9080 /readyz
 for _ in {1..90}; do
   unknown_state=$("${compose[@]}" exec -T mysql mysql -uroot -N -e \
@@ -331,3 +343,21 @@ docker run --rm --network "$network" \
   -e RM_IAM_M6_PROBE_ID=m6-standard-unknown-fixture \
   "$new_image"
 printf 'PASS lost-confirmation image handoff: original intent retry_wait:1:1 -> published:2:1; NSQ physical count %s -> %s.\n' "$unknown_nsq_count" "$recovered_nsq_count"
+
+# Keep the exact IAM image running while a separate executable uses IAM's
+# business UnitOfWork to commit grant, revoke, and restore facts with their
+# original-transaction standard intents. The image must consume and expose
+# the resulting decisions over its real mTLS/ACL gRPC endpoint. A 45-second
+# poll interval makes the bounded observations depend on notifications.
+docker run --rm --network "$network" \
+  --mount "type=bind,source=$authz_probe_binary,target=/tmp/iam-m6-authz-image-probe,readonly" \
+  --mount "type=bind,source=$scratch/grpc/ca/ca-chain.crt,target=/tmp/iam-m6-ca.crt,readonly" \
+  --mount "type=bind,source=$scratch/grpc/client/qs-apiserver.crt,target=/tmp/iam-m6-client.crt,readonly" \
+  --mount "type=bind,source=$scratch/grpc/client/qs-apiserver.key,target=/tmp/iam-m6-client.key,readonly" \
+  --entrypoint /tmp/iam-m6-authz-image-probe \
+  -e 'RM_IAM_M6_AUTHZ_DSN=root@tcp(mysql:3306)/iam?parseTime=true&loc=Asia%2FShanghai&time_zone=%27%2B08%3A00%27' \
+  -e RM_IAM_M6_AUTHZ_GRPC="$app:9090" \
+  -e RM_IAM_M6_AUTHZ_CA=/tmp/iam-m6-ca.crt \
+  -e RM_IAM_M6_AUTHZ_CERT=/tmp/iam-m6-client.crt \
+  -e RM_IAM_M6_AUTHZ_KEY=/tmp/iam-m6-client.key \
+  "$new_image"
