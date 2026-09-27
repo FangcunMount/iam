@@ -53,9 +53,9 @@ func InitEventing(deps EventingDeps) (*Eventing, error) {
 		return nil, fmt.Errorf("load event catalog %q: %w", catalogPath, err)
 	}
 	catalog := eventcatalog.NewCatalog(cfg)
-	result := &Eventing{
-		Catalog:   catalog,
-		Publisher: eventruntime.NewPublisherForBus(catalog, deps.EventBus, eventing.SourceAPIServer),
+	result := &Eventing{Catalog: catalog}
+	if !deps.ReliableMessaging.Enabled {
+		result.Publisher = eventruntime.NewPublisherForBus(catalog, deps.EventBus, eventing.SourceAPIServer)
 	}
 	if deps.DB == nil && !deps.ReliableMessaging.Enabled {
 		return result, nil

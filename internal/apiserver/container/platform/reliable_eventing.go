@@ -31,8 +31,8 @@ func initReliableEventing(deps EventingDeps, result *Eventing) error {
 	if err := opts.Validate(); err != nil {
 		return err
 	}
-	if !deps.NSQEnabled || deps.NSQAddress == "" || deps.EventBus == nil {
-		return errors.New("reliable messaging requires configured NSQ and the policy subscriber event bus")
+	if !deps.NSQEnabled || deps.NSQAddress == "" {
+		return errors.New("reliable messaging requires configured NSQ")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

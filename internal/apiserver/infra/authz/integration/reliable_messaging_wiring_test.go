@@ -34,7 +34,7 @@ func TestReliableMessagingPlatformWiring(t *testing.T) {
 	}
 	opts := options.DefaultReliableMessagingOptions()
 	opts.Enabled = true
-	deps := platform.EventingDeps{DB: db, EventBus: wiringBus{}, CatalogPath: os.Getenv("RM_IAM_EVENTS_CATALOG"),
+	deps := platform.EventingDeps{DB: db, CatalogPath: os.Getenv("RM_IAM_EVENTS_CATALOG"),
 		ReliableMessaging: opts, NSQEnabled: true, NSQAddress: os.Getenv("RM_IAM_NSQ_TCP"), OutboxInterval: 10 * time.Millisecond}
 	require.NotEmpty(t, deps.CatalogPath)
 	_, err := platform.InitEventing(deps)
@@ -164,11 +164,3 @@ func TestReliableMessagingPlatformWiring(t *testing.T) {
 	// Receiving bytes and published state are transport evidence. Full policy
 	// subscriber topology, business decisions and crash recovery remain M3 gates.
 }
-
-type wiringBus struct{}
-
-func (wiringBus) Publisher() cbmessaging.Publisher   { return nil }
-func (wiringBus) Subscriber() cbmessaging.Subscriber { return nil }
-func (wiringBus) Router() *cbmessaging.Router        { return nil }
-func (wiringBus) Health() error                      { return nil }
-func (wiringBus) Close() error                       { return nil }
