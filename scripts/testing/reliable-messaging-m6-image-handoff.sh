@@ -134,6 +134,19 @@ wait_http() {
   return 1
 }
 
+policy_channel_counters() {
+  "${compose[@]}" exec -T nsqd wget -qO- http://127.0.0.1:4151/stats?format=json | python3 -c '
+import json, sys
+topics = json.load(sys.stdin)["topics"]
+channels = [c for t in topics if t["topic_name"] == "iam.authz.version.v2"
+            for c in t["channels"] if c["channel_name"].startswith("iam-policy-sync.")
+            and c["channel_name"].endswith("#ephemeral") and c["client_count"] > 0]
+assert len(channels) == 1, channels
+c = channels[0]
+print("{}:{}:{}:{}".format(c["finish_count"], c["depth"], c["in_flight_count"], c["deferred_count"]))
+'
+}
+
 # First boot creates the same schema and signing-key material an upgraded
 # installation retains. Keep its actual legacy Relay alive until the original
 # migration notifications are published; never synthesize their final state.
@@ -344,6 +357,13 @@ docker run --rm --network "$network" \
   "$new_image"
 printf 'PASS lost-confirmation image handoff: original intent retry_wait:1:1 -> published:2:1; NSQ physical count %s -> %s.\n' "$unknown_nsq_count" "$recovered_nsq_count"
 
+for _ in {1..30}; do
+  IFS=: read -r finish_before depth inflight deferred <<<"$(policy_channel_counters)"
+  if ((depth == 0 && inflight == 0 && deferred == 0)); then break; fi
+  sleep 1
+done
+test "$depth:$inflight:$deferred" = '0:0:0'
+
 # Keep the exact IAM image running while a separate executable uses IAM's
 # business UnitOfWork to commit grant, revoke, and restore facts with their
 # original-transaction standard intents. The image must consume and expose
@@ -361,3 +381,11 @@ docker run --rm --network "$network" \
   -e RM_IAM_M6_AUTHZ_CERT=/tmp/iam-m6-client.crt \
   -e RM_IAM_M6_AUTHZ_KEY=/tmp/iam-m6-client.key \
   "$new_image"
+for _ in {1..30}; do
+  IFS=: read -r finish_after depth inflight deferred <<<"$(policy_channel_counters)"
+  if ((finish_after >= finish_before + 3 && depth == 0 && inflight == 0 && deferred == 0)); then break; fi
+  sleep 1
+done
+test "$finish_after" -eq "$((finish_before + 3))"
+test "$depth:$inflight:$deferred" = '0:0:0'
+printf 'PASS IAM image SDK policy channel FIN advanced %s -> %s for three business notifications.\n' "$finish_before" "$finish_after"
