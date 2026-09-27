@@ -3,6 +3,8 @@ package outbox
 import (
 	"context"
 	"time"
+
+	rmoutbox "github.com/FangcunMount/reliable-messaging/outbox"
 )
 
 type PendingEvent struct {
@@ -20,19 +22,8 @@ type Store interface {
 	MarkEventFailed(ctx context.Context, eventID, lastError string, nextAttemptAt time.Time) error
 }
 
-type StatusBucket struct {
-	Status           string     `json:"status"`
-	Count            int64      `json:"count"`
-	OldestCreatedAt  *time.Time `json:"oldest_created_at,omitempty"`
-	OldestAgeSeconds float64    `json:"oldest_age_seconds"`
-}
-
-type StatusSnapshot struct {
-	Store       string         `json:"store"`
-	GeneratedAt time.Time      `json:"generated_at"`
-	Buckets     []StatusBucket `json:"buckets"`
-}
-
-type StatusReader interface {
-	OutboxStatusSnapshot(ctx context.Context, now time.Time) (StatusSnapshot, error)
-}
+// Status is a shared messaging observation contract. IAM still owns the
+// database read, the legacy/standard state mapping and readiness policy.
+type StatusBucket = rmoutbox.StatusBucket
+type StatusSnapshot = rmoutbox.StatusSnapshot
+type StatusReader = rmoutbox.StatusReader
