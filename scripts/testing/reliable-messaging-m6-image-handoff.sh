@@ -135,7 +135,16 @@ if ((legacy_total < 2 || legacy_unfinished != 0)); then
   echo "legacy Relay did not publish the bootstrap notifications: total=$legacy_total unfinished=$legacy_unfinished" >&2
   exit 1
 fi
-printf 'Legacy Relay published %s original bootstrap notifications before handoff.\n' "$legacy_total"
+legacy_nsq_count=$("${compose[@]}" exec -T nsqd wget -qO- http://127.0.0.1:4151/stats?format=json | python3 -c '
+import json, sys
+topics = json.load(sys.stdin)["topics"]
+print(next((t["message_count"] for t in topics if t["topic_name"] == "iam.authz.version.v2"), 0))
+')
+if ((legacy_nsq_count < legacy_total)); then
+  echo "legacy Relay final states lack matching NSQ publishes: rows=$legacy_total nsq=$legacy_nsq_count" >&2
+  exit 1
+fi
+printf 'Legacy Relay published %s original bootstrap notifications; NSQ accepted %s physical messages before handoff.\n' "$legacy_total" "$legacy_nsq_count"
 docker stop --time 20 "$app" >/dev/null
 docker rm "$app" >/dev/null
 "${compose[@]}" exec -T mysql mysql -uroot -N -e \
