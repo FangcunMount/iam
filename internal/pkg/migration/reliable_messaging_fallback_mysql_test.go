@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/FangcunMount/reliable-messaging/message"
 	sdkmysql "github.com/FangcunMount/reliable-messaging/storage/mysql"
 	"github.com/stretchr/testify/require"
 )
@@ -43,8 +44,17 @@ func TestSchema39FallbackMigrationAndRetryMySQL(t *testing.T) {
 	require.EqualValues(t, 39, version)
 	require.False(t, changed)
 
+	msg, err := message.New(message.Input{
+		Producer: "iam", ID: "fallback-retry", Destination: "iam.authz.version.v2",
+		EventType: "iam.authz.version_changed.v2", SchemaVersion: "v2", Scope: "global",
+		ContentType: "application/json", OccurredAt: "2026-09-27T09:00:00+08:00", Payload: []byte("{}"),
+	})
+	require.NoError(t, err)
+	fingerprint := msg.Fingerprint()
 	_, err = db.Exec(`INSERT INTO rm_outbox(producer,message_id,destination,event_type,schema_version,scope,content_type,occurred_at,payload,fingerprint,state,next_attempt_at,failure_count)
-		VALUES('iam','fallback-retry','iam.authz.version.v2','iam.authz.version_changed.v2','v2','global','application/json','2026-09-27T09:00:00+08:00','{}',UNHEX(REPEAT('ab',32)),'retry_wait',UTC_TIMESTAMP(6),2)`)
+		VALUES(?,?,?,?,?,?,?,?,?,?,'retry_wait',UTC_TIMESTAMP(6),2)`,
+		"iam", "fallback-retry", "iam.authz.version.v2", "iam.authz.version_changed.v2", "v2", "global",
+		"application/json", "2026-09-27T09:00:00+08:00", []byte("{}"), fingerprint[:])
 	require.NoError(t, err)
 	store, err := sdkmysql.New(db)
 	require.NoError(t, err)
