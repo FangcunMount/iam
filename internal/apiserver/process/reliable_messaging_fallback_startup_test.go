@@ -27,7 +27,7 @@ import (
 // schema. The isolated database is seeded and drained before SDK ownership.
 // The production image, certificates and live rollback sequence remain
 // separate release gates.
-func TestFallbackSchema39APICompositionReadiness(t *testing.T) {
+func TestFallbackSchema40APICompositionReadiness(t *testing.T) {
 	if os.Getenv("RM_IAM_PROCESS_MYSQL") == "" {
 		t.Skip("isolated MySQL fixture required")
 	}
@@ -64,6 +64,9 @@ func TestFallbackSchema39APICompositionReadiness(t *testing.T) {
 	migrator := NewDatabaseManager(cfg)
 	require.NoError(t, migrator.Initialize())
 	require.NoError(t, migrator.Close())
+	var schemaVersion int
+	require.NoError(t, admin.QueryRow("SELECT version FROM "+database+".schema_migrations").Scan(&schemaVersion))
+	require.Equal(t, 40, schemaVersion)
 	_, err = admin.Exec("UPDATE " + database + ".domain_event_outbox SET status='published' WHERE status <> 'published'")
 	require.NoError(t, err)
 	// Production rollback reuses an existing signing key. Seed one that was
