@@ -1,0 +1,83 @@
+name: IAM reliable messaging primary image review
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - go.mod
+      - go.sum
+      - build/docker/Dockerfile
+      - internal/pkg/migration/migrations/000039_reliable_messaging_failure_state.*.sql
+      - internal/apiserver/container/platform/**
+      - .github/workflows/reliable-messaging-primary-image.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-reviewed-primary-image:
+    name: Build exact IAM primary image without publication
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact candidate source
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Verify checkout identity
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          expected='${{ github.event.pull_request.head.sha || github.sha }}'
+          test "$(git rev-parse HEAD)" = "$expected"
+          [[ "$expected" =~ ^[0-9a-f]{40}$ ]]
+      - name: Build candidate without pushing a registry tag
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          candidate_sha="$(git rev-parse HEAD)"
+          image="iam-primary-isolated:${candidate_sha}"
+          docker build --file build/docker/Dockerfile --tag "$image" \
+            --build-arg "GIT_COMMIT=${candidate_sha}" .
+          test "$(docker image inspect "$image" --format '{{.Os}}/{{.Architecture}}')" = linux/amd64
+          test "$(docker image inspect "$image" --format '{{.Config.User}}')" = www
+          docker run --rm --entrypoint /bin/sh "$image" -ec \
+            'test "$(id -u)" = 2000 && test "$(id -g)" = 2000 && test -x /app/apiserver && test -x /app/iam-maintenance && test -f /app/configs/apiserver.prod.yaml'
+      - name: Preserve exact image with checksum for final review
+        id: archive
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          candidate_sha="$(git rev-parse HEAD)"
+          image="iam-primary-isolated:${candidate_sha}"
+          raw="${RUNNER_TEMP}/iam-primary-${candidate_sha}.tar"
+          compressed="${raw}.gz"
+          docker save --output "$raw" "$image"
+          python3 - "$raw" "$image" <<'PY'
+          import json
+          import sys
+          import tarfile
+
+          with tarfile.open(sys.argv[1]) as image_archive:
+              manifest = json.load(image_archive.extractfile("manifest.json"))
+          if len(manifest) != 1 or manifest[0]["RepoTags"] != [sys.argv[2]]:
+              raise SystemExit("Docker archive source tag mismatch")
+          print("image config: " + manifest[0]["Config"])
+          PY
+          gzip -1 -c "$raw" > "$compressed"
+          gzip -t "$compressed"
+          (cd "$RUNNER_TEMP" && sha256sum "$(basename "$compressed")" > "$(basename "$compressed").sha256")
+          rm -f "$raw"
+          echo "candidate_sha=$candidate_sha" >> "$GITHUB_OUTPUT"
+          echo "package=$compressed" >> "$GITHUB_OUTPUT"
+      - name: Upload seven-day image review artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: iam-primary-schema39-${{ steps.archive.outputs.candidate_sha }}
+          path: |
+            ${{ steps.archive.outputs.package }}
+            ${{ steps.archive.outputs.package }}.sha256
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
