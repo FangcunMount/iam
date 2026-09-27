@@ -262,8 +262,8 @@ done
 docker logs "$proxy" 2>&1 | grep -Fq 'NSQ test proxy ready'
 start_app "$new_image" true true "$proxy:4150" 60s
 wait_http 9080 /readyz
-"${compose[@]}" exec -T nsqd wget -qO- \
-  'http://127.0.0.1:4151/channel/create?topic=iam.authz.version.v2&channel=m6-unknown-proof' >/dev/null
+docker exec "$app" curl -fsS --max-time 3 --request POST \
+  'http://nsqd:4151/channel/create?topic=iam.authz.version.v2&channel=m6-unknown-proof' >/dev/null
 touch "$scratch/proxy/arm"
 docker run --rm --network "$network" \
   --mount "type=bind,source=$fixture,target=/tmp/iam-m6-handoff-fixture,readonly" \
