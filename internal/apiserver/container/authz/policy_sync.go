@@ -140,7 +140,10 @@ func (s *policySyncSubscriber) step(ctx context.Context) {
 		var err error
 		if s.sdkSubscriber != nil {
 			failureTopic := legacy.FailedHandoffTopicForGroup(policypublication.Topic, ChannelPrefix)
-			err = s.sdkProvisioner.EnsureChannel(ctx, failureTopic, legacy.FailedHandoffChannel)
+			err = s.sdkProvisioner.EnsureTopic(ctx, policypublication.Topic)
+			if err == nil {
+				err = s.sdkProvisioner.EnsureChannel(ctx, failureTopic, legacy.FailedHandoffChannel)
+			}
 			if err == nil {
 				err = s.sdkSubscriber.Subscribe(ctx, policypublication.Topic, s.Channel(), func(deliveryCtx context.Context, delivery sdktransport.Delivery) error {
 					message := delivery.Message()
