@@ -53,3 +53,26 @@ jobs:
         run: |
           candidate_sha="$(git rev-parse HEAD)"
           docker build --file build/docker/Dockerfile --tag "iam-fallback-isolated:${candidate_sha}" --build-arg "GIT_COMMIT=${candidate_sha}" .
+      - name: Preserve exact fallback image for review
+        id: image
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          candidate_sha="$(git rev-parse HEAD)"
+          image="iam-fallback-isolated:${candidate_sha}"
+          archive="${RUNNER_TEMP}/iam-fallback-${candidate_sha}.tar"
+          docker image inspect "$image" --format '{{.Id}} {{.Os}}/{{.Architecture}} {{.Config.User}}'
+          docker save --output "$archive" "$image"
+          (cd "$RUNNER_TEMP" && sha256sum "$(basename "$archive")" > "$(basename "$archive").sha256")
+          echo "candidate_sha=$candidate_sha" >> "$GITHUB_OUTPUT"
+          echo "archive=$archive" >> "$GITHUB_OUTPUT"
+      - name: Upload fallback image review artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: iam-schema39-fallback-${{ steps.image.outputs.candidate_sha }}
+          path: |
+            ${{ steps.image.outputs.archive }}
+            ${{ steps.image.outputs.archive }}.sha256
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
