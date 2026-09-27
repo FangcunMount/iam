@@ -122,7 +122,10 @@ func (s *KeyManager) createAndActivate(
 	}
 
 	now := s.now() // 获取当前时间
-	effectiveNotBefore := now
+	// jwks_keys.not_before is DATETIME(0). MySQL rounds fractional seconds when
+	// storing it, so an immediate key created late in a second could otherwise
+	// read back with a not-before time in the future and fail startup validation.
+	effectiveNotBefore := now.Truncate(time.Second)
 	if notBefore != nil {
 		effectiveNotBefore = *notBefore // 设置生效时间
 	}
