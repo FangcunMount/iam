@@ -52,13 +52,14 @@ jobs:
       - name: Verify v0.6.1 cutover and retained SDK failure audit
         env:
           RM_IAM_M6_REQUIRED: "1"
+          IAM_AUTHZ_TEST_MYSQL_DSN: "root:root@tcp(127.0.0.1:3306)/?parseTime=true&loc=UTC"
           RM_IAM_M6_MYSQL_DSN: "root:root@tcp(127.0.0.1:3306)/iam_m6_subscriber?parseTime=true&loc=UTC"
           RM_IAM_NSQ_TCP: 127.0.0.1:4150
           RM_IAM_NSQ_HTTP: http://127.0.0.1:4151
         run: |
           set -euo pipefail
           go test -tags reliable_messaging ./internal/apiserver/container/authz \
-            -run '^(TestIAMV061CutoffThenSDKReconcilesVersionSource|TestSDKPolicySyncFailureHandoffAcrossEphemeralChannels)$' -count=1 -v
+            -run '^(TestIAMV061CutoffThenSDKReconcilesMySQLVersion|TestSDKPolicySyncFailureHandoffAcrossEphemeralChannels)$' -count=1 -v
       - name: Verify standard Outbox publisher wire and lifecycle
         env:
           IAM_AUTHZ_TEST_MYSQL_DSN: "root:root@tcp(127.0.0.1:3306)/?parseTime=true&loc=UTC"

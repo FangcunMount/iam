@@ -19,8 +19,17 @@ import (
 	"github.com/FangcunMount/component-base/pkg/messaging"
 	oldnsq "github.com/FangcunMount/component-base/pkg/messaging/nsq"
 	"github.com/FangcunMount/iam/v5/internal/apiserver/application/authz/policypublication"
+	appuow "github.com/FangcunMount/iam/v5/internal/apiserver/application/authz/uow"
+	"github.com/FangcunMount/iam/v5/internal/apiserver/domain/authz/assignment"
 	"github.com/FangcunMount/iam/v5/internal/apiserver/domain/authz/authorization"
+	"github.com/FangcunMount/iam/v5/internal/apiserver/domain/authz/permissiongrant"
+	"github.com/FangcunMount/iam/v5/internal/apiserver/domain/authz/resource"
+	"github.com/FangcunMount/iam/v5/internal/apiserver/domain/authz/role"
+	"github.com/FangcunMount/iam/v5/internal/apiserver/domain/authz/subject"
 	authzruntime "github.com/FangcunMount/iam/v5/internal/apiserver/infra/authz/runtime"
+	authzuow "github.com/FangcunMount/iam/v5/internal/apiserver/infra/mysql/uow/authz"
+	"github.com/FangcunMount/iam/v5/internal/apiserver/testfixtures/authzdb"
+	"github.com/FangcunMount/iam/v5/internal/pkg/meta"
 	sdknsq "github.com/FangcunMount/reliable-messaging/transport/nsq"
 	"github.com/FangcunMount/reliable-messaging/wire/legacy"
 	"github.com/nsqio/go-nsq"
@@ -31,15 +40,57 @@ import (
 // cannot hand a failed message to a stable failure channel. A new IAM instance
 // must recover the authorization state from its version source instead.
 // This test exercises the released old Subscriber and the IAM SDK wiring in
-// one process against real NSQ with a controllable version-source stub; it is
-// not a real MySQL commit, OS restart, or production proof.
-func TestIAMV061CutoffThenSDKReconcilesVersionSource(t *testing.T) {
+// one process against disposable MySQL and NSQ; it is not an OS restart or
+// production proof.
+func TestIAMV061CutoffThenSDKReconcilesMySQLVersion(t *testing.T) {
 	if os.Getenv("RM_IAM_M6_REQUIRED") != "1" {
 		t.Skip("disposable NSQ required")
 	}
 	tcp, httpURL := os.Getenv("RM_IAM_NSQ_TCP"), os.Getenv("RM_IAM_NSQ_HTTP")
 	require.NotEmpty(t, tcp)
 	require.NotEmpty(t, httpURL)
+	require.NotEmpty(t, os.Getenv("IAM_AUTHZ_TEST_MYSQL_DSN"), "disposable MySQL admin DSN required")
+	db := authzdb.Open(t, true)
+	require.NoError(t, db.Exec("INSERT INTO users(id,status) VALUES(2,1)").Error)
+	uow := authzuow.NewUnitOfWork(db, nil, authzdb.Stager(t, db))
+	probeRole, err := role.NewRole("qs:m6-v061-probe", "isolated cutover probe")
+	require.NoError(t, err)
+	probeResource, err := resource.NewResource("qs:evaluation:collection:assessments", []string{"retry"}, resource.WithDisplayName("Assessments"))
+	require.NoError(t, err)
+	var grant permissiongrant.Grant
+	require.NoError(t, uow.WithinTx(context.Background(), func(txctx context.Context, repos appuow.TxRepositories) error {
+		if e := repos.Roles.Create(txctx, &probeRole); e != nil {
+			return e
+		}
+		if e := repos.Resources.Create(txctx, &probeResource); e != nil {
+			return e
+		}
+		var e error
+		grant, e = permissiongrant.New(probeRole.ID, probeResource.ID, probeResource.KeyString(), "retry", "isolated-cutover")
+		if e != nil {
+			return e
+		}
+		if e = repos.PermissionGrants.Create(txctx, &grant); e != nil {
+			return e
+		}
+		assigned, e := assignment.NewAssignment(assignment.SubjectType("user"), meta.FromUint64(2), probeRole.ID, assignment.WithGrantedBy("isolated-cutover"))
+		if e != nil {
+			return e
+		}
+		return repos.Assignments.Create(txctx, &assigned)
+	}))
+	sub, err := subject.NewUserRef(meta.FromUint64(2))
+	require.NoError(t, err)
+	request, err := authorization.NewRequest(sub, probeResource.KeyString(), "retry")
+	require.NoError(t, err)
+	runtime, err := authzruntime.NewRuntime(context.Background(), authzruntime.NewMySQLSource(db), authorization.NewEvaluator(),
+		authzruntime.WithConfig(authzruntime.Config{CheckInterval: 20 * time.Millisecond, SyncTimeout: time.Second, MaxUnconfirmed: 10 * time.Second}))
+	require.NoError(t, err)
+	require.True(t, runtime.PolicyVersionLoaded(1))
+	before, err := runtime.Check(context.Background(), request)
+	require.NoError(t, err)
+	require.True(t, before.Allowed)
+	runtime.RequireSync()
 	host, portText, err := net.SplitHostPort(tcp)
 	require.NoError(t, err)
 	port, err := strconv.Atoi(portText)
@@ -72,6 +123,17 @@ func TestIAMV061CutoffThenSDKReconcilesVersionSource(t *testing.T) {
 	require.Eventually(t, func() bool {
 		return nsqChannelClients(httpURL, policypublication.Topic, oldChannel) > 0
 	}, 10*time.Second, 20*time.Millisecond, "old channel must be attached before publish")
+	require.NoError(t, uow.WithinTx(context.Background(), func(txctx context.Context, repos appuow.TxRepositories) error {
+		if _, e := repos.PermissionGrants.AtomicRevoke(txctx, grant.ID); e != nil {
+			return e
+		}
+		_, e := repos.PolicyVersions.Increment(txctx, "isolated-cutover", "old-notification-failed")
+		return e
+	}))
+	committedVersion, err := authzruntime.NewMySQLSource(db).ReadVersion(context.Background())
+	require.NoError(t, err)
+	require.EqualValues(t, 2, committedVersion)
+	require.True(t, runtime.PolicyVersionLoaded(1), "new runtime has not received the committed change yet")
 	publisher, err := oldnsq.NewPublisher(tcp, nil)
 	require.NoError(t, err)
 	defer publisher.Close()
@@ -97,13 +159,6 @@ func TestIAMV061CutoffThenSDKReconcilesVersionSource(t *testing.T) {
 		return nsqChannelClients(httpURL, policypublication.Topic, oldChannel) == -1
 	}, 10*time.Second, 20*time.Millisecond, "old ephemeral channel should disappear")
 
-	source := &lifecycleSource{entered: make(chan struct{})}
-	source.version.Store(1)
-	runtime, err := authzruntime.NewRuntime(context.Background(), source, authorization.NewEvaluator(),
-		authzruntime.WithConfig(authzruntime.Config{CheckInterval: 20 * time.Millisecond, SyncTimeout: time.Second, MaxUnconfirmed: 2 * time.Second}))
-	require.NoError(t, err)
-	runtime.RequireSync()
-	source.version.Store(2) // changed after the new instance loaded, with no usable old notification
 	driverConfig := nsq.NewConfig()
 	driverConfig.DialTimeout = time.Second
 	sdkSubscriber, err := sdknsq.NewSubscriber(sdknsq.SubscriberConfig{
@@ -124,7 +179,11 @@ func TestIAMV061CutoffThenSDKReconcilesVersionSource(t *testing.T) {
 	require.NoError(t, syncer.Start(context.Background()))
 	defer syncer.Stop()
 	require.True(t, syncer.registered)
-	require.True(t, runtime.PolicyVersionLoaded(2), "startup reconciliation must recover the current source version")
+	require.True(t, runtime.PolicyVersionLoaded(2), "startup reconciliation must recover the committed MySQL version")
+	after, err := runtime.Check(context.Background(), request)
+	require.NoError(t, err)
+	require.False(t, after.Allowed, "the committed revocation must be effective without the old notification")
+	require.EqualValues(t, 2, after.PolicyVersion)
 	require.Zero(t, newFailures.Load(), "no old stable handoff exists to audit")
 }
 
