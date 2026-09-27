@@ -265,10 +265,16 @@ jobs:
           set -Eeuo pipefail
           image="ghcr.io/fangcunmount/iam:fallback-schema39-${CANDIDATE_SHA}"
           docker pull --platform linux/amd64 "$image"
-          test "$(docker image inspect "$image" --format '{{.Id}}')" = "$EXPECTED_IMAGE_ID"
-          test "$(docker image inspect "$image" --format '{{.Os}}/{{.Architecture}}')" = linux/amd64
-          test "$(docker image inspect "$image" --format '{{.Config.User}}')" = www
-          docker image inspect "$image" --format '{{json .RepoDigests}}' | python3 -c \
+          actual_image_id="$(docker image inspect "$image" --format '{{.Id}}')"
+          actual_platform="$(docker image inspect "$image" --format '{{.Os}}/{{.Architecture}}')"
+          actual_user="$(docker image inspect "$image" --format '{{.Config.User}}')"
+          actual_repo_digests="$(docker image inspect "$image" --format '{{json .RepoDigests}}')"
+          printf 'Pulled image ID: %s; platform: %s; user: %s; repo digests: %s\n' \
+            "$actual_image_id" "$actual_platform" "$actual_user" "$actual_repo_digests"
+          test "$actual_image_id" = "$EXPECTED_IMAGE_ID"
+          test "$actual_platform" = linux/amd64
+          test "$actual_user" = www
+          printf '%s' "$actual_repo_digests" | python3 -c \
             'import json,os,sys; expected="ghcr.io/fangcunmount/iam@"+os.environ["EXPECTED_DIGEST"]; sys.exit(0 if expected in json.load(sys.stdin) else 1)'
           archive="${RUNNER_TEMP}/iam-fallback-${CANDIDATE_SHA}.tar"
           compressed="${archive}.gz"
