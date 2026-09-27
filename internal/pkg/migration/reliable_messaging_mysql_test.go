@@ -6,8 +6,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/FangcunMount/iam/v5/internal/apiserver/infra/mysql/eventoutbox"
 	sdkmysql "github.com/FangcunMount/reliable-messaging/storage/mysql"
 	"github.com/stretchr/testify/require"
+	gormmysql "gorm.io/driver/mysql"
+	"gorm.io/gorm"
 )
 
 func TestReliableMessagingSchemaUpgradeAndRollbackMySQL(t *testing.T) {
@@ -48,6 +51,21 @@ func TestReliableMessagingSchemaUpgradeAndRollbackMySQL(t *testing.T) {
 	assertLegacy()
 	_, err = db.Exec(up)
 	require.NoError(t, err)
+	gormDB, err := gorm.Open(gormmysql.New(gormmysql.Config{Conn: db}), &gorm.Config{})
+	require.NoError(t, err)
+	_, err = db.Exec("CREATE TABLE schema_migrations(version BIGINT PRIMARY KEY,dirty BOOLEAN NOT NULL)")
+	require.NoError(t, err)
+	_, err = db.Exec("INSERT INTO schema_migrations VALUES(37,FALSE)")
+	require.NoError(t, err)
+	_, err = eventoutbox.NewMaintenanceStager(context.Background(), gormDB, nil, "legacy")
+	require.ErrorContains(t, err, "journaled standard Outbox", "unjournaled table cannot enable legacy maintenance")
+	_, err = db.Exec("UPDATE schema_migrations SET version=38")
+	require.NoError(t, err)
+	legacy, err := eventoutbox.NewMaintenanceStager(context.Background(), gormDB, nil, "legacy")
+	require.NoError(t, err, "legacy maintenance remains available on the additive schema during upgrade")
+	require.IsType(t, &eventoutbox.Store{}, legacy)
+	_, err = eventoutbox.NewMaintenanceStager(context.Background(), gormDB, nil, "standard")
+	require.ErrorContains(t, err, "clean migration 39", "new standard writer must not run on schema 38")
 	// Even confirmed standard rows are retained evidence, not disposable data.
 	_, err = db.Exec(`INSERT INTO rm_outbox(producer,message_id,destination,event_type,schema_version,scope,content_type,occurred_at,payload,fingerprint,state,next_attempt_at) VALUES('iam','retained','events','changed','v2','scope:global','application/json','2026-09-22T08:00:00+08:00','{}',UNHEX(REPEAT('ab',32)),'published',UTC_TIMESTAMP(6))`)
 	require.NoError(t, err)
@@ -68,6 +86,9 @@ func TestReliableMessagingSchemaUpgradeAndRollbackMySQL(t *testing.T) {
 	down39 := read("000039_reliable_messaging_failure_state.down.sql")
 	_, err = db.Exec(up39)
 	require.NoError(t, err)
+	_, err = db.Exec("UPDATE schema_migrations SET version=39")
+	require.NoError(t, err)
+	require.NoError(t, eventoutbox.CheckReliableSchema(context.Background(), gormDB))
 	claims, err := store.ClaimDue(context.Background(), 1, time.Minute)
 	require.NoError(t, err)
 	require.Empty(t, claims)
