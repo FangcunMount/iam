@@ -81,6 +81,10 @@ func initReliableEventing(deps EventingDeps, result *Eventing) error {
 			cancel()
 		}
 	}()
+	directPublisher, err := messagingInfra.NewDirectEventPublisher(result.Catalog, managed, eventing.SourceAPIServer)
+	if err != nil {
+		return err
+	}
 	publisher, err := messagingInfra.NewPolicyWirePublisher(managedPolicyTransport{managed})
 	if err != nil {
 		return err
@@ -115,6 +119,7 @@ func initReliableEventing(deps EventingDeps, result *Eventing) error {
 		return err
 	}
 	result.Stager = stager
+	result.Publisher = directPublisher
 	result.Outbox = eventoutbox.NewStandardStatusReader(deps.DB)
 	result.ReliableRuntime = runtime
 	success = true

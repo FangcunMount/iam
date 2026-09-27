@@ -15,6 +15,7 @@ import (
 	policy "github.com/FangcunMount/iam/v5/internal/apiserver/domain/authz/policy"
 	"github.com/FangcunMount/iam/v5/internal/apiserver/infra/mysql/eventoutbox"
 	authzuow "github.com/FangcunMount/iam/v5/internal/apiserver/infra/mysql/uow/authz"
+	smsInfra "github.com/FangcunMount/iam/v5/internal/apiserver/infra/sms"
 	"github.com/FangcunMount/iam/v5/internal/apiserver/options"
 	"github.com/FangcunMount/iam/v5/internal/apiserver/testfixtures/authzdb"
 	"github.com/nsqio/go-nsq"
@@ -116,6 +117,43 @@ func TestReliableMessagingPlatformWiring(t *testing.T) {
 		var state string
 		return db.Raw("SELECT state FROM rm_outbox WHERE message_id=?", evt.EventID()).Row().Scan(&state) == nil && state == "published"
 	}, 5*time.Second, 10*time.Millisecond)
+	smsConsumer, err := nsq.NewConsumer("iam.notify.sms", "m6-wiring-sms", nsq.NewConfig())
+	require.NoError(t, err)
+	smsConsumer.SetLogger(nil, nsq.LogLevelError)
+	smsReceived := make(chan []byte, 1)
+	smsConsumer.AddHandler(nsq.HandlerFunc(func(m *nsq.Message) error {
+		select {
+		case smsReceived <- append([]byte(nil), m.Body...):
+		default:
+		}
+		return nil
+	}))
+	require.NoError(t, smsConsumer.ConnectToNSQD(deps.NSQAddress))
+	t.Cleanup(func() {
+		smsConsumer.Stop()
+		select {
+		case <-smsConsumer.StopChan:
+		case <-time.After(5 * time.Second):
+			t.Error("SMS consumer did not stop")
+		}
+	})
+	smsEvent := smsInfra.NewLoginOTPSMSEvent("+8613800138000", "123456")
+	require.NoError(t, platformEventing.Publisher.Publish(context.Background(), smsEvent))
+	select {
+	case body := <-smsReceived:
+		envelope, ok, err := cbmessaging.DecodeMessagePayload(body)
+		require.NoError(t, err)
+		require.True(t, ok, "old SMS consumer must decode the SDK wire")
+		require.Equal(t, smsEvent.EventID(), envelope.UUID)
+		require.Equal(t, smsEvent.EventType(), envelope.Metadata["event_type"])
+		require.Equal(t, "iam-apiserver", envelope.Metadata["source"])
+		require.JSONEq(t, `{"event_type":"iam.login_otp_sms","scene":"login","phone_e164":"+8613800138000","code":"123456"}`, string(envelope.Payload))
+	case <-time.After(10 * time.Second):
+		t.Fatal("SDK direct publisher did not deliver the SMS event")
+	}
+	var standardCount int64
+	require.NoError(t, db.Table("rm_outbox").Count(&standardCount).Error)
+	require.EqualValues(t, 1, standardCount, "best-effort SMS must not enter the durable policy Outbox")
 	var oldCount int64
 	require.NoError(t, db.Table("domain_event_outbox").Count(&oldCount).Error)
 	require.Zero(t, oldCount)
