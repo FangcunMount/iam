@@ -15,6 +15,28 @@ on:
       - scripts/testing/reliable-messaging-fallback-proof.sh
       - .github/workflows/reliable-messaging-fallback.yml
   workflow_dispatch:
+    inputs:
+      publish_candidate:
+        description: Publish a previously reviewed fallback image under a SHA-only GHCR tag
+        type: boolean
+        required: true
+        default: false
+      source_run_id:
+        description: Successful isolated proof run holding the reviewed image artifact
+        type: string
+        required: false
+      candidate_sha:
+        description: Exact 40-character IAM source commit approved for the fallback image
+        type: string
+        required: false
+      archive_sha256:
+        description: Independently verified SHA-256 of the Docker archive
+        type: string
+        required: false
+      image_id:
+        description: Independently verified sha256 image ID from the archive manifest
+        type: string
+        required: false
 
 permissions:
   contents: read
@@ -22,6 +44,7 @@ permissions:
 jobs:
   schema39-fallback-wiring:
     name: Recover IAM policy event through MySQL and NSQ
+    if: github.event_name == 'pull_request' || !inputs.publish_candidate
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -76,3 +99,60 @@ jobs:
           if-no-files-found: error
           compression-level: 0
           retention-days: 7
+
+  publish-reviewed-fallback:
+    name: Publish reviewed fallback image to unique GHCR tag
+    if: github.event_name == 'workflow_dispatch' && inputs.publish_candidate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      actions: read
+      contents: read
+      packages: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+      CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+      ARCHIVE_SHA256: ${{ inputs.archive_sha256 }}
+      EXPECTED_IMAGE_ID: ${{ inputs.image_id }}
+    steps:
+      - name: Validate reviewed source and artifact identity
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          [[ "$SOURCE_RUN_ID" =~ ^[0-9]+$ ]]
+          [[ "$CANDIDATE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$ARCHIVE_SHA256" =~ ^[0-9a-f]{64}$ ]]
+          [[ "$EXPECTED_IMAGE_ID" =~ ^sha256:[0-9a-f]{64}$ ]]
+          source_sha="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${SOURCE_RUN_ID}" --jq '.head_sha')"
+          source_result="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${SOURCE_RUN_ID}" --jq '.conclusion')"
+          test "$source_sha" = "$CANDIDATE_SHA"
+          test "$source_result" = success
+      - name: Download and verify reviewed Docker archive
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          archive_dir="${RUNNER_TEMP}/reviewed-fallback"
+          gh run download "$SOURCE_RUN_ID" --repo "$GITHUB_REPOSITORY" \
+            --name "iam-schema39-fallback-${CANDIDATE_SHA}" --dir "$archive_dir"
+          archive="${archive_dir}/iam-fallback-${CANDIDATE_SHA}.tar"
+          test -s "$archive"
+          printf '%s  %s\n' "$ARCHIVE_SHA256" "$archive" | sha256sum --check --status
+          docker load --input "$archive"
+          image="iam-fallback-isolated:${CANDIDATE_SHA}"
+          actual_image_id="$(docker image inspect "$image" --format '{{.Id}}')"
+          test "$actual_image_id" = "$EXPECTED_IMAGE_ID"
+          test "$(docker image inspect "$image" --format '{{.Os}}/{{.Architecture}}')" = linux/amd64
+          test "$(docker image inspect "$image" --format '{{.Config.User}}')" = www
+      - name: Push unique candidate tag only
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          image="iam-fallback-isolated:${CANDIDATE_SHA}"
+          target="ghcr.io/fangcunmount/iam:fallback-schema39-${CANDIDATE_SHA}"
+          echo "$GH_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin >/dev/null
+          docker tag "$image" "$target"
+          docker push "$target"
+          digest="$(docker buildx imagetools inspect "$target" --format '{{.Manifest.Digest}}')"
+          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+          printf 'Reviewed fallback image: `%s@%s`\n' "$target" "$digest" >> "$GITHUB_STEP_SUMMARY"
