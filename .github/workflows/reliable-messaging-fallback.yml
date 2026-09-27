@@ -8,6 +8,7 @@ on:
       - go.sum
       - internal/apiserver/infra/authz/integration/reliable_messaging_wiring_test.go
       - internal/apiserver/process/reliable_messaging_fallback_startup_test.go
+      - build/docker/Dockerfile
       - internal/apiserver/container/platform/**
       - internal/apiserver/infra/mysql/eventoutbox/**
       - internal/pkg/migration/migrations/000039_reliable_messaging_failure_state.*.sql
@@ -41,3 +42,5 @@ jobs:
           cache-dependency-path: go.sum
       - name: Run isolated schema 39 IAM wiring proof
         run: bash scripts/testing/reliable-messaging-fallback-proof.sh "$GITHUB_WORKSPACE/reliable-messaging"
+      - name: Build exact fallback image without publishing
+        run: docker build --file build/docker/Dockerfile --tag "iam-fallback-isolated:${GITHUB_SHA}" --build-arg "GIT_COMMIT=${GITHUB_SHA}" .
