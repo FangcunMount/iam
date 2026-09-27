@@ -1,0 +1,69 @@
+name: IAM M6 exact image handoff isolation
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/reliable-messaging-m6-image-handoff.yml
+      - scripts/testing/reliable-messaging-m6-image-handoff.sh
+      - build/docker/Dockerfile
+      - go.mod
+      - go.sum
+      - internal/apiserver/container/**
+      - internal/pkg/migration/migrations/000040_iam_nsq_failure_audit.*.sql
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  exact-image-handoff:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout new IAM image source
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          path: iam-new
+      - name: Checkout exact schema40 fallback source
+        uses: actions/checkout@v6
+        with:
+          ref: ab42a4de487739492f06f50c04a4434d0011a2de
+          path: iam-fallback
+      - name: Checkout released SDK fixture
+        uses: actions/checkout@v6
+        with:
+          repository: FangcunMount/reliable-messaging
+          ref: v0.2.1
+          path: sdk
+      - name: Verify immutable source identities
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          test "$(git -C iam-new rev-parse HEAD)" = '${{ github.event.pull_request.head.sha || github.sha }}'
+          test "$(git -C iam-fallback rev-parse HEAD)" = ab42a4de487739492f06f50c04a4434d0011a2de
+          test "$(git -C sdk describe --tags --exact-match)" = v0.2.1
+      - name: Build both images without publication
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          new_sha="$(git -C iam-new rev-parse HEAD)"
+          fallback_sha="$(git -C iam-fallback rev-parse HEAD)"
+          docker build --file iam-fallback/build/docker/Dockerfile \
+            --tag "iam-fallback-isolated:${fallback_sha}" \
+            --label "org.opencontainers.image.revision=${fallback_sha}" \
+            --build-arg "GIT_COMMIT=${fallback_sha}" iam-fallback
+          docker build --file iam-new/build/docker/Dockerfile \
+            --tag "iam-new-isolated:${new_sha}" \
+            --label "org.opencontainers.image.revision=${new_sha}" \
+            --build-arg "GIT_COMMIT=${new_sha}" iam-new
+      - name: Exercise fallback to SDK and back on schema40
+        shell: bash
+        env:
+          RM_FALLBACK_SHA: ab42a4de487739492f06f50c04a4434d0011a2de
+        run: |
+          set -Eeuo pipefail
+          export RM_NEW_SHA="$(git -C iam-new rev-parse HEAD)"
+          bash iam-new/scripts/testing/reliable-messaging-m6-image-handoff.sh \
+            "$GITHUB_WORKSPACE/sdk" "$GITHUB_WORKSPACE/iam-new" \
+            "iam-new-isolated:${RM_NEW_SHA}" "iam-fallback-isolated:${RM_FALLBACK_SHA}"
