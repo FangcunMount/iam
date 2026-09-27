@@ -42,6 +42,10 @@ func TestFallbackSchema39APICompositionReadiness(t *testing.T) {
 	require.NotEmpty(t, opts.Events.CatalogPath)
 	opts.RedisOptions.Cache.Host, opts.RedisOptions.Cache.Port = splitRedisAddr(t, redis.Addr())
 	opts.IDP.EncryptionKey = "0123456789abcdef0123456789abcdef"
+	opts.JWKS.AutoInit = true
+	opts.JWKS.KeysDir = t.TempDir()
+	opts.GRPCOptions.AuthzAssignmentConstraintsFile = os.Getenv("RM_IAM_ASSIGNMENT_CONSTRAINTS")
+	require.NotEmpty(t, opts.GRPCOptions.AuthzAssignmentConstraintsFile)
 	opts.SecureServing.BindPort = 0
 
 	// Fresh bootstrap can stage its own legacy role events. They are fixture
