@@ -4,10 +4,14 @@ import (
 	"context"
 	"os"
 	"testing"
+	"testing/fstest"
 	"time"
 
 	"github.com/FangcunMount/iam/v5/internal/apiserver/infra/mysql/eventoutbox"
 	sdkmysql "github.com/FangcunMount/reliable-messaging/storage/mysql"
+	"github.com/golang-migrate/migrate/v4"
+	migratemysql "github.com/golang-migrate/migrate/v4/database/mysql"
+	"github.com/golang-migrate/migrate/v4/source/iofs"
 	"github.com/stretchr/testify/require"
 	gormmysql "gorm.io/driver/mysql"
 	"gorm.io/gorm"
@@ -101,4 +105,22 @@ func TestReliableMessagingSchemaUpgradeAndRollbackMySQL(t *testing.T) {
 	require.Error(t, err, "used table must retain additive failure state on rollback")
 	require.NoError(t, db.QueryRow("SELECT COUNT(*) FROM rm_outbox WHERE message_id='retained' AND state='published'").Scan(&retained))
 	require.Equal(t, 1, retained)
+
+	// The deployed binary embeds migrations only through 38. golang-migrate
+	// validates the current journal version against that embedded catalog before
+	// it can report no change, so an unmodified old image is not a rollback target.
+	oldCatalog, err := iofs.New(fstest.MapFS{
+		"migrations/000038_old.up.sql":   &fstest.MapFile{Data: []byte("SELECT 1")},
+		"migrations/000038_old.down.sql": &fstest.MapFile{Data: []byte("SELECT 1")},
+	}, "migrations")
+	require.NoError(t, err)
+	var databaseName string
+	require.NoError(t, db.QueryRow("SELECT DATABASE()").Scan(&databaseName))
+	oldDatabase, err := migratemysql.WithInstance(db, &migratemysql.Config{
+		DatabaseName: databaseName, MigrationsTable: "schema_migrations",
+	})
+	require.NoError(t, err)
+	oldMigrator, err := migrate.NewWithInstance("iofs", oldCatalog, "mysql", oldDatabase)
+	require.NoError(t, err)
+	require.ErrorContains(t, oldMigrator.Up(), "no migration found for version 39")
 }
