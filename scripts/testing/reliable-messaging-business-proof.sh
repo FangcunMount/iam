@@ -31,4 +31,5 @@ case "$architecture" in aarch64|arm64) goarch=arm64;;x86_64|amd64) goarch=amd64;
 "${compose[@]}" cp "$build_dir/qs-business" mysql:/tmp/qs-business
 "${compose[@]}" cp "$repo/configs/events.yaml" mysql:/tmp/iam-events.yaml
 "${compose[@]}" cp "$repo/configs/grpc_acl.yaml" mysql:/tmp/iam-grpc-acl.yaml
-"${compose[@]}" exec -T -e RM_IAM_GRPC_ACL=/tmp/iam-grpc-acl.yaml -e RM_BUSINESS_REQUIRED=1 -e RM_QS_PROOF=/tmp/qs-business -e RM_IAM_EVENTS_CATALOG=/tmp/iam-events.yaml -e RM_IAM_NSQ_TCP=nsqd:4150 -e RM_IAM_NSQ_HTTP=http://nsqd:4151 -e RM_NSQ_LOOKUP=nsqlookupd:4161 -e IAM_AUTHZ_TEST_MYSQL_DSN='root@tcp(127.0.0.1:3306)/?parseTime=true&loc=UTC' mysql /tmp/iam-business -test.run '^TestReliableMessagingIAMQSBusinessRoundtrip$' -test.v
+"${compose[@]}" cp "$repo/internal/pkg/migration/migrations/000040_iam_nsq_failure_audit.up.sql" mysql:/tmp/iam-nsq-failure-audit.sql
+"${compose[@]}" exec -T -e RM_IAM_GRPC_ACL=/tmp/iam-grpc-acl.yaml -e RM_BUSINESS_REQUIRED=1 -e RM_QS_PROOF=/tmp/qs-business -e RM_IAM_EVENTS_CATALOG=/tmp/iam-events.yaml -e RM_IAM_FAILURE_AUDIT_DDL=/tmp/iam-nsq-failure-audit.sql -e RM_IAM_NSQ_TCP=nsqd:4150 -e RM_IAM_NSQ_HTTP=http://nsqd:4151 -e RM_NSQ_LOOKUP=nsqlookupd:4161 -e IAM_AUTHZ_TEST_MYSQL_DSN='root@tcp(127.0.0.1:3306)/?parseTime=true&loc=UTC' mysql /tmp/iam-business -test.run '^TestReliableMessagingIAMQSBusinessRoundtrip$' -test.v
