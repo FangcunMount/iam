@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -32,16 +33,19 @@ import (
 	"github.com/FangcunMount/iam/v5/internal/pkg/meta"
 	sdknsq "github.com/FangcunMount/reliable-messaging/transport/nsq"
 	"github.com/FangcunMount/reliable-messaging/wire/legacy"
+	mysqldriver "github.com/go-sql-driver/mysql"
 	"github.com/nsqio/go-nsq"
 	"github.com/stretchr/testify/require"
+	gormmysql "gorm.io/driver/mysql"
+	"gorm.io/gorm"
 )
 
 // The current IAM old image uses component-base v0.6.1. Unlike v0.6.11 it
 // cannot hand a failed message to a stable failure channel. A new IAM instance
 // must recover the authorization state from its version source instead.
 // This test exercises the released old Subscriber and the IAM SDK wiring in
-// one process against disposable MySQL and NSQ; it is not an OS restart or
-// production proof.
+// disposable MySQL and NSQ. A separate SDK process also verifies cold-start
+// recovery after the old ephemeral channel disappears. Neither is production.
 func TestIAMV061CutoffThenSDKReconcilesMySQLVersion(t *testing.T) {
 	if os.Getenv("RM_IAM_M6_REQUIRED") != "1" {
 		t.Skip("disposable NSQ required")
@@ -158,6 +162,25 @@ func TestIAMV061CutoffThenSDKReconcilesMySQLVersion(t *testing.T) {
 	require.Eventually(t, func() bool {
 		return nsqChannelClients(httpURL, policypublication.Topic, oldChannel) == -1
 	}, 10*time.Second, 20*time.Millisecond, "old ephemeral channel should disappear")
+	var dbName string
+	require.NoError(t, db.Raw("SELECT DATABASE()").Scan(&dbName).Error)
+	require.NotEmpty(t, dbName)
+	childDSN, err := mysqldriver.ParseDSN(os.Getenv("IAM_AUTHZ_TEST_MYSQL_DSN"))
+	require.NoError(t, err)
+	childDSN.DBName = dbName
+	childDSN.ParseTime = true
+	childCtx, cancelChild := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancelChild()
+	child := exec.CommandContext(childCtx, os.Args[0], "-test.run=^TestIAMV061SDKColdStartProcess$", "-test.v")
+	child.Env = append(os.Environ(),
+		"RM_IAM_CUTOVER_CHILD=1",
+		"RM_IAM_CUTOVER_DSN="+childDSN.FormatDSN(),
+		"RM_IAM_CUTOVER_RESOURCE="+probeResource.KeyString(),
+	)
+	output, err := child.CombinedOutput()
+	require.NoErrorf(t, err, "independent SDK cold start failed: %s", output)
+	require.NoError(t, childCtx.Err())
+	require.True(t, runtime.PolicyVersionLoaded(1), "the parent has not reconciled during the child process")
 
 	driverConfig := nsq.NewConfig()
 	driverConfig.DialTimeout = time.Second
@@ -185,6 +208,52 @@ func TestIAMV061CutoffThenSDKReconcilesMySQLVersion(t *testing.T) {
 	require.False(t, after.Allowed, "the committed revocation must be effective without the old notification")
 	require.EqualValues(t, 2, after.PolicyVersion)
 	require.Zero(t, newFailures.Load(), "no old stable handoff exists to audit")
+}
+
+func TestIAMV061SDKColdStartProcess(t *testing.T) {
+	if os.Getenv("RM_IAM_CUTOVER_CHILD") != "1" {
+		t.Skip("only run by the cutover parent process")
+	}
+	assertRequired := func(name string) string {
+		value := os.Getenv(name)
+		require.NotEmpty(t, value)
+		return value
+	}
+	db, err := gorm.Open(gormmysql.Open(assertRequired("RM_IAM_CUTOVER_DSN")), &gorm.Config{})
+	require.NoError(t, err)
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	defer sqlDB.Close()
+	runtime, err := authzruntime.NewRuntime(context.Background(), authzruntime.NewMySQLSource(db), authorization.NewEvaluator(),
+		authzruntime.WithConfig(authzruntime.Config{CheckInterval: 20 * time.Millisecond, SyncTimeout: time.Second, MaxUnconfirmed: 10 * time.Second}))
+	require.NoError(t, err)
+	require.True(t, runtime.PolicyVersionLoaded(2))
+	sub, err := subject.NewUserRef(meta.FromUint64(2))
+	require.NoError(t, err)
+	request, err := authorization.NewRequest(sub, assertRequired("RM_IAM_CUTOVER_RESOURCE"), "retry")
+	require.NoError(t, err)
+	driverConfig := nsq.NewConfig()
+	driverConfig.DialTimeout = time.Second
+	subscriber, err := sdknsq.NewSubscriber(sdknsq.SubscriberConfig{
+		NSQDAddresses: []string{assertRequired("RM_IAM_NSQ_TCP")}, Driver: driverConfig, MaxInFlight: 1, MaxAttempts: 1,
+		FailedHandoffGroup: ChannelPrefix,
+	})
+	require.NoError(t, err)
+	provisioner, err := sdknsq.NewProvisioner(&http.Client{Timeout: 5 * time.Second}, []string{assertRequired("RM_IAM_NSQ_HTTP")})
+	require.NoError(t, err)
+	module := &AuthzModule{policyReloader: runtime, runtimeHealth: runtime}
+	syncer := module.SDKPolicySyncSubscriber(subscriber, provisioner, func(context.Context, legacy.FailedHandoff) error {
+		return errors.New("unexpected failed handoff from old v0.6.1 subscriber")
+	})
+	require.NotNil(t, syncer)
+	syncer.channel = InstanceChannel("sdk-cold-start", os.Getpid())
+	require.NoError(t, syncer.Start(context.Background()))
+	defer syncer.Stop()
+	require.True(t, syncer.registered)
+	decision, err := runtime.Check(context.Background(), request)
+	require.NoError(t, err)
+	require.False(t, decision.Allowed)
+	require.EqualValues(t, 2, decision.PolicyVersion)
 }
 
 func nsqChannelClients(base, topic, channel string) int {
