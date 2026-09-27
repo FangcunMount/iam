@@ -17,6 +17,7 @@ import (
 	authzuow "github.com/FangcunMount/iam/v5/internal/apiserver/infra/mysql/uow/authz"
 	"github.com/FangcunMount/iam/v5/internal/apiserver/options"
 	"github.com/FangcunMount/iam/v5/internal/apiserver/testfixtures/authzdb"
+	sdkmysql "github.com/FangcunMount/reliable-messaging/storage/mysql"
 	"github.com/nsqio/go-nsq"
 	"github.com/stretchr/testify/require"
 )
@@ -96,10 +97,18 @@ func TestReliableMessagingPlatformWiring(t *testing.T) {
 	blockedContainer := container.NewContainerWithOptions(db, nil, nil, nil, container.RuntimeOptions{Events: eventOptions})
 	require.ErrorIs(t, blockedContainer.Initialize(), eventoutbox.ErrUnsafeMessagingHandoff, "container must preserve the cause for the process degraded-startup gate")
 	require.Nil(t, blockedContainer.AuthzModule, "unsafe handoff must stop bootstrap before initializing other modules")
+	pool, err := db.DB()
+	require.NoError(t, err)
+	store, err := sdkmysql.New(pool)
+	require.NoError(t, err)
+	claims, err := store.ClaimDue(context.Background(), 1, time.Minute)
+	require.NoError(t, err)
+	require.Len(t, claims, 1)
+	require.NoError(t, store.Retry(context.Background(), claims[0], time.Millisecond, "fallback_probe"))
 	snapshot, err := platformEventing.Outbox.OutboxStatusSnapshot(context.Background(), time.Now())
 	require.NoError(t, err)
 	require.Len(t, snapshot.Buckets, 1)
-	require.Equal(t, "standard_pending", snapshot.Buckets[0].Status)
+	require.Equal(t, "standard_retry_wait", snapshot.Buckets[0].Status)
 	require.EqualValues(t, 1, snapshot.Buckets[0].Count)
 	require.NoError(t, platformEventing.ReliableRuntime.Start(context.Background()))
 	select {
@@ -117,6 +126,10 @@ func TestReliableMessagingPlatformWiring(t *testing.T) {
 		var state string
 		return db.Raw("SELECT state FROM rm_outbox WHERE message_id=?", evt.EventID()).Row().Scan(&state) == nil && state == "published"
 	}, 5*time.Second, 10*time.Millisecond)
+	var failures, attempts int
+	require.NoError(t, db.Raw("SELECT failure_count,attempt_count FROM rm_outbox WHERE message_id=?", evt.EventID()).Row().Scan(&failures, &attempts))
+	require.Equal(t, 1, failures)
+	require.Equal(t, 2, attempts, "the same message is reclaimed after its first recorded failure")
 	var oldCount int64
 	require.NoError(t, db.Table("domain_event_outbox").Count(&oldCount).Error)
 	require.Zero(t, oldCount)
