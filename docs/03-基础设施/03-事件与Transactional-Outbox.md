@@ -6,7 +6,7 @@ M3 候选新增 SDK 标准表路径：`events.reliable_messaging.enabled=true` �
 
 启用 SDK 前必须排空旧链路；新表仍有未完成记录时不能关闭 SDK 恢复能力。只读预检、双表积压可见性和启动限制不会自动证明旧进程退出或全部策略实例收敛。维护命令已显式选择写入模式，初始化保留受控旧链路排空阶段；完整服务切换/回退和业务验收仍未完成，详见 [隔离验证](../../scripts/testing/reliable-messaging-proof.md) 与 [切换候选流程](../../scripts/testing/reliable-messaging-handoff.md)。历史表及已发布记录保留，首次切换不清空它们。
 
-M6 状态接口候选把 `pkg/outbox` 的通用状态快照形状改为 `reliable-messaging/outbox` 类型别名。旧／标准表读取、状态前缀、UTC+8 时间解码和 readiness 阈值仍归 IAM，类型归属变化不表示业务切换或回退已验收。
+M6 状态接口候选保留 `pkg/outbox` 公开 Go 类型的 IAM 定义包身份，在内部显式转换为 `reliable-messaging/outbox` 通用状态快照。旧／标准表读取、状态前缀、UTC+8 时间解码和 readiness 阈值仍归 IAM；这不表示业务切换或回退已验收。
 
 ## 1. 本文回答
 
