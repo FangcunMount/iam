@@ -1,0 +1,42 @@
+name: IAM schema 39 fallback wiring
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - go.mod
+      - go.sum
+      - internal/apiserver/infra/authz/integration/reliable_messaging_wiring_test.go
+      - internal/apiserver/container/platform/**
+      - internal/apiserver/infra/mysql/eventoutbox/**
+      - internal/pkg/migration/migrations/000039_reliable_messaging_failure_state.*.sql
+      - scripts/testing/reliable-messaging-fallback-proof.sh
+      - .github/workflows/reliable-messaging-fallback.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  schema39-fallback-wiring:
+    name: Recover IAM policy event through MySQL and NSQ
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout IAM fallback candidate
+        uses: actions/checkout@v6
+      - name: Checkout released SDK fixture
+        uses: actions/checkout@v6
+        with:
+          repository: FangcunMount/reliable-messaging
+          ref: v0.2.1
+          path: reliable-messaging
+          persist-credentials: false
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+          cache-dependency-path: go.sum
+      - name: Run isolated schema 39 IAM wiring proof
+        run: bash scripts/testing/reliable-messaging-fallback-proof.sh "$GITHUB_WORKSPACE/reliable-messaging"
