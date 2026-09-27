@@ -29,6 +29,10 @@ on:
         description: Exact 40-character IAM source commit approved for the fallback image
         type: string
         required: false
+      workflow_sha:
+        description: Exact reviewed workflow commit; branch drift stops publication
+        type: string
+        required: false
       archive_sha256:
         description: Independently verified SHA-256 of the Docker archive
         type: string
@@ -113,6 +117,7 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       SOURCE_RUN_ID: ${{ inputs.source_run_id }}
       CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+      WORKFLOW_SHA: ${{ inputs.workflow_sha }}
       ARCHIVE_SHA256: ${{ inputs.archive_sha256 }}
       EXPECTED_IMAGE_ID: ${{ inputs.image_id }}
     steps:
@@ -122,8 +127,10 @@ jobs:
           set -Eeuo pipefail
           [[ "$SOURCE_RUN_ID" =~ ^[0-9]+$ ]]
           [[ "$CANDIDATE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$WORKFLOW_SHA" =~ ^[0-9a-f]{40}$ ]]
           [[ "$ARCHIVE_SHA256" =~ ^[0-9a-f]{64}$ ]]
           [[ "$EXPECTED_IMAGE_ID" =~ ^sha256:[0-9a-f]{64}$ ]]
+          test "$GITHUB_SHA" = "$WORKFLOW_SHA"
           source_sha="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${SOURCE_RUN_ID}" --jq '.head_sha')"
           source_result="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${SOURCE_RUN_ID}" --jq '.conclusion')"
           test "$source_sha" = "$CANDIDATE_SHA"
@@ -150,6 +157,12 @@ jobs:
           set -Eeuo pipefail
           image="iam-fallback-isolated:${CANDIDATE_SHA}"
           target="ghcr.io/fangcunmount/iam:fallback-schema39-${CANDIDATE_SHA}"
+          tag="fallback-schema39-${CANDIDATE_SHA}"
+          existing_tags="$(gh api --paginate "orgs/${GITHUB_REPOSITORY_OWNER}/packages/container/iam/versions?per_page=100" --jq '.[] | .metadata.container.tags[]?')"
+          if grep -Fxq "$tag" <<< "$existing_tags"; then
+            echo "Candidate tag already exists; refusing to replace it" >&2
+            exit 1
+          fi
           echo "$GH_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin >/dev/null
           docker tag "$image" "$target"
           docker push "$target"
