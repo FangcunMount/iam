@@ -13,6 +13,7 @@ on:
       - internal/apiserver/infra/mysql/eventoutbox/**
       - internal/pkg/migration/migrations/000039_reliable_messaging_failure_state.*.sql
       - scripts/testing/reliable-messaging-fallback-proof.sh
+      - scripts/testing/reliable-messaging-fallback-image-startup.sh
       - .github/workflows/reliable-messaging-fallback.yml
   workflow_dispatch:
     inputs:
@@ -28,6 +29,11 @@ on:
         default: false
       verify_export:
         description: Verify the Mac mini can export the exact candidate as a checked tarball without deploying it
+        type: boolean
+        required: true
+        default: false
+      verify_startup:
+        description: Start the published candidate against disposable schema39 dependencies without deploying it
         type: boolean
         required: true
         default: false
@@ -62,7 +68,7 @@ permissions:
 jobs:
   schema39-fallback-wiring:
     name: Recover IAM policy event through MySQL and NSQ
-    if: github.event_name == 'pull_request' || (!inputs.publish_candidate && !inputs.verify_candidate && !inputs.verify_export)
+    if: github.event_name == 'pull_request' || (!inputs.publish_candidate && !inputs.verify_candidate && !inputs.verify_export && !inputs.verify_startup)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -120,7 +126,7 @@ jobs:
 
   publish-reviewed-fallback:
     name: Publish reviewed fallback image to unique GHCR tag
-    if: github.event_name == 'workflow_dispatch' && inputs.publish_candidate && !inputs.verify_candidate && !inputs.verify_export
+    if: github.event_name == 'workflow_dispatch' && inputs.publish_candidate && !inputs.verify_candidate && !inputs.verify_export && !inputs.verify_startup
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -186,7 +192,7 @@ jobs:
 
   verify-published-fallback:
     name: Pull and inspect the published fallback candidate without deployment
-    if: github.event_name == 'workflow_dispatch' && inputs.verify_candidate && !inputs.publish_candidate && !inputs.verify_export
+    if: github.event_name == 'workflow_dispatch' && inputs.verify_candidate && !inputs.publish_candidate && !inputs.verify_export && !inputs.verify_startup
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -224,7 +230,7 @@ jobs:
 
   verify-candidate-export:
     name: Export the exact candidate on Mac mini without deployment
-    if: github.event_name == 'workflow_dispatch' && inputs.verify_export && !inputs.publish_candidate && !inputs.verify_candidate
+    if: github.event_name == 'workflow_dispatch' && inputs.verify_export && !inputs.publish_candidate && !inputs.verify_candidate && !inputs.verify_startup
     runs-on:
       group: qlume
       labels: [self-hosted, macOS, ARM64]
@@ -320,3 +326,56 @@ jobs:
           if [ -n "${DOCKER_CONFIG:-}" ]; then
             rm -rf -- "$DOCKER_CONFIG"
           fi
+
+  verify-fallback-image-startup:
+    name: Start the published fallback image against isolated schema39 dependencies
+    if: github.event_name == 'workflow_dispatch' && inputs.verify_startup && !inputs.publish_candidate && !inputs.verify_candidate && !inputs.verify_export
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: read
+    env:
+      CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+      WORKFLOW_SHA: ${{ inputs.workflow_sha }}
+      EXPECTED_IMAGE_ID: ${{ inputs.image_id }}
+      EXPECTED_DIGEST: ${{ inputs.candidate_digest }}
+    steps:
+      - name: Checkout exact IAM startup proof
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+      - name: Checkout released SDK dependency fixture
+        uses: actions/checkout@v6
+        with:
+          repository: FangcunMount/reliable-messaging
+          ref: v0.2.1
+          path: reliable-messaging
+          persist-credentials: false
+      - name: Verify candidate identity and pull exact image
+        shell: bash
+        env:
+          GHCR_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          [[ "$CANDIDATE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$WORKFLOW_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$EXPECTED_IMAGE_ID" =~ ^sha256:[0-9a-f]{64}$ ]]
+          [[ "$EXPECTED_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]
+          test "$GITHUB_SHA" = "$WORKFLOW_SHA"
+          test "$(git rev-parse HEAD)" = "$WORKFLOW_SHA"
+          image="ghcr.io/fangcunmount/iam:fallback-schema39-${CANDIDATE_SHA}"
+          echo "$GHCR_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin >/dev/null
+          test "$(docker buildx imagetools inspect "$image" --format '{{.Manifest.Digest}}')" = "$EXPECTED_DIGEST"
+          docker pull --platform linux/amd64 "$image"
+          test "$(docker image inspect "$image" --format '{{.Id}}')" = "$EXPECTED_IMAGE_ID"
+          test "$(docker image inspect "$image" --format '{{.Os}}/{{.Architecture}}')" = linux/amd64
+          test "$(docker image inspect "$image" --format '{{.Config.User}}')" = www
+      - name: Start exact image with disposable dependencies
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          image="ghcr.io/fangcunmount/iam:fallback-schema39-${CANDIDATE_SHA}"
+          bash scripts/testing/reliable-messaging-fallback-image-startup.sh "$GITHUB_WORKSPACE/reliable-messaging" "$image"
+          printf 'Image `%s@%s` started and served HTTP/gRPC readiness against isolated schema39 dependencies; no production deployment.\n' \
+            "$image" "$EXPECTED_DIGEST" >> "$GITHUB_STEP_SUMMARY"
