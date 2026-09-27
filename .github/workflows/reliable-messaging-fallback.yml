@@ -271,7 +271,6 @@ jobs:
           actual_repo_digests="$(docker image inspect "$image" --format '{{json .RepoDigests}}')"
           printf 'Pulled image ID: %s; platform: %s; user: %s; repo digests: %s\n' \
             "$actual_image_id" "$actual_platform" "$actual_user" "$actual_repo_digests"
-          test "$actual_image_id" = "$EXPECTED_IMAGE_ID"
           test "$actual_platform" = linux/amd64
           test "$actual_user" = www
           printf '%s' "$actual_repo_digests" | python3 -c \
@@ -279,6 +278,21 @@ jobs:
           archive="${RUNNER_TEMP}/iam-fallback-${CANDIDATE_SHA}.tar"
           compressed="${archive}.gz"
           docker save --output "$archive" "$image"
+          python3 - "$archive" "$EXPECTED_IMAGE_ID" <<'PY'
+          import json
+          from pathlib import Path
+          import sys
+          import tarfile
+
+          with tarfile.open(sys.argv[1]) as image_archive:
+              manifest = json.load(image_archive.extractfile("manifest.json"))
+          if len(manifest) != 1:
+              raise SystemExit("Expected exactly one image in Docker archive")
+          config_digest = "sha256:" + Path(manifest[0]["Config"]).stem
+          if config_digest != sys.argv[2]:
+              raise SystemExit(f"Docker archive config digest mismatch: {config_digest}")
+          print(f"Docker archive config digest: {config_digest}")
+          PY
           gzip -1 -c "$archive" > "$compressed"
           gzip -dc "$compressed" | tar -tf - >/dev/null
           (cd "$RUNNER_TEMP" && shasum -a 256 "$(basename "$compressed")" > "$(basename "$compressed").sha256")
