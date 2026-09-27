@@ -178,7 +178,7 @@ jobs:
 
           IAM_RM_FALLBACK_REQUIRED=1 MYSQL_DATABASE=iam_rm_fallback_fixture MYSQL_DBNAME=iam_rm_fallback_fixture \
             go test ./internal/pkg/migration \
-              -run "^TestSchema39FallbackMigrationAndRetryMySQL$" -v -count=1 \
+              -run "^TestSchema40FallbackMigrationAndRetryMySQL$" -v -count=1 \
               2>&1 | tee test-artifacts/reliable-messaging-fallback-tests.txt
           test "${PIPESTATUS[0]}" = "0"
 

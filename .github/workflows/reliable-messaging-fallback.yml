@@ -1,8 +1,7 @@
-name: IAM schema 39 fallback wiring
+name: IAM schema 40 fallback wiring
 
 on:
   pull_request:
-    branches: [main]
     paths:
       - go.mod
       - go.sum
@@ -12,6 +11,7 @@ on:
       - internal/apiserver/container/platform/**
       - internal/apiserver/infra/mysql/eventoutbox/**
       - internal/pkg/migration/migrations/000039_reliable_messaging_failure_state.*.sql
+      - internal/pkg/migration/migrations/000040_iam_nsq_failure_audit.*.sql
       - scripts/testing/reliable-messaging-fallback-proof.sh
       - scripts/testing/reliable-messaging-fallback-image-startup.sh
       - .github/workflows/reliable-messaging-fallback.yml
@@ -33,7 +33,7 @@ on:
         required: true
         default: false
       verify_startup:
-        description: Start the published candidate against disposable schema39 dependencies without deploying it
+        description: Start the published candidate against disposable schema40 dependencies without deploying it
         type: boolean
         required: true
         default: false
@@ -66,7 +66,7 @@ permissions:
   contents: read
 
 jobs:
-  schema39-fallback-wiring:
+  schema40-fallback-wiring:
     name: Recover IAM policy event through MySQL and NSQ
     if: github.event_name == 'pull_request' || (!inputs.publish_candidate && !inputs.verify_candidate && !inputs.verify_export && !inputs.verify_startup)
     runs-on: ubuntu-latest
@@ -94,12 +94,14 @@ jobs:
           go-version-file: go.mod
           cache: true
           cache-dependency-path: go.sum
-      - name: Run isolated schema 39 IAM wiring proof
+      - name: Run isolated schema 40 IAM wiring proof
         run: bash scripts/testing/reliable-messaging-fallback-proof.sh "$GITHUB_WORKSPACE/reliable-messaging"
       - name: Build exact fallback image without publishing
         run: |
           candidate_sha="$(git rev-parse HEAD)"
           docker build --file build/docker/Dockerfile --tag "iam-fallback-isolated:${candidate_sha}" --build-arg "GIT_COMMIT=${candidate_sha}" .
+      - name: Start schema 40 fallback image in isolation
+        run: bash scripts/testing/reliable-messaging-fallback-image-startup.sh "$GITHUB_WORKSPACE/reliable-messaging" "iam-fallback-isolated:$(git rev-parse HEAD)"
       - name: Preserve exact fallback image for review
         id: image
         shell: bash
@@ -116,7 +118,7 @@ jobs:
       - name: Upload fallback image review artifact
         uses: actions/upload-artifact@v4
         with:
-          name: iam-schema39-fallback-${{ steps.image.outputs.candidate_sha }}
+          name: iam-schema40-fallback-${{ steps.image.outputs.candidate_sha }}
           path: |
             ${{ steps.image.outputs.archive }}
             ${{ steps.image.outputs.archive }}.sha256
@@ -161,7 +163,7 @@ jobs:
           set -Eeuo pipefail
           archive_dir="${RUNNER_TEMP}/reviewed-fallback"
           gh run download "$SOURCE_RUN_ID" --repo "$GITHUB_REPOSITORY" \
-            --name "iam-schema39-fallback-${CANDIDATE_SHA}" --dir "$archive_dir"
+            --name "iam-schema40-fallback-${CANDIDATE_SHA}" --dir "$archive_dir"
           archive="${archive_dir}/iam-fallback-${CANDIDATE_SHA}.tar"
           test -s "$archive"
           printf '%s  %s\n' "$ARCHIVE_SHA256" "$archive" | sha256sum --check --status
@@ -176,8 +178,8 @@ jobs:
         run: |
           set -Eeuo pipefail
           image="iam-fallback-isolated:${CANDIDATE_SHA}"
-          target="ghcr.io/fangcunmount/iam:fallback-schema39-${CANDIDATE_SHA}"
-          tag="fallback-schema39-${CANDIDATE_SHA}"
+          target="ghcr.io/fangcunmount/iam:fallback-schema40-${CANDIDATE_SHA}"
+          tag="fallback-schema40-${CANDIDATE_SHA}"
           existing_tags="$(gh api --paginate "orgs/${GITHUB_REPOSITORY_OWNER}/packages/container/iam/versions?per_page=100" --jq '.[] | .metadata.container.tags[]?')"
           if grep -Fxq "$tag" <<< "$existing_tags"; then
             echo "Candidate tag already exists; refusing to replace it" >&2
@@ -215,7 +217,7 @@ jobs:
           [[ "$EXPECTED_IMAGE_ID" =~ ^sha256:[0-9a-f]{64}$ ]]
           [[ "$EXPECTED_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]
           test "$GITHUB_SHA" = "$WORKFLOW_SHA"
-          image="ghcr.io/fangcunmount/iam:fallback-schema39-${CANDIDATE_SHA}"
+          image="ghcr.io/fangcunmount/iam:fallback-schema40-${CANDIDATE_SHA}"
           echo "$GHCR_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin >/dev/null
           actual_digest="$(docker buildx imagetools inspect "$image" --format '{{.Manifest.Digest}}')"
           test "$actual_digest" = "$EXPECTED_DIGEST"
@@ -269,7 +271,7 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          image="ghcr.io/fangcunmount/iam:fallback-schema39-${CANDIDATE_SHA}"
+          image="ghcr.io/fangcunmount/iam:fallback-schema40-${CANDIDATE_SHA}"
           docker pull --platform linux/amd64 "$image"
           actual_image_id="$(docker image inspect "$image" --format '{{.Id}}')"
           actual_platform="$(docker image inspect "$image" --format '{{.Os}}/{{.Architecture}}')"
@@ -309,7 +311,7 @@ jobs:
       - name: Preserve reviewed candidate tarball
         uses: actions/upload-artifact@v4
         with:
-          name: iam-schema39-fallback-export-${{ inputs.candidate_sha }}
+          name: iam-schema40-fallback-export-${{ inputs.candidate_sha }}
           path: |
             ${{ steps.archive.outputs.package }}
             ${{ steps.archive.outputs.package }}.sha256
@@ -328,7 +330,7 @@ jobs:
           fi
 
   verify-fallback-image-startup:
-    name: Start the published fallback image against isolated schema39 dependencies
+    name: Start the published fallback image against isolated schema40 dependencies
     if: github.event_name == 'workflow_dispatch' && inputs.verify_startup && !inputs.publish_candidate && !inputs.verify_candidate && !inputs.verify_export
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -364,7 +366,7 @@ jobs:
           [[ "$EXPECTED_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]
           test "$GITHUB_SHA" = "$WORKFLOW_SHA"
           test "$(git rev-parse HEAD)" = "$WORKFLOW_SHA"
-          image="ghcr.io/fangcunmount/iam:fallback-schema39-${CANDIDATE_SHA}"
+          image="ghcr.io/fangcunmount/iam:fallback-schema40-${CANDIDATE_SHA}"
           echo "$GHCR_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin >/dev/null
           test "$(docker buildx imagetools inspect "$image" --format '{{.Manifest.Digest}}')" = "$EXPECTED_DIGEST"
           docker pull --platform linux/amd64 "$image"
@@ -375,7 +377,7 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          image="ghcr.io/fangcunmount/iam:fallback-schema39-${CANDIDATE_SHA}"
+          image="ghcr.io/fangcunmount/iam:fallback-schema40-${CANDIDATE_SHA}"
           bash scripts/testing/reliable-messaging-fallback-image-startup.sh "$GITHUB_WORKSPACE/reliable-messaging" "$image"
-          printf 'Image `%s@%s` started and served HTTP/gRPC readiness against isolated schema39 dependencies; no production deployment.\n' \
+          printf 'Image `%s@%s` started and served HTTP/gRPC readiness against isolated schema40 dependencies; no production deployment.\n' \
             "$image" "$EXPECTED_DIGEST" >> "$GITHUB_STEP_SUMMARY"

@@ -115,9 +115,17 @@ docker rm "$app" >/dev/null
   "SELECT IF(COUNT(*) = 0, 'drained', 'not-drained') FROM iam.domain_event_outbox WHERE status <> 'published'" | grep -qx drained
 "${compose[@]}" exec -T mysql mysql -uroot -N -e \
   "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='iam' AND table_name='rm_outbox' AND column_name IN ('failure_count','updated_at')" | grep -qx 2
+"${compose[@]}" exec -T mysql mysql -uroot -N -e \
+  "SELECT CONCAT(version, ':', dirty + 0) FROM iam.schema_migrations" | grep -qx '40:0'
+"${compose[@]}" exec -T mysql mysql -uroot -N -e \
+  "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='iam' AND table_name='iam_nsq_failure_audit'" | grep -qx 1
+"${compose[@]}" exec -T mysql mysql -uroot -e \
+  "INSERT INTO iam.iam_nsq_failure_audit (identity_hash,topic,channel_name,application_id,first_transport_id,last_transport_id,metadata_json,metadata_hash,payload,payload_hash,first_cause,last_cause,attempts,source_timestamp_ns,first_seen_unix_ms,last_seen_unix_ms) VALUES (UNHEX(REPEAT('11',32)),'iam.authz.version.v2','iam-policy-sync.previous.1#ephemeral','retained-image-failure','nsq-1','nsq-1','{}',UNHEX(REPEAT('22',32)),'{}',UNHEX(REPEAT('33',32)),'reload failed','reload failed',5,0,1,1)"
 
 start_app true
 wait_http 9080 /readyz
 wait_http 9091 /readyz
 test "$(docker inspect "$app" --format '{{.State.Running}}')" = true
-printf 'Published fallback image started with schema39, disposable MySQL/Redis/NSQ and gRPC mTLS; HTTP and gRPC health listeners are ready.\n'
+"${compose[@]}" exec -T mysql mysql -uroot -N -e \
+  "SELECT COUNT(*) FROM iam.iam_nsq_failure_audit WHERE application_id='retained-image-failure'" | grep -qx 1
+printf 'Fallback image started with retained schema40 audit, disposable MySQL/Redis/NSQ and gRPC mTLS; HTTP and gRPC health listeners are ready.\n'

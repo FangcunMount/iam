@@ -12,8 +12,8 @@ import (
 )
 
 // This branch is a fallback built from the deployed IAM application revision.
-// It must boot with the retained schema 39 and continue to own SDK failure state.
-func TestSchema39FallbackMigrationAndRetryMySQL(t *testing.T) {
+// It must boot with retained schema 40 and continue to own SDK Outbox state.
+func TestSchema40FallbackMigrationAndRetryMySQL(t *testing.T) {
 	if os.Getenv("IAM_RM_FALLBACK_REQUIRED") == "1" {
 		require.NotEmpty(t, os.Getenv("MYSQL_HOST"))
 	}
@@ -25,6 +25,7 @@ func TestSchema39FallbackMigrationAndRetryMySQL(t *testing.T) {
 	for _, name := range []string{
 		"000038_standard_message_outbox.up.sql",
 		"000039_reliable_messaging_failure_state.up.sql",
+		"000040_iam_nsq_failure_audit.up.sql",
 	} {
 		ddl, err := migrations.ReadFile("migrations/" + name)
 		require.NoError(t, err)
@@ -33,7 +34,15 @@ func TestSchema39FallbackMigrationAndRetryMySQL(t *testing.T) {
 	}
 	_, err := db.Exec("CREATE TABLE schema_migrations(version BIGINT PRIMARY KEY,dirty BOOLEAN NOT NULL)")
 	require.NoError(t, err)
-	_, err = db.Exec("INSERT INTO schema_migrations VALUES(39,FALSE)")
+	_, err = db.Exec("INSERT INTO schema_migrations VALUES(40,FALSE)")
+	require.NoError(t, err)
+	_, err = db.Exec(`INSERT INTO iam_nsq_failure_audit (
+	 identity_hash,topic,channel_name,application_id,first_transport_id,last_transport_id,
+	 metadata_json,metadata_hash,payload,payload_hash,first_cause,last_cause,attempts,
+	 source_timestamp_ns,first_seen_unix_ms,last_seen_unix_ms
+	) VALUES (UNHEX(REPEAT('11',32)),'iam.authz.version.v2','iam-policy-sync.previous.1#ephemeral',
+	 'retained-failure','nsq-1','nsq-1','{}',UNHEX(REPEAT('22',32)),'{}',
+	 UNHEX(REPEAT('33',32)),'reload failed','reload failed',5,0,1,1)`)
 	require.NoError(t, err)
 
 	// golang-migrate closes the pool supplied to its driver. Keep the Store's
@@ -41,8 +50,11 @@ func TestSchema39FallbackMigrationAndRetryMySQL(t *testing.T) {
 	migrationDB := openMigrationMySQL(t)
 	version, changed, err := NewMigrator(migrationDB, &Config{Enabled: true, Database: migrationEnvOr("MYSQL_DATABASE", "iam_test")}).Run()
 	require.NoError(t, err, "the fallback binary must recognize the retained journal version")
-	require.EqualValues(t, 39, version)
+	require.EqualValues(t, 40, version)
 	require.False(t, changed)
+	var retained int
+	require.NoError(t, db.QueryRow("SELECT COUNT(*) FROM iam_nsq_failure_audit WHERE application_id='retained-failure'").Scan(&retained))
+	require.Equal(t, 1, retained, "fallback must not clear prior failure audit")
 
 	msg, err := message.New(message.Input{
 		Producer: "iam", ID: "fallback-retry", Destination: "iam.authz.version.v2",
