@@ -3,6 +3,7 @@
 package process
 
 import (
+	"context"
 	"database/sql"
 	"net/http"
 	"net/http/httptest"
@@ -12,9 +13,14 @@ import (
 
 	"github.com/FangcunMount/component-base/pkg/processruntime"
 	"github.com/FangcunMount/iam/v5/internal/apiserver/config"
+	mysqljwks "github.com/FangcunMount/iam/v5/internal/apiserver/infra/mysql/jwks"
+	"github.com/FangcunMount/iam/v5/internal/apiserver/infra/token/keyset"
 	apiserveroptions "github.com/FangcunMount/iam/v5/internal/apiserver/options"
+	pkgauth "github.com/FangcunMount/iam/v5/pkg/auth"
 	"github.com/alicebob/miniredis/v2"
 	"github.com/stretchr/testify/require"
+	gormmysql "gorm.io/driver/mysql"
+	"gorm.io/gorm"
 )
 
 // This covers the old application's full bootstrap composition on the new
@@ -43,7 +49,6 @@ func TestFallbackSchema39APICompositionReadiness(t *testing.T) {
 	require.NotEmpty(t, opts.Events.CatalogPath)
 	opts.RedisOptions.Cache.Host, opts.RedisOptions.Cache.Port = splitRedisAddr(t, redis.Addr())
 	opts.IDP.EncryptionKey = "0123456789abcdef0123456789abcdef"
-	opts.JWKS.AutoInit = true
 	opts.JWKS.KeysDir = t.TempDir()
 	opts.GRPCOptions.AuthzAssignmentConstraintsFile = os.Getenv("RM_IAM_ASSIGNMENT_CONSTRAINTS")
 	require.NotEmpty(t, opts.GRPCOptions.AuthzAssignmentConstraintsFile)
@@ -60,6 +65,23 @@ func TestFallbackSchema39APICompositionReadiness(t *testing.T) {
 	require.NoError(t, migrator.Initialize())
 	require.NoError(t, migrator.Close())
 	_, err = admin.Exec("UPDATE " + database + ".domain_event_outbox SET status='published' WHERE status <> 'published'")
+	require.NoError(t, err)
+	// Production rollback reuses an existing signing key. Seed one that was
+	// already valid before this startup, avoiding DATETIME(0) rounding of a
+	// freshly auto-created key's NotBefore into the next second.
+	keyDB, err := gorm.Open(gormmysql.Open("root@tcp(127.0.0.1:3306)/"+database+"?parseTime=true&loc=UTC"), &gorm.Config{})
+	require.NoError(t, err)
+	keySQL, err := keyDB.DB()
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = keySQL.Close() })
+	keys := keyset.NewKeyManagerWithPolicy(
+		mysqljwks.NewKeyRepository(keyDB),
+		keyset.NewRSAKeyGenerator(),
+		keyset.NewPEMPrivateKeyStorage(opts.JWKS.KeysDir),
+		keyset.DefaultRotationPolicy(),
+	)
+	notBefore := time.Now().Add(-2 * time.Second)
+	_, err = keys.CreateKey(context.Background(), pkgauth.TokenProfileAlgorithm, &notBefore, nil)
 	require.NoError(t, err)
 
 	opts.Events.ReliableMessaging.Enabled = true
