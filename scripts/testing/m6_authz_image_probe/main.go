@@ -28,7 +28,7 @@ import (
 	"gorm.io/gorm"
 )
 
-const probeResourceKey = "qs:assessment:collection:m6-image-probe"
+const baseResourceKey = "qs:assessment:collection:m6-image-probe"
 
 func main() {
 	if err := run(); err != nil {
@@ -43,7 +43,21 @@ func run() error {
 	if dsn == "" || target == "" {
 		return fmt.Errorf("disposable IAM MySQL and gRPC targets required")
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	probeID := os.Getenv("RM_IAM_M6_AUTHZ_ID")
+	if probeID == "" {
+		probeID = "base"
+	}
+	if probeID != "base" && probeID != "unknown" {
+		return fmt.Errorf("unsupported disposable authorization probe identity %q", probeID)
+	}
+	resourceKey := baseResourceKey
+	roleKey := "qs:m6-image-probe"
+	if probeID == "unknown" {
+		resourceKey += "-unknown"
+		roleKey += "-unknown"
+	}
+	armFile := os.Getenv("RM_IAM_M6_AUTHZ_ARM_FILE")
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
 	if err != nil {
@@ -70,11 +84,11 @@ func run() error {
 		return err
 	}
 	defer closeClient()
-	probeRole, err := role.NewRole("qs:m6-image-probe", "IAM image message proof")
+	probeRole, err := role.NewRole(roleKey, "IAM image message proof")
 	if err != nil {
 		return err
 	}
-	probeResource, err := resource.NewResource(probeResourceKey, []string{"read"}, resource.WithDisplayName("IAM image message proof"))
+	probeResource, err := resource.NewResource(resourceKey, []string{"read"}, resource.WithDisplayName("IAM image message proof"))
 	if err != nil {
 		return err
 	}
@@ -103,10 +117,15 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("commit allow facts and intent: %w", err)
 	}
-	if err := waitDecision(ctx, client, version, true); err != nil {
+	if err := waitDecision(ctx, client, resourceKey, version, true); err != nil {
 		return fmt.Errorf("allow decision: %w", err)
 	}
 	fmt.Printf("IAM image allowed real role grant at policy version %d\n", version)
+	if armFile != "" {
+		if err := os.WriteFile(armFile, []byte("revoke-publish"), 0o600); err != nil {
+			return fmt.Errorf("arm disposable NSQ confirmation-loss proxy: %w", err)
+		}
+	}
 	version, err = commitVersion(ctx, uow, "m6-image-revoke", func(txctx context.Context, repos appuow.TxRepositories) error {
 		_, err := repos.PermissionGrants.AtomicRevoke(txctx, grant.ID)
 		return err
@@ -114,10 +133,15 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("commit revoke and intent: %w", err)
 	}
-	if err := waitDecision(ctx, client, version, false); err != nil {
+	if err := waitDecision(ctx, client, resourceKey, version, false); err != nil {
 		return fmt.Errorf("deny decision: %w", err)
 	}
 	fmt.Printf("IAM image denied revoked grant at policy version %d\n", version)
+	if armFile != "" {
+		if err := waitRetryWait(ctx, db); err != nil {
+			return fmt.Errorf("revoke notification confirmation loss: %w", err)
+		}
+	}
 	version, err = commitVersion(ctx, uow, "m6-image-restore", func(txctx context.Context, repos appuow.TxRepositories) error {
 		restored, err := permissiongrant.New(probeRole.ID, probeResource.ID, probeResource.KeyString(), "read", "m6-image-restore")
 		if err != nil {
@@ -128,22 +152,59 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("commit restore and intent: %w", err)
 	}
-	if err := waitDecision(ctx, client, version, true); err != nil {
+	if err := waitDecision(ctx, client, resourceKey, version, true); err != nil {
 		return fmt.Errorf("restored decision: %w", err)
 	}
 	fmt.Printf("IAM image restored grant at policy version %d\n", version)
-	var total, published int64
-	if err := db.WithContext(ctx).Table("rm_outbox").Count(&total).Error; err != nil {
+	if err := waitPublished(ctx, db, initialCount+3); err != nil {
 		return err
 	}
-	if err := db.WithContext(ctx).Table("rm_outbox").Where("state='published'").Count(&published).Error; err != nil {
-		return err
+	if err := waitDecision(ctx, client, resourceKey, version, true); err != nil {
+		return fmt.Errorf("restored decision after delivery recovery: %w", err)
 	}
-	if total != initialCount+3 || published != total {
-		return fmt.Errorf("authorization intents not fully published: before=%d total=%d published=%d", initialCount, total, published)
-	}
-	fmt.Printf("PASS IAM image allow -> deny -> allow on committed policy versions; three same-transaction intents published (Outbox %d -> %d)\n", initialCount, total)
+	fmt.Printf("PASS IAM image allow -> deny -> allow on committed policy versions; three same-transaction intents published (Outbox %d -> %d)\n", initialCount, initialCount+3)
 	return nil
+}
+
+func waitRetryWait(ctx context.Context, db *gorm.DB) error {
+	for {
+		var count int64
+		if err := db.WithContext(ctx).Table("rm_outbox").Where("state='retry_wait' AND failure_count=1").Count(&count).Error; err != nil {
+			return err
+		}
+		if count == 1 {
+			fmt.Println("IAM revoke intent retained retry_wait after NSQ accepted but PUB OK was lost")
+			return nil
+		}
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("revoke intent never entered retry_wait: %w", ctx.Err())
+		case <-time.After(100 * time.Millisecond):
+		}
+	}
+}
+
+func waitPublished(ctx context.Context, db *gorm.DB, expected int64) error {
+	for {
+		var total, published int64
+		if err := db.WithContext(ctx).Table("rm_outbox").Count(&total).Error; err != nil {
+			return err
+		}
+		if err := db.WithContext(ctx).Table("rm_outbox").Where("state='published'").Count(&published).Error; err != nil {
+			return err
+		}
+		if total != expected {
+			return fmt.Errorf("authorization intent count: got %d, want %d", total, expected)
+		}
+		if published == total {
+			return nil
+		}
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("authorization intents not fully published: total=%d published=%d: %w", total, published, ctx.Err())
+		case <-time.After(100 * time.Millisecond):
+		}
+	}
 }
 
 func commitVersion(ctx context.Context, uow appuow.UnitOfWork, reason string, change func(context.Context, appuow.TxRepositories) error) (int64, error) {
@@ -184,14 +245,14 @@ func newClient(target string) (authzv4.AuthorizationServiceClient, func(), error
 	return authzv4.NewAuthorizationServiceClient(conn), func() { _ = conn.Close() }, nil
 }
 
-func waitDecision(parent context.Context, client authzv4.AuthorizationServiceClient, version int64, allowed bool) error {
+func waitDecision(parent context.Context, client authzv4.AuthorizationServiceClient, resourceKey string, version int64, allowed bool) error {
 	ctx, cancel := context.WithTimeout(parent, 8*time.Second)
 	defer cancel()
 	var last string
 	for {
 		checkCtx, stop := context.WithTimeout(ctx, 2*time.Second)
 		decision, err := client.Check(checkCtx, &authzv4.CheckRequest{
-			Subject: "user:2", Resource: probeResourceKey, Action: "read",
+			Subject: "user:2", Resource: resourceKey, Action: "read",
 		})
 		stop()
 		if err == nil && decision.PolicyVersion >= version && decision.Allowed == allowed {

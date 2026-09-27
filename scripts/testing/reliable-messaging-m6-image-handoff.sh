@@ -148,6 +148,22 @@ print("{}:{}:{}:{}:{}".format(c["channel_name"], sum(client["finish_count"] for 
 '
 }
 
+start_proxy() {
+  docker run -d --name "$proxy" --network "$network" \
+    --mount "type=bind,source=$proxy_binary,target=/tmp/iam-m6-nsq-proxy,readonly" \
+    --mount "type=bind,source=$scratch/proxy,target=/tmp/iam-m6-proxy-state,readonly" \
+    --entrypoint /tmp/iam-m6-nsq-proxy \
+    -e RM_IAM_M6_PROXY_UPSTREAM=nsqd:4150 \
+    -e RM_IAM_M6_PROXY_ARM_FILE=/tmp/iam-m6-proxy-state/arm \
+    -e RM_IAM_M6_PROXY_TOPIC=iam.authz.version.v2 \
+    "$new_image" >/dev/null
+  for _ in {1..30}; do
+    if docker logs "$proxy" 2>&1 | grep -Fq 'NSQ test proxy ready'; then break; fi
+    sleep 1
+  done
+  docker logs "$proxy" 2>&1 | grep -Fq 'NSQ test proxy ready'
+}
+
 # First boot creates the same schema and signing-key material an upgraded
 # installation retains. Keep its actual legacy Relay alive until the original
 # migration notifications are published; never synthesize their final state.
@@ -272,20 +288,10 @@ printf 'PASS fallback -> SDK policy subscriber -> fallback image sequence on sch
 docker stop --time 20 "$app" >/dev/null
 docker rm "$app" >/dev/null
 mkdir -p "$scratch/proxy"
-chmod 755 "$scratch/proxy"
-docker run -d --name "$proxy" --network "$network" \
-  --mount "type=bind,source=$proxy_binary,target=/tmp/iam-m6-nsq-proxy,readonly" \
-  --mount "type=bind,source=$scratch/proxy,target=/tmp/iam-m6-proxy-state,readonly" \
-  --entrypoint /tmp/iam-m6-nsq-proxy \
-  -e RM_IAM_M6_PROXY_UPSTREAM=nsqd:4150 \
-  -e RM_IAM_M6_PROXY_ARM_FILE=/tmp/iam-m6-proxy-state/arm \
-  -e RM_IAM_M6_PROXY_TOPIC=iam.authz.version.v2 \
-  "$new_image" >/dev/null
-for _ in {1..30}; do
-  if docker logs "$proxy" 2>&1 | grep -Fq 'NSQ test proxy ready'; then break; fi
-  sleep 1
-done
-docker logs "$proxy" 2>&1 | grep -Fq 'NSQ test proxy ready'
+# The disposable IAM image runs as www and arms a marker in this shared
+# fixture directory after the initial allow decision.
+chmod 1777 "$scratch/proxy"
+start_proxy
 start_app "$new_image" true true "$proxy:4150" 60s
 wait_http 9080 /readyz
 nsqd_container=$("${compose[@]}" ps -q nsqd)
@@ -391,3 +397,59 @@ test "$finish_after" -eq "$((finish_before + 3))"
 test "$channel_after" = "$channel_before"
 test "$depth:$inflight:$deferred" = '0:0:0'
 printf 'PASS IAM image SDK policy channel FIN advanced %s -> %s for three business notifications.\n' "$finish_before" "$finish_after"
+
+# Repeat with an actual grant revocation as the message whose PUB OK is lost.
+# A fresh proxy has a fresh one-shot drop; the probe arms it only after its
+# initial allow decision, so the revoked version is the affected transaction.
+docker stop --time 20 "$app" >/dev/null
+docker rm "$app" >/dev/null
+docker rm -f "$proxy" >/dev/null
+rm "$scratch/proxy/arm"
+start_proxy
+start_app "$new_image" true true "$proxy:4150" 10s 45s
+wait_http 9080 /readyz
+wait_http 9091 /readyz
+IFS=: read -r unknown_channel_before unknown_finish_before depth inflight deferred <<<"$(policy_channel_counters)"
+test "$depth:$inflight:$deferred" = '0:0:0'
+business_nsq_before=$("${compose[@]}" exec -T nsqd wget -qO- http://127.0.0.1:4151/stats?format=json | python3 -c '
+import json, sys
+topics = json.load(sys.stdin)["topics"]
+print(next((t["message_count"] for t in topics if t["topic_name"] == "iam.authz.version.v2"), 0))
+')
+business_retry_before=$("${compose[@]}" exec -T mysql mysql -uroot -N -e \
+  "SELECT COUNT(*) FROM iam.rm_outbox WHERE attempt_count=2 AND failure_count=1")
+docker run --rm --network "$network" \
+  --mount "type=bind,source=$authz_probe_binary,target=/tmp/iam-m6-authz-image-probe,readonly" \
+  --mount "type=bind,source=$scratch/proxy,target=/tmp/iam-m6-proxy-state" \
+  --mount "type=bind,source=$scratch/grpc/ca/ca-chain.crt,target=/tmp/iam-m6-ca.crt,readonly" \
+  --mount "type=bind,source=$scratch/grpc/client/qs-apiserver.crt,target=/tmp/iam-m6-client.crt,readonly" \
+  --mount "type=bind,source=$scratch/grpc/client/qs-apiserver.key,target=/tmp/iam-m6-client.key,readonly" \
+  --entrypoint /tmp/iam-m6-authz-image-probe \
+  -e 'RM_IAM_M6_AUTHZ_DSN=root@tcp(mysql:3306)/iam?parseTime=true&loc=Asia%2FShanghai&time_zone=%27%2B08%3A00%27' \
+  -e RM_IAM_M6_AUTHZ_GRPC="$app:9090" \
+  -e RM_IAM_M6_AUTHZ_CA=/tmp/iam-m6-ca.crt \
+  -e RM_IAM_M6_AUTHZ_CERT=/tmp/iam-m6-client.crt \
+  -e RM_IAM_M6_AUTHZ_KEY=/tmp/iam-m6-client.key \
+  -e RM_IAM_M6_AUTHZ_ID=unknown \
+  -e RM_IAM_M6_AUTHZ_ARM_FILE=/tmp/iam-m6-proxy-state/arm \
+  "$new_image"
+docker logs "$proxy" 2>&1 | grep -Fq 'DROPPED_PUB_OK_AFTER_BROKER_ACCEPT'
+business_nsq_after=$("${compose[@]}" exec -T nsqd wget -qO- http://127.0.0.1:4151/stats?format=json | python3 -c '
+import json, sys
+topics = json.load(sys.stdin)["topics"]
+print(next((t["message_count"] for t in topics if t["topic_name"] == "iam.authz.version.v2"), 0))
+')
+test "$business_nsq_after" -eq "$((business_nsq_before + 4))"
+business_retry_after=$("${compose[@]}" exec -T mysql mysql -uroot -N -e \
+  "SELECT COUNT(*) FROM iam.rm_outbox WHERE attempt_count=2 AND failure_count=1")
+test "$business_retry_after" -eq "$((business_retry_before + 1))"
+for _ in {1..30}; do
+  IFS=: read -r unknown_channel_after unknown_finish_after depth inflight deferred <<<"$(policy_channel_counters)"
+  if ((unknown_finish_after >= unknown_finish_before + 4 && depth == 0 && inflight == 0 && deferred == 0)); then break; fi
+  sleep 1
+done
+test "$unknown_channel_after" = "$unknown_channel_before"
+test "$unknown_finish_after" -eq "$((unknown_finish_before + 4))"
+test "$depth:$inflight:$deferred" = '0:0:0'
+printf 'PASS IAM revoked grant survived lost PUB OK: one retry_wait recovered, NSQ physical messages %s -> %s, same-channel FIN %s -> %s, final decision allowed after restore.\n' \
+  "$business_nsq_before" "$business_nsq_after" "$unknown_finish_before" "$unknown_finish_after"
