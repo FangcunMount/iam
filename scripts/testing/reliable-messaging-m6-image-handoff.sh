@@ -28,6 +28,7 @@ fallback_sha=${RM_FALLBACK_SHA:?Exact fallback image source SHA required}
 project="rm-iam-image-${GITHUB_RUN_ID:-local}-$$"
 network="${project}_default"
 app="${project}-apiserver"
+overlap_app="${project}-fallback-overlap"
 redis="${project}-redis"
 proxy="${project}-nsq-proxy"
 keys="${project}-keys"
@@ -40,7 +41,7 @@ cleanup() {
     docker logs --tail 60 "$app" 2>/dev/null || true
     "${compose[@]}" logs --tail 30 --no-color mysql nsqd nsqlookupd 2>/dev/null || true
   fi
-  docker rm -f "$app" "$redis" "$proxy" >/dev/null 2>&1 || true
+  docker rm -f "$app" "$overlap_app" "$redis" "$proxy" >/dev/null 2>&1 || true
   docker volume rm "$keys" >/dev/null 2>&1 || true
   "${compose[@]}" down --volumes --remove-orphans --timeout 10 >/dev/null || result=1
   rm -rf -- "$scratch"
@@ -91,8 +92,8 @@ chmod 644 "$scratch/grpc/ca/ca-chain.crt" "$scratch/grpc/server/iam-apiserver.cr
 docker volume create "$keys" >/dev/null
 
 start_app() {
-  local image=$1 mode=$2 sdk_consumer=$3 nsqd_address=${4:-nsqd:4150} retry_delay=${5:-10s} check_interval=${6:-10s}
-  docker run -d --name "$app" --network "$network" \
+  local image=$1 mode=$2 sdk_consumer=$3 nsqd_address=${4:-nsqd:4150} retry_delay=${5:-10s} check_interval=${6:-10s} container_name=${7:-$app}
+  docker run -d --name "$container_name" --network "$network" \
     --mount "type=volume,source=$keys,target=/app/data/keys" \
     --mount "type=bind,source=$scratch/grpc/ca/ca-chain.crt,target=/etc/iam/grpc/ca/ca-chain.crt,readonly" \
     --mount "type=bind,source=$scratch/grpc/server/iam-apiserver.crt,target=/etc/iam/grpc/server/iam-apiserver.crt,readonly" \
@@ -119,13 +120,13 @@ start_app() {
 }
 
 wait_http() {
-  local port=$1 path=$2
+  local port=$1 path=$2 container_name=${3:-$app}
   for _ in {1..120}; do
-    if [[ $(docker inspect "$app" --format '{{.State.Running}}' 2>/dev/null) != true ]]; then
+    if [[ $(docker inspect "$container_name" --format '{{.State.Running}}' 2>/dev/null) != true ]]; then
       echo "IAM image exited before $path on port $port" >&2
       return 1
     fi
-    if docker exec "$app" curl -fsS --max-time 2 "http://127.0.0.1:${port}${path}" >/dev/null 2>&1; then
+    if docker exec "$container_name" curl -fsS --max-time 2 "http://127.0.0.1:${port}${path}" >/dev/null 2>&1; then
       return 0
     fi
     sleep 1
@@ -219,8 +220,52 @@ channels = [c for t in topics if t["topic_name"] == "iam.authz.version.v2" for c
 assert any(c["channel_name"].startswith("iam-policy-sync.") and c["channel_name"].endswith("#ephemeral") and c["client_count"] > 0 for c in channels), channels
 print("SDK ephemeral policy channel is online")
 '
+
+# Start the reviewed fallback while the SDK image is online, then leave a
+# standard intent with only the fallback running. The old process must not
+# claim that intent; the compatible image must recover the same identity when
+# it joins the still-running fallback. This covers the rolling overlap that a
+# purely serial stop/start handoff cannot observe.
+start_app "$fallback_image" false false nsqd:4150 10s 10s "$overlap_app"
+wait_http 9080 /readyz "$overlap_app"
+wait_http 9091 /readyz "$overlap_app"
+test "$(docker inspect "$app" --format '{{.State.Running}}')" = true
 docker stop --time 20 "$app" >/dev/null
 docker rm "$app" >/dev/null
+docker run --rm --network "$network" \
+  --mount "type=bind,source=$fixture,target=/tmp/iam-m6-handoff-fixture,readonly" \
+  --entrypoint /tmp/iam-m6-handoff-fixture \
+  -e 'RM_IAM_M6_FIXTURE_DSN=root@tcp(mysql:3306)/iam?parseTime=true&loc=UTC' \
+  -e RM_IAM_M6_FIXTURE_ID=m6-overlap-intent \
+  "$new_image"
+sleep 3
+"${compose[@]}" exec -T mysql mysql -uroot -N -e \
+  "SELECT CONCAT(state, ':', attempt_count, ':', failure_count) FROM iam.rm_outbox WHERE message_id='m6-overlap-intent'" | grep -qx 'pending:0:0'
+wait_http 9080 /readyz "$overlap_app"
+overlap_nsq_before=$("${compose[@]}" exec -T nsqd wget -qO- http://127.0.0.1:4151/stats?format=json | python3 -c '
+import json, sys
+topics = json.load(sys.stdin)["topics"]
+print(next((t["message_count"] for t in topics if t["topic_name"] == "iam.authz.version.v2"), 0))
+')
+start_app "$new_image" true true
+wait_http 9080 /readyz
+for _ in {1..90}; do
+  overlap_state=$("${compose[@]}" exec -T mysql mysql -uroot -N -e \
+    "SELECT CONCAT(state, ':', attempt_count, ':', failure_count) FROM iam.rm_outbox WHERE message_id='m6-overlap-intent'")
+  if [[ "$overlap_state" = 'published:1:0' ]]; then break; fi
+  sleep 1
+done
+test "$overlap_state" = 'published:1:0'
+wait_http 9080 /readyz "$overlap_app"
+overlap_nsq_after=$("${compose[@]}" exec -T nsqd wget -qO- http://127.0.0.1:4151/stats?format=json | python3 -c '
+import json, sys
+topics = json.load(sys.stdin)["topics"]
+print(next((t["message_count"] for t in topics if t["topic_name"] == "iam.authz.version.v2"), 0))
+')
+test "$overlap_nsq_after" -eq "$((overlap_nsq_before + 1))"
+printf 'PASS image overlap: old image left standard intent pending; compatible image published original ID while old stayed healthy.\n'
+docker stop --time 20 "$app" "$overlap_app" >/dev/null
+docker rm "$app" "$overlap_app" >/dev/null
 
 # A disposable host fact and valid SDK intent commit in the same MySQL
 # transaction while no Relay owns the row. The fallback must fail closed;
