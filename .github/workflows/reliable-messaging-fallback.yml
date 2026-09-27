@@ -21,6 +21,11 @@ on:
         type: boolean
         required: true
         default: false
+      verify_candidate:
+        description: Pull and inspect the published candidate in an isolated runner without deploying it
+        type: boolean
+        required: true
+        default: false
       source_run_id:
         description: Successful isolated proof run holding the reviewed image artifact
         type: string
@@ -41,6 +46,10 @@ on:
         description: Independently verified sha256 image ID from the archive manifest
         type: string
         required: false
+      candidate_digest:
+        description: Expected sha256 registry manifest digest for isolated pull verification
+        type: string
+        required: false
 
 permissions:
   contents: read
@@ -48,7 +57,7 @@ permissions:
 jobs:
   schema39-fallback-wiring:
     name: Recover IAM policy event through MySQL and NSQ
-    if: github.event_name == 'pull_request' || !inputs.publish_candidate
+    if: github.event_name == 'pull_request' || (!inputs.publish_candidate && !inputs.verify_candidate)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -106,7 +115,7 @@ jobs:
 
   publish-reviewed-fallback:
     name: Publish reviewed fallback image to unique GHCR tag
-    if: github.event_name == 'workflow_dispatch' && inputs.publish_candidate
+    if: github.event_name == 'workflow_dispatch' && inputs.publish_candidate && !inputs.verify_candidate
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -169,3 +178,41 @@ jobs:
           digest="$(docker buildx imagetools inspect "$target" --format '{{.Manifest.Digest}}')"
           [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
           printf 'Reviewed fallback image: `%s@%s`\n' "$target" "$digest" >> "$GITHUB_STEP_SUMMARY"
+
+  verify-published-fallback:
+    name: Pull and inspect the published fallback candidate without deployment
+    if: github.event_name == 'workflow_dispatch' && inputs.verify_candidate && !inputs.publish_candidate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: read
+    env:
+      CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+      WORKFLOW_SHA: ${{ inputs.workflow_sha }}
+      EXPECTED_IMAGE_ID: ${{ inputs.image_id }}
+      EXPECTED_DIGEST: ${{ inputs.candidate_digest }}
+    steps:
+      - name: Pull exact candidate and verify identity
+        shell: bash
+        env:
+          GHCR_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          [[ "$CANDIDATE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$WORKFLOW_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$EXPECTED_IMAGE_ID" =~ ^sha256:[0-9a-f]{64}$ ]]
+          [[ "$EXPECTED_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]
+          test "$GITHUB_SHA" = "$WORKFLOW_SHA"
+          image="ghcr.io/fangcunmount/iam:fallback-schema39-${CANDIDATE_SHA}"
+          echo "$GHCR_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin >/dev/null
+          actual_digest="$(docker buildx imagetools inspect "$image" --format '{{.Manifest.Digest}}')"
+          test "$actual_digest" = "$EXPECTED_DIGEST"
+          docker pull --platform linux/amd64 "$image"
+          test "$(docker image inspect "$image" --format '{{.Id}}')" = "$EXPECTED_IMAGE_ID"
+          test "$(docker image inspect "$image" --format '{{.Os}}/{{.Architecture}}')" = linux/amd64
+          test "$(docker image inspect "$image" --format '{{.Config.User}}')" = www
+          docker run --rm --entrypoint /bin/sh "$image" -ec \
+            'test "$(id -u)" = 2000 && test "$(id -g)" = 2000 && test -x /app/apiserver && test -x /app/iam-maintenance && test -f /app/configs/apiserver.prod.yaml'
+          printf 'Isolated GHCR pull verified: `%s@%s`, image ID `%s` (no deployment).\n' \
+            "$image" "$actual_digest" "$EXPECTED_IMAGE_ID" >> "$GITHUB_STEP_SUMMARY"
