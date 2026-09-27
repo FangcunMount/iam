@@ -26,6 +26,11 @@ on:
         type: boolean
         required: true
         default: false
+      verify_export:
+        description: Verify the Mac mini can export the exact candidate as a checked tarball without deploying it
+        type: boolean
+        required: true
+        default: false
       source_run_id:
         description: Successful isolated proof run holding the reviewed image artifact
         type: string
@@ -57,7 +62,7 @@ permissions:
 jobs:
   schema39-fallback-wiring:
     name: Recover IAM policy event through MySQL and NSQ
-    if: github.event_name == 'pull_request' || (!inputs.publish_candidate && !inputs.verify_candidate)
+    if: github.event_name == 'pull_request' || (!inputs.publish_candidate && !inputs.verify_candidate && !inputs.verify_export)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -115,7 +120,7 @@ jobs:
 
   publish-reviewed-fallback:
     name: Publish reviewed fallback image to unique GHCR tag
-    if: github.event_name == 'workflow_dispatch' && inputs.publish_candidate && !inputs.verify_candidate
+    if: github.event_name == 'workflow_dispatch' && inputs.publish_candidate && !inputs.verify_candidate && !inputs.verify_export
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -181,7 +186,7 @@ jobs:
 
   verify-published-fallback:
     name: Pull and inspect the published fallback candidate without deployment
-    if: github.event_name == 'workflow_dispatch' && inputs.verify_candidate && !inputs.publish_candidate
+    if: github.event_name == 'workflow_dispatch' && inputs.verify_candidate && !inputs.publish_candidate && !inputs.verify_export
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -216,3 +221,82 @@ jobs:
             'test "$(id -u)" = 2000 && test "$(id -g)" = 2000 && test -x /app/apiserver && test -x /app/iam-maintenance && test -f /app/configs/apiserver.prod.yaml'
           printf 'Isolated GHCR pull verified: `%s@%s`, image ID `%s` (no deployment).\n' \
             "$image" "$actual_digest" "$EXPECTED_IMAGE_ID" >> "$GITHUB_STEP_SUMMARY"
+
+  verify-candidate-export:
+    name: Export the exact candidate on Mac mini without deployment
+    if: github.event_name == 'workflow_dispatch' && inputs.verify_export && !inputs.publish_candidate && !inputs.verify_candidate
+    runs-on:
+      group: qlume
+      labels: [self-hosted, macOS, ARM64]
+    timeout-minutes: 20
+    concurrency:
+      group: iam-production-deploy
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      packages: read
+    env:
+      CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+      WORKFLOW_SHA: ${{ inputs.workflow_sha }}
+      EXPECTED_IMAGE_ID: ${{ inputs.image_id }}
+      EXPECTED_DIGEST: ${{ inputs.candidate_digest }}
+    steps:
+      - name: Verify approved identity and configure isolated GHCR auth
+        shell: bash
+        env:
+          GHCR_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          [[ "$CANDIDATE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$WORKFLOW_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$EXPECTED_IMAGE_ID" =~ ^sha256:[0-9a-f]{64}$ ]]
+          [[ "$EXPECTED_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]
+          test "$GITHUB_SHA" = "$WORKFLOW_SHA"
+          docker_config="${RUNNER_TEMP}/iam-fallback-docker-${GITHUB_RUN_ID}"
+          mkdir -p "$docker_config"
+          umask 077
+          auth="$(printf '%s:%s' "$GITHUB_ACTOR" "$GHCR_TOKEN" | base64 | tr -d '\n')"
+          printf '{"auths":{"ghcr.io":{"auth":"%s"}}}\n' "$auth" > "$docker_config/config.json"
+          echo "DOCKER_CONFIG=$docker_config" >> "$GITHUB_ENV"
+      - name: Pull, verify, and export the exact candidate
+        id: archive
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          image="ghcr.io/fangcunmount/iam:fallback-schema39-${CANDIDATE_SHA}"
+          docker pull --platform linux/amd64 "$image"
+          test "$(docker image inspect "$image" --format '{{.Id}}')" = "$EXPECTED_IMAGE_ID"
+          test "$(docker image inspect "$image" --format '{{.Os}}/{{.Architecture}}')" = linux/amd64
+          test "$(docker image inspect "$image" --format '{{.Config.User}}')" = www
+          docker image inspect "$image" --format '{{json .RepoDigests}}' | python3 -c \
+            'import json,os,sys; expected="ghcr.io/fangcunmount/iam@"+os.environ["EXPECTED_DIGEST"]; sys.exit(0 if expected in json.load(sys.stdin) else 1)'
+          archive="${RUNNER_TEMP}/iam-fallback-${CANDIDATE_SHA}.tar"
+          compressed="${archive}.gz"
+          docker save --output "$archive" "$image"
+          gzip -1 -c "$archive" > "$compressed"
+          gzip -dc "$compressed" | tar -tf - >/dev/null
+          (cd "$RUNNER_TEMP" && shasum -a 256 "$(basename "$compressed")" > "$(basename "$compressed").sha256")
+          rm -f "$archive"
+          echo "package=$compressed" >> "$GITHUB_OUTPUT"
+          printf 'Mac mini exported verified candidate `%s@%s` to a checked tarball; no serverB upload or deployment.\n' \
+            "$image" "$EXPECTED_DIGEST" >> "$GITHUB_STEP_SUMMARY"
+      - name: Preserve reviewed candidate tarball
+        uses: actions/upload-artifact@v4
+        with:
+          name: iam-schema39-fallback-export-${{ inputs.candidate_sha }}
+          path: |
+            ${{ steps.archive.outputs.package }}
+            ${{ steps.archive.outputs.package }}.sha256
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+      - name: Clean up temporary credentials and tarball
+        if: always()
+        shell: bash
+        run: |
+          rm -f -- "${RUNNER_TEMP}/iam-fallback-${CANDIDATE_SHA}.tar" \
+            "${RUNNER_TEMP}/iam-fallback-${CANDIDATE_SHA}.tar.gz" \
+            "${RUNNER_TEMP}/iam-fallback-${CANDIDATE_SHA}.tar.gz.sha256"
+          if [ -n "${DOCKER_CONFIG:-}" ]; then
+            rm -rf -- "$DOCKER_CONFIG"
+          fi
