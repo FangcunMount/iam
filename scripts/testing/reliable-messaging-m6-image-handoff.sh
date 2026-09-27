@@ -6,11 +6,13 @@ set -euo pipefail
 sdk=${1:?Usage: run.sh SDK_CHECKOUT IAM_CHECKOUT NEW_IMAGE FALLBACK_IMAGE}
 iam=${2:?Usage: run.sh SDK_CHECKOUT IAM_CHECKOUT NEW_IMAGE FALLBACK_IMAGE}
 new_image=${3:?Usage: run.sh SDK_CHECKOUT IAM_CHECKOUT NEW_IMAGE FALLBACK_IMAGE}
-fallback_image=${4:?Usage: run.sh SDK_CHECKOUT IAM_CHECKOUT NEW_IMAGE FALLBACK_IMAGE}
+fallback_image=${4:?Usage: run.sh SDK_CHECKOUT IAM_CHECKOUT NEW_IMAGE FALLBACK_IMAGE FIXTURE_BINARY}
+fixture=${5:?Usage: run.sh SDK_CHECKOUT IAM_CHECKOUT NEW_IMAGE FALLBACK_IMAGE FIXTURE_BINARY}
 [[ "$sdk" = /* && -f "$sdk/tests/integration/compose.yaml" && "$iam" = /* && -f "$iam/scripts/testing/reliable-messaging-business-compose.yaml" ]] || {
   echo 'Isolated SDK and IAM Compose fixtures are required' >&2
   exit 1
 }
+[[ "$fixture" = /* && -x "$fixture" ]] || { echo 'Executable disposable transaction fixture required' >&2; exit 1; }
 new_sha=${RM_NEW_SHA:?Exact new image source SHA required}
 fallback_sha=${RM_FALLBACK_SHA:?Exact fallback image source SHA required}
 [[ "$new_sha" =~ ^[0-9a-f]{40}$ && "$fallback_sha" =~ ^[0-9a-f]{40}$ ]]
@@ -169,6 +171,55 @@ channels = [c for t in topics if t["topic_name"] == "iam.authz.version.v2" for c
 assert any(c["channel_name"].startswith("iam-policy-sync.") and c["channel_name"].endswith("#ephemeral") and c["client_count"] > 0 for c in channels), channels
 print("SDK ephemeral policy channel is online")
 '
+docker stop --time 20 "$app" >/dev/null
+docker rm "$app" >/dev/null
+
+# A disposable host fact and valid SDK intent commit in the same MySQL
+# transaction while no Relay owns the row. The fallback must fail closed;
+# only the compatible image may resume the original identity.
+docker run --rm --network "$network" \
+  --mount "type=bind,source=$fixture,target=/tmp/iam-m6-handoff-fixture,readonly" \
+  --entrypoint /tmp/iam-m6-handoff-fixture \
+  -e 'RM_IAM_M6_FIXTURE_DSN=root@tcp(mysql:3306)/iam?parseTime=true&loc=UTC' \
+  "$new_image"
+"${compose[@]}" exec -T mysql mysql -uroot -N -e \
+  "SELECT COUNT(*) FROM iam.m6_handoff_fact WHERE id='m6-standard-handoff-fixture'" | grep -qx 1
+"${compose[@]}" exec -T mysql mysql -uroot -N -e \
+  "SELECT CONCAT(state, ':', attempt_count, ':', failure_count) FROM iam.rm_outbox WHERE message_id='m6-standard-handoff-fixture'" | grep -qx 'pending:0:0'
+
+start_app "$fallback_image" false false
+if wait_http 9080 /healthz; then
+  echo 'fallback image incorrectly started with unfinished standard work' >&2
+  exit 1
+fi
+test "$(docker inspect "$app" --format '{{.State.Running}}')" = false
+test "$(docker inspect "$app" --format '{{.State.ExitCode}}')" != 0
+fallback_log=$(docker logs "$app" 2>&1)
+grep -Fq 'message handoff would leave unfinished records without their owner' <<<"$fallback_log"
+docker rm "$app" >/dev/null
+"${compose[@]}" exec -T mysql mysql -uroot -N -e \
+  "SELECT CONCAT(state, ':', attempt_count, ':', failure_count) FROM iam.rm_outbox WHERE message_id='m6-standard-handoff-fixture'" | grep -qx 'pending:0:0'
+printf 'Fallback image refused to abandon the pending standard intent.\n'
+
+start_app "$new_image" true true
+wait_http 9080 /readyz
+standard_state=''
+for _ in {1..90}; do
+  standard_state=$("${compose[@]}" exec -T mysql mysql -uroot -N -e \
+    "SELECT CONCAT(state, ':', attempt_count, ':', failure_count) FROM iam.rm_outbox WHERE message_id='m6-standard-handoff-fixture'")
+  if [[ "$standard_state" = 'published:1:0' ]]; then
+    break
+  fi
+  sleep 1
+done
+test "$standard_state" = 'published:1:0'
+standard_nsq_count=$("${compose[@]}" exec -T nsqd wget -qO- http://127.0.0.1:4151/stats?format=json | python3 -c '
+import json, sys
+topics = json.load(sys.stdin)["topics"]
+print(next((t["message_count"] for t in topics if t["topic_name"] == "iam.authz.version.v2"), 0))
+')
+((standard_nsq_count >= legacy_nsq_count + 1))
+printf 'Compatible image recovered the original standard intent; NSQ count advanced from %s to %s.\n' "$legacy_nsq_count" "$standard_nsq_count"
 docker stop --time 20 "$app" >/dev/null
 docker rm "$app" >/dev/null
 

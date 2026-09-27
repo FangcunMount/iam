@@ -5,6 +5,7 @@ on:
     paths:
       - .github/workflows/reliable-messaging-m6-image-handoff.yml
       - scripts/testing/reliable-messaging-m6-image-handoff.sh
+      - scripts/testing/m6_handoff_fixture/**
       - build/docker/Dockerfile
       - go.mod
       - go.sum
@@ -43,6 +44,17 @@ jobs:
           test "$(git -C iam-new rev-parse HEAD)" = '${{ github.event.pull_request.head.sha || github.sha }}'
           test "$(git -C iam-fallback rev-parse HEAD)" = ab42a4de487739492f06f50c04a4434d0011a2de
           test "$(git -C sdk describe --tags --exact-match)" = v0.2.1
+      - name: Set up Go for the disposable transaction fixture
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: iam-new/go.mod
+      - name: Build disposable host-transaction fixture
+        shell: bash
+        working-directory: iam-new
+        run: |
+          set -Eeuo pipefail
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+            -o "$RUNNER_TEMP/iam-m6-handoff-fixture" ./scripts/testing/m6_handoff_fixture
       - name: Build both images without publication
         shell: bash
         run: |
@@ -66,4 +78,5 @@ jobs:
           export RM_NEW_SHA="$(git -C iam-new rev-parse HEAD)"
           bash iam-new/scripts/testing/reliable-messaging-m6-image-handoff.sh \
             "$GITHUB_WORKSPACE/sdk" "$GITHUB_WORKSPACE/iam-new" \
-            "iam-new-isolated:${RM_NEW_SHA}" "iam-fallback-isolated:${RM_FALLBACK_SHA}"
+            "iam-new-isolated:${RM_NEW_SHA}" "iam-fallback-isolated:${RM_FALLBACK_SHA}" \
+            "$RUNNER_TEMP/iam-m6-handoff-fixture"
