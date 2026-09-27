@@ -7,6 +7,7 @@ on:
       - go.mod
       - go.sum
       - internal/apiserver/infra/authz/integration/reliable_messaging_wiring_test.go
+      - internal/apiserver/process/reliable_messaging_fallback_startup_test.go
       - internal/apiserver/container/platform/**
       - internal/apiserver/infra/mysql/eventoutbox/**
       - internal/pkg/migration/migrations/000039_reliable_messaging_failure_state.*.sql

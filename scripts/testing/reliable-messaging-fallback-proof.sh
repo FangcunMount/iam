@@ -29,8 +29,11 @@ trap 'exit 143' TERM
 cd "$repo"
 GOWORK=off CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go test -c -tags=reliable_messaging \
   -o "$build_dir/iam-fallback-proof" ./internal/apiserver/infra/authz/integration
+GOWORK=off CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go test -c -tags=reliable_messaging \
+  -o "$build_dir/iam-fallback-startup-proof" ./internal/apiserver/process
 "${compose[@]}" up -d --wait --wait-timeout 180 mysql nsqd
 "${compose[@]}" cp "$build_dir/iam-fallback-proof" mysql:/tmp/iam-fallback-proof
+"${compose[@]}" cp "$build_dir/iam-fallback-startup-proof" mysql:/tmp/iam-fallback-startup-proof
 "${compose[@]}" cp "$repo/internal/pkg/migration/migrations/000006_add_domain_event_outbox.up.sql" mysql:/tmp/iam-old-outbox.sql
 "${compose[@]}" cp "$repo/internal/pkg/migration/migrations/000038_standard_message_outbox.up.sql" mysql:/tmp/iam-rm-outbox.sql
 "${compose[@]}" cp "$repo/internal/pkg/migration/migrations/000039_reliable_messaging_failure_state.up.sql" mysql:/tmp/iam-rm-failure-state.sql
@@ -43,3 +46,8 @@ GOWORK=off CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go test -c -tags=reliable_messa
   -e RM_IAM_NSQ_TCP=nsqd:4150 \
   -e 'IAM_AUTHZ_TEST_MYSQL_DSN=root@tcp(127.0.0.1:3306)/?parseTime=true&loc=UTC' \
   mysql /tmp/iam-fallback-proof -test.run '^TestReliableMessagingPlatformWiring$' -test.v
+"${compose[@]}" exec -T \
+  -e RM_IAM_PROCESS_MYSQL=1 \
+  -e RM_IAM_EVENTS_CATALOG=/tmp/iam-events.yaml \
+  -e RM_IAM_NSQ_TCP=nsqd:4150 \
+  mysql /tmp/iam-fallback-startup-proof -test.run '^TestFallbackSchema39APICompositionReadiness$' -test.v
