@@ -35,7 +35,10 @@ func TestSchema39FallbackMigrationAndRetryMySQL(t *testing.T) {
 	_, err = db.Exec("INSERT INTO schema_migrations VALUES(39,FALSE)")
 	require.NoError(t, err)
 
-	version, changed, err := NewMigrator(db, &Config{Enabled: true, Database: migrationEnvOr("MYSQL_DATABASE", "iam_test")}).Run()
+	// golang-migrate closes the pool supplied to its driver. Keep the Store's
+	// connection independent so the fallback handoff is exercised afterwards.
+	migrationDB := openMigrationMySQL(t)
+	version, changed, err := NewMigrator(migrationDB, &Config{Enabled: true, Database: migrationEnvOr("MYSQL_DATABASE", "iam_test")}).Run()
 	require.NoError(t, err, "the fallback binary must recognize the retained journal version")
 	require.EqualValues(t, 39, version)
 	require.False(t, changed)
