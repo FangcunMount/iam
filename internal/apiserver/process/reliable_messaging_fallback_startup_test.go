@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/FangcunMount/component-base/pkg/processruntime"
 	"github.com/FangcunMount/iam/v5/internal/apiserver/config"
@@ -18,7 +19,7 @@ import (
 
 // This covers the old application's full bootstrap composition on the new
 // schema. The isolated database is seeded and drained before SDK ownership.
-// Socket listeners, the production image and the live rollback sequence are
+// The production image, certificates and live rollback sequence remain
 // separate release gates.
 func TestFallbackSchema39APICompositionReadiness(t *testing.T) {
 	if os.Getenv("RM_IAM_PROCESS_MYSQL") == "" {
@@ -46,7 +47,10 @@ func TestFallbackSchema39APICompositionReadiness(t *testing.T) {
 	opts.JWKS.KeysDir = t.TempDir()
 	opts.GRPCOptions.AuthzAssignmentConstraintsFile = os.Getenv("RM_IAM_ASSIGNMENT_CONSTRAINTS")
 	require.NotEmpty(t, opts.GRPCOptions.AuthzAssignmentConstraintsFile)
+	opts.InsecureServing.BindPort = 19080
 	opts.SecureServing.BindPort = 0
+	opts.GRPCOptions.BindPort = 19090
+	opts.GRPCOptions.HealthzPort = 19091
 
 	// Fresh bootstrap can stage its own legacy role events. They are fixture
 	// data and must be drained before the SDK becomes the only writer.
@@ -66,8 +70,15 @@ func TestFallbackSchema39APICompositionReadiness(t *testing.T) {
 	require.NoError(t, err)
 	prepared, err := server.PrepareRun()
 	require.NoError(t, err)
+	runDone := make(chan error, 1)
+	go func() { runDone <- prepared.Run() }()
 	t.Cleanup(func() {
 		require.NoError(t, runShutdownSequence(server.buildShutdownSequenceDeps(processruntime.Lifecycle{})))
+		select {
+		case <-runDone:
+		case <-time.After(10 * time.Second):
+			t.Error("fallback process listeners did not stop")
+		}
 	})
 	require.NotNil(t, prepared.genericAPIServer)
 	require.NotNil(t, prepared.grpcServer)
@@ -76,4 +87,20 @@ func TestFallbackSchema39APICompositionReadiness(t *testing.T) {
 	response := httptest.NewRecorder()
 	prepared.genericAPIServer.Engine.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/readyz", nil))
 	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
+	client := &http.Client{Timeout: time.Second}
+	for _, address := range []string{"http://127.0.0.1:19080/readyz", "http://127.0.0.1:19091/readyz"} {
+		require.Eventually(t, func() bool {
+			response, err := client.Get(address)
+			if err != nil {
+				return false
+			}
+			_ = response.Body.Close()
+			return response.StatusCode == http.StatusOK
+		}, 12*time.Second, 100*time.Millisecond, address)
+	}
+	select {
+	case err := <-runDone:
+		t.Fatalf("fallback process exited while ready: %v", err)
+	default:
+	}
 }
