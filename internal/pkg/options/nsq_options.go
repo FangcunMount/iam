@@ -11,6 +11,10 @@ import (
 type NSQOptions struct {
 	// Enabled 是否启用 NSQ
 	Enabled bool `json:"enabled" mapstructure:"enabled"`
+	// ConsumerSDKEnabled switches IAM policy notifications to reliable-messaging.
+	ConsumerSDKEnabled bool `json:"consumer-sdk-enabled" mapstructure:"consumer-sdk-enabled"`
+	// NSQdHTTPAddrs lists the nsqd HTTP endpoints to prepare durable failure channels.
+	NSQdHTTPAddrs []string `json:"nsqd-http-addrs" mapstructure:"nsqd-http-addrs"`
 
 	// LookupdAddrs NSQLookupd 地址列表
 	LookupdAddrs []string `json:"lookupd-addrs" mapstructure:"lookupd-addrs"`
@@ -61,6 +65,10 @@ func (o *NSQOptions) Validate() []error {
 func (o *NSQOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.BoolVar(&o.Enabled, "nsq.enabled", o.Enabled,
 		"Enable NSQ message queue for event-driven features.")
+	fs.BoolVar(&o.ConsumerSDKEnabled, "nsq.consumer-sdk-enabled", o.ConsumerSDKEnabled,
+		"Use reliable-messaging for IAM policy notification consumption.")
+	fs.StringSliceVar(&o.NSQdHTTPAddrs, "nsq.nsqd-http-addrs", o.NSQdHTTPAddrs,
+		"Explicit nsqd HTTP endpoints for durable failure channel preparation.")
 
 	fs.StringSliceVar(&o.LookupdAddrs, "nsq.lookupd-addrs", o.LookupdAddrs,
 		"NSQLookupd addresses for consumer discovery.")

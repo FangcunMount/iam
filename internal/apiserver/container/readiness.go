@@ -127,7 +127,7 @@ func (c *Container) checkDomainEventOutboxReady(ctx context.Context) error {
 		return fmt.Errorf("domain event outbox unavailable: %w", err)
 	}
 	maxAge := c.runtimeOptions.Health.Readiness.OutboxMaxPendingAge
-	for _, bucket := range snapshot.Buckets {
+	for _, bucket := range snapshot.ToSDK().Buckets {
 		if bucket.Count > 0 && (strings.HasPrefix(bucket.Status, "legacy_") || bucket.Status == "standard_quarantined" || bucket.Status == "standard_unknown") {
 			return fmt.Errorf("domain event outbox requires intervention: %s", bucket.Status)
 		}

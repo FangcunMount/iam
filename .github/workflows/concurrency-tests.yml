@@ -174,7 +174,7 @@ jobs:
           set -euo pipefail
           export MYSQL_PWD="$MYSQL_PASSWORD"
           mysql --host="$MYSQL_HOST" --port="$MYSQL_PORT" --user="$MYSQL_USERNAME" \
-            -e 'DROP DATABASE IF EXISTS iam_retirement_fixture; CREATE DATABASE iam_retirement_fixture CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci; DROP DATABASE IF EXISTS iam_authz_seed_repair_fixture; CREATE DATABASE iam_authz_seed_repair_fixture CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci; DROP DATABASE IF EXISTS iam_full_chain; CREATE DATABASE iam_full_chain CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;'
+            -e 'DROP DATABASE IF EXISTS iam_retirement_fixture; CREATE DATABASE iam_retirement_fixture CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci; DROP DATABASE IF EXISTS iam_authz_seed_repair_fixture; CREATE DATABASE iam_authz_seed_repair_fixture CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci; DROP DATABASE IF EXISTS iam_rm_upgrade_fixture; CREATE DATABASE iam_rm_upgrade_fixture CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci; DROP DATABASE IF EXISTS iam_m6_failure_audit; CREATE DATABASE iam_m6_failure_audit CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci; DROP DATABASE IF EXISTS iam_full_chain; CREATE DATABASE iam_full_chain CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;'
 
           MYSQL_DATABASE=iam_retirement_fixture MYSQL_DBNAME=iam_retirement_fixture \
             go test ./internal/pkg/migration \
@@ -198,6 +198,18 @@ jobs:
             go test ./internal/pkg/migration \
               -run "^TestAssignmentScopeUpgradeAndRollbackMySQL$" -v -count=1 \
               2>&1 | tee test-artifacts/assignment-scope-migration-tests.txt
+          test "${PIPESTATUS[0]}" = "0"
+
+          IAM_RM_MIGRATION_REQUIRED=1 MYSQL_DATABASE=iam_rm_upgrade_fixture MYSQL_DBNAME=iam_rm_upgrade_fixture \
+            go test ./internal/pkg/migration \
+              -run '^TestReliableMessagingSchemaUpgradeAndRollbackMySQL$' -v -count=1 \
+              2>&1 | tee test-artifacts/reliable-messaging-migration-tests.txt
+          test "${PIPESTATUS[0]}" = "0"
+
+          IAM_RM_MIGRATION_REQUIRED=1 MYSQL_DATABASE=iam_m6_failure_audit MYSQL_DBNAME=iam_m6_failure_audit \
+            go test ./internal/pkg/migration \
+              -run '^TestIAMNSQFailureAuditMigrationAndDedupMySQL$' -v -count=1 \
+              2>&1 | tee test-artifacts/iam-m6-failure-audit-tests.txt
           test "${PIPESTATUS[0]}" = "0"
 
           MYSQL_DATABASE=iam_full_chain MYSQL_DBNAME=iam_full_chain \

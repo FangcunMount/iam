@@ -76,3 +76,15 @@ func TestBuildRecordsAcceptsOnlyDurableOutboxEvents(t *testing.T) {
 	})
 	require.ErrorContains(t, err, "cannot be staged to outbox")
 }
+
+func TestOutboxStatusJSONContractAcrossLegacyAndStandardReaders(t *testing.T) {
+	now := time.Date(2026, 9, 28, 10, 0, 0, 0, time.FixedZone("UTC+8", 8*60*60))
+	oldest := now.Add(-2 * time.Minute)
+	snapshot := outboxcore.BuildStatusSnapshot("iam-legacy-outbox", now, []outboxcore.StatusObservation{{
+		Status: outboxcore.StatusPending, Count: 2, OldestCreatedAt: &oldest,
+	}})
+	encoded, err := json.Marshal(snapshot)
+	require.NoError(t, err)
+	const want = `{"store":"iam-legacy-outbox","generated_at":"2026-09-28T10:00:00+08:00","buckets":[{"status":"pending","count":2,"oldest_created_at":"2026-09-28T09:58:00+08:00","oldest_age_seconds":120},{"status":"failed","count":0,"oldest_age_seconds":0},{"status":"publishing","count":0,"oldest_age_seconds":0},{"status":"quarantined","count":0,"oldest_age_seconds":0}]}`
+	require.JSONEq(t, want, string(encoded))
+}

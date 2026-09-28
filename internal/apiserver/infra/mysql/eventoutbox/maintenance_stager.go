@@ -31,21 +31,28 @@ func NewMaintenanceStager(ctx context.Context, db *gorm.DB, catalog *eventcatalo
 	if len(versions) != 1 || versions[0].Dirty {
 		return nil, errors.New("maintenance Outbox requires a clean migration journal")
 	}
+	tables, err := db.WithContext(ctx).Migrator().GetTables()
+	if err != nil {
+		return nil, err
+	}
+	hasStandardTable := slices.Contains(tables, "rm_outbox")
 	if mode == "" {
-		tables, err := db.WithContext(ctx).Migrator().GetTables()
-		if err != nil {
-			return nil, err
-		}
-		if versions[0].Version >= 38 || slices.Contains(tables, "rm_outbox") {
+		if versions[0].Version >= 38 || hasStandardTable {
 			return nil, errors.New("explicit --outbox-mode=standard or legacy matching the reviewed Relay is required after standard schema installation")
 		}
 		mode = "legacy" // Preserve pre-M3 maintenance on its original schema.
 	}
 	// A migrated database must retain its standard receipts even in legacy mode.
-	if mode == "standard" || versions[0].Version >= 38 {
+	if mode == "standard" {
 		if err := CheckReliableSchema(ctx, db); err != nil {
 			return nil, err
 		}
+	} else if versions[0].Version >= 38 {
+		if err := checkLegacyCompatibleSchema(ctx, db); err != nil {
+			return nil, err
+		}
+	} else if hasStandardTable {
+		return nil, errors.New("legacy maintenance requires a journaled standard Outbox table")
 	}
 	if mode == "standard" {
 		if err := CheckLegacyDrained(ctx, db); err != nil {

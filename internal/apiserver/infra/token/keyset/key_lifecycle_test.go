@@ -38,6 +38,30 @@ func TestKeyManagerCreateKeyAtomicallyReplacesActive(t *testing.T) {
 	require.Len(t, repo.activeKeys(), 1)
 }
 
+func TestKeyManagerBootstrapKeyIsImmediatelyValidWithSecondPrecisionStorage(t *testing.T) {
+	zone := time.FixedZone("UTC+8", 8*60*60)
+	now := time.Date(2026, 9, 27, 16, 43, 12, 929000000, zone)
+	repo := &lifecycleRepositoryStub{keys: map[string]*Key{}}
+	manager := NewKeyManagerWithPolicy(
+		repo,
+		NewRSAKeyGenerator(),
+		NewPEMPrivateKeyStorage(t.TempDir()),
+		DefaultRotationPolicy(),
+	)
+	manager.now = func() time.Time { return now }
+
+	key, activated, err := manager.BootstrapKey(context.Background(), "RS256")
+	require.NoError(t, err)
+	require.True(t, activated)
+	require.Equal(t, now.Truncate(time.Second), *key.NotBefore)
+
+	// DATETIME(0) must not round this value into the next second. A startup
+	// validation immediately after the write must see a usable active key.
+	active, err := manager.GetActiveKey(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, key.Kid, active.Kid)
+}
+
 func TestKeyManagerRejectsNonRS256Creation(t *testing.T) {
 	repo := &lifecycleRepositoryStub{keys: map[string]*Key{}}
 	manager := NewKeyManagerWithPolicy(

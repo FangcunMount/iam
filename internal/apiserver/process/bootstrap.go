@@ -109,11 +109,11 @@ func (s *apiServer) prepareResources(rt runtimeOutput) (resourceOutput, error) {
 		log.Warnw("degraded startup: idp.encryption-key missing", "server_mode", rt.profile.ServerMode)
 	}
 
-	// 创建事件总线
-	eventBus, err := s.createEventBus()
+	// Prepare the selected messaging transport before initializing the modules.
+	eventBus, err := s.prepareMessaging()
 	if err != nil {
 		if s.reliableMessagingEnabled() {
-			return resourceOutput{}, fmt.Errorf("reliable messaging event bus: %w", err)
+			return resourceOutput{}, fmt.Errorf("prepare reliable messaging: %w", err)
 		}
 		log.Warnw("event bus unavailable; continue without notifier", "error", err)
 		eventBus = nil

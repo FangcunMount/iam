@@ -40,7 +40,4 @@ func (s *apiServer) cleanupReliableStartup() {
 		log.Errorw("failed startup reliable messaging drain incomplete", "stage", "startup_cleanup")
 		return
 	}
-	if deps.CloseReliableProducer != nil {
-		deps.CloseReliableProducer()
-	}
 }

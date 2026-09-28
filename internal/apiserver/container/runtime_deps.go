@@ -27,10 +27,10 @@ type ReliableMessagingRuntime interface {
 type RuntimeDeps struct {
 	ReliableMessaging       ReliableMessagingRuntime
 	ReliableShutdownTimeout time.Duration
-	CloseReliableProducer   func()
 	RotationScheduler       RotationScheduler
 	OutboxRelay             OutboxRelay
 	AuthzPolicySync         authz.PolicySyncSubscriber
+	PolicySyncDrain         func(context.Context) error
 	SuggestCleanup          func() error
 	IdentityCleanup         func() error
 }
@@ -53,9 +53,13 @@ func (c *Container) runtimeHooks() RuntimeDeps {
 	if c.reliableRuntime != nil {
 		deps.ReliableMessaging = c.reliableRuntime
 		deps.ReliableShutdownTimeout = c.runtimeOptions.Events.ReliableMessaging.ShutdownTimeout
-		deps.CloseReliableProducer = c.closeReliableProducer
 	}
-	if c.eventBus != nil {
+	if c.sdkPolicySync != nil {
+		deps.AuthzPolicySync = c.sdkPolicySync
+		if drain, ok := c.sdkPolicySync.(interface{ StopWithContext(context.Context) error }); ok {
+			deps.PolicySyncDrain = drain.StopWithContext
+		}
+	} else if c.eventBus != nil {
 		authz.CollectRuntime(c.AuthzModule, c.eventBus.Subscriber(), &deps.AuthzPolicySync)
 	}
 	var cleanup func() error

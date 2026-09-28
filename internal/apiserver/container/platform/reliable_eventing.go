@@ -18,13 +18,21 @@ import (
 	"github.com/nsqio/go-nsq"
 )
 
+// managedPolicyTransport lets the IAM Relay use its existing drain contract
+// while the SDK owns and closes the NSQ producer after admitted sends finish.
+type managedPolicyTransport struct{ *nsqtransport.ManagedPublisher }
+
+func (p managedPolicyTransport) Drain(ctx context.Context) error {
+	return p.ManagedPublisher.Close(ctx)
+}
+
 func initReliableEventing(deps EventingDeps, result *Eventing) error {
 	opts := deps.ReliableMessaging
 	if err := opts.Validate(); err != nil {
 		return err
 	}
-	if !deps.NSQEnabled || deps.NSQAddress == "" || deps.EventBus == nil {
-		return errors.New("reliable messaging requires configured NSQ and the policy subscriber event bus")
+	if !deps.NSQEnabled || deps.NSQAddress == "" {
+		return errors.New("reliable messaging requires configured NSQ")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -47,28 +55,37 @@ func initReliableEventing(deps EventingDeps, result *Eventing) error {
 	if err != nil {
 		return err
 	}
-	// This dedicated producer belongs to the IAM composition root. The SDK only
-	// borrows it. No component-base private producer is extracted or replaced.
+	// The SDK owns this dedicated NSQ connection. IAM still owns its policy
+	// transaction, original wire envelope and Relay recovery decisions.
 	cfg := nsq.NewConfig()
 	cfg.DialTimeout = opts.PublishTimeout
 	cfg.ReadTimeout = opts.PublishTimeout
 	cfg.WriteTimeout = opts.PublishTimeout
 	cfg.HeartbeatInterval = min(opts.PublishTimeout/2, 30*time.Second)
-	producer, err := nsq.NewProducer(deps.NSQAddress, cfg)
+	managed, err := nsqtransport.NewManagedPublisher(nsqtransport.ManagedPublisherConfig{
+		Address: deps.NSQAddress, Driver: cfg, Routes: map[string]string{topic: topic}, MaxInFlight: opts.Concurrency,
+	})
 	if err != nil {
 		return err
 	}
 	success := false
 	defer func() {
 		if !success {
-			producer.Stop()
+			closeCtx, cancel := context.WithTimeout(context.Background(), opts.PublishTimeout)
+			if managed.Close(closeCtx) != nil {
+				managed.Interrupt()
+				cancel()
+				closeCtx, cancel = context.WithTimeout(context.Background(), opts.PublishTimeout)
+				_ = managed.Close(closeCtx)
+			}
+			cancel()
 		}
 	}()
-	wireTransport, err := nsqtransport.New(producer, map[string]string{topic: topic}, opts.Concurrency)
+	directPublisher, err := messagingInfra.NewDirectEventPublisher(result.Catalog, managed, eventing.SourceAPIServer)
 	if err != nil {
 		return err
 	}
-	publisher, err := messagingInfra.NewPolicyWirePublisher(wireTransport)
+	publisher, err := messagingInfra.NewPolicyWirePublisher(managedPolicyTransport{managed})
 	if err != nil {
 		return err
 	}
@@ -102,9 +119,9 @@ func initReliableEventing(deps EventingDeps, result *Eventing) error {
 		return err
 	}
 	result.Stager = stager
+	result.Publisher = directPublisher
 	result.Outbox = eventoutbox.NewStandardStatusReader(deps.DB)
 	result.ReliableRuntime = runtime
-	result.CloseReliableProducer = producer.Stop
 	success = true
 	return nil
 }

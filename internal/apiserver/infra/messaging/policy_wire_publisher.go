@@ -6,10 +6,10 @@ import (
 	"errors"
 	"strconv"
 
-	cbmessaging "github.com/FangcunMount/component-base/pkg/messaging"
 	"github.com/FangcunMount/iam/v5/internal/apiserver/eventing"
 	"github.com/FangcunMount/reliable-messaging/message"
 	"github.com/FangcunMount/reliable-messaging/transport"
+	"github.com/FangcunMount/reliable-messaging/wire/legacy"
 )
 
 type drainingPolicyTransport interface {
@@ -17,9 +17,9 @@ type drainingPolicyTransport interface {
 	ReliablePublisherDrain
 }
 
-// PolicyWirePublisher retains IAM's existing component-base envelope at the
+// PolicyWirePublisher retains IAM's existing revision-one envelope at the
 // transport boundary. The stored intent/fingerprint keeps the original business
-// payload; only the borrowed transport receives the encoded wire copy.
+// payload; only the transport receives the encoded wire copy.
 type PolicyWirePublisher struct{ next drainingPolicyTransport }
 
 func NewPolicyWirePublisher(next drainingPolicyTransport) (*PolicyWirePublisher, error) {
@@ -37,12 +37,12 @@ func (p *PolicyWirePublisher) Publish(ctx context.Context, intent message.Messag
 	if !intent.Valid() || input.Producer != "iam" || input.EventType != eventing.AuthzVersionChanged || input.SchemaVersion != "v2" || input.Scope != "scope:global" || input.ContentType != "application/json" || json.Unmarshal(input.Payload, &payload) != nil || payload.Version <= 0 {
 		return transport.Result{Outcome: transport.Rejected}
 	}
-	envelope := cbmessaging.NewMessage(input.ID, input.Payload)
-	envelope.Metadata["event_type"] = input.EventType
-	envelope.Metadata["aggregate_type"] = "PolicyVersion"
-	envelope.Metadata["aggregate_id"] = strconv.FormatInt(payload.Version, 10)
-	envelope.Metadata["source"] = "iam-outbox-relay"
-	wire, err := cbmessaging.EncodeMessagePayload(envelope)
+	wire, err := legacy.Encode(legacy.Envelope{UUID: input.ID, Payload: input.Payload, Metadata: map[string]string{
+		"event_type":     input.EventType,
+		"aggregate_type": "PolicyVersion",
+		"aggregate_id":   strconv.FormatInt(payload.Version, 10),
+		"source":         "iam-outbox-relay",
+	}}, legacy.Revision1)
 	if err != nil {
 		return transport.Result{Outcome: transport.Rejected}
 	}

@@ -1,0 +1,175 @@
+name: IAM reliable messaging primary image review
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - go.mod
+      - go.sum
+      - build/docker/Dockerfile
+      - internal/pkg/migration/migrations/000039_reliable_messaging_failure_state.*.sql
+      - internal/apiserver/container/platform/**
+      - .github/workflows/reliable-messaging-primary-image.yml
+  workflow_dispatch:
+    inputs:
+      publish_candidate:
+        description: Publish a previously reviewed image under one unique GHCR candidate tag
+        type: boolean
+        required: true
+        default: false
+      source_run_id:
+        description: Successful isolated source run holding the reviewed image artifact
+        type: string
+        required: false
+      candidate_sha:
+        description: Exact 40-character IAM source commit approved for this image
+        type: string
+        required: false
+      workflow_sha:
+        description: Exact reviewed workflow commit; branch drift stops publication
+        type: string
+        required: false
+      archive_sha256:
+        description: Independently verified SHA-256 of the compressed Docker archive
+        type: string
+        required: false
+      image_id:
+        description: Independently verified sha256 image config ID from archive manifest
+        type: string
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  build-reviewed-primary-image:
+    name: Build exact IAM primary image without publication
+    if: github.event_name == 'pull_request' || !inputs.publish_candidate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact candidate source
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Verify checkout identity
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          expected='${{ github.event.pull_request.head.sha || github.sha }}'
+          test "$(git rev-parse HEAD)" = "$expected"
+          [[ "$expected" =~ ^[0-9a-f]{40}$ ]]
+      - name: Build candidate without pushing a registry tag
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          candidate_sha="$(git rev-parse HEAD)"
+          image="iam-primary-isolated:${candidate_sha}"
+          docker build --file build/docker/Dockerfile --tag "$image" \
+            --build-arg "GIT_COMMIT=${candidate_sha}" .
+          test "$(docker image inspect "$image" --format '{{.Os}}/{{.Architecture}}')" = linux/amd64
+          test "$(docker image inspect "$image" --format '{{.Config.User}}')" = www
+          docker run --rm --entrypoint /bin/sh "$image" -ec \
+            'test "$(id -u)" = 2000 && test "$(id -g)" = 2000 && test -x /app/apiserver && test -x /app/iam-maintenance && test -f /app/configs/apiserver.prod.yaml'
+      - name: Preserve exact image with checksum for final review
+        id: archive
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          candidate_sha="$(git rev-parse HEAD)"
+          image="iam-primary-isolated:${candidate_sha}"
+          raw="${RUNNER_TEMP}/iam-primary-${candidate_sha}.tar"
+          compressed="${raw}.gz"
+          docker save --output "$raw" "$image"
+          python3 - "$raw" "$image" <<'PY'
+          import json
+          import sys
+          import tarfile
+
+          with tarfile.open(sys.argv[1]) as image_archive:
+              manifest = json.load(image_archive.extractfile("manifest.json"))
+          if len(manifest) != 1 or manifest[0]["RepoTags"] != [sys.argv[2]]:
+              raise SystemExit("Docker archive source tag mismatch")
+          print("image config: " + manifest[0]["Config"])
+          PY
+          gzip -1 -c "$raw" > "$compressed"
+          gzip -t "$compressed"
+          (cd "$RUNNER_TEMP" && sha256sum "$(basename "$compressed")" > "$(basename "$compressed").sha256")
+          rm -f "$raw"
+          echo "candidate_sha=$candidate_sha" >> "$GITHUB_OUTPUT"
+          echo "package=$compressed" >> "$GITHUB_OUTPUT"
+      - name: Upload seven-day image review artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: iam-primary-schema39-${{ steps.archive.outputs.candidate_sha }}
+          path: |
+            ${{ steps.archive.outputs.package }}
+            ${{ steps.archive.outputs.package }}.sha256
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+
+  publish-reviewed-primary:
+    name: Publish reviewed primary image to unique GHCR tag
+    if: github.event_name == 'workflow_dispatch' && inputs.publish_candidate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      actions: read
+      contents: read
+      packages: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+      CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+      WORKFLOW_SHA: ${{ inputs.workflow_sha }}
+      ARCHIVE_SHA256: ${{ inputs.archive_sha256 }}
+      EXPECTED_IMAGE_ID: ${{ inputs.image_id }}
+    steps:
+      - name: Validate reviewed source and artifact identity
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          [[ "$SOURCE_RUN_ID" =~ ^[0-9]+$ ]]
+          [[ "$CANDIDATE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$WORKFLOW_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$ARCHIVE_SHA256" =~ ^[0-9a-f]{64}$ ]]
+          [[ "$EXPECTED_IMAGE_ID" =~ ^sha256:[0-9a-f]{64}$ ]]
+          test "$GITHUB_SHA" = "$WORKFLOW_SHA"
+          source_sha="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${SOURCE_RUN_ID}" --jq '.head_sha')"
+          source_result="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${SOURCE_RUN_ID}" --jq '.conclusion')"
+          test "$source_sha" = "$CANDIDATE_SHA"
+          test "$source_result" = success
+      - name: Load and verify reviewed Docker archive
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          archive_dir="${RUNNER_TEMP}/reviewed-primary"
+          gh run download "$SOURCE_RUN_ID" --repo "$GITHUB_REPOSITORY" \
+            --name "iam-primary-schema39-${CANDIDATE_SHA}" --dir "$archive_dir"
+          archive="${archive_dir}/iam-primary-${CANDIDATE_SHA}.tar.gz"
+          test -s "$archive"
+          printf '%s  %s\n' "$ARCHIVE_SHA256" "$archive" | sha256sum --check --status
+          docker load --input "$archive"
+          image="iam-primary-isolated:${CANDIDATE_SHA}"
+          test "$(docker image inspect "$image" --format '{{.Id}}')" = "$EXPECTED_IMAGE_ID"
+          test "$(docker image inspect "$image" --format '{{.Os}}/{{.Architecture}}')" = linux/amd64
+          test "$(docker image inspect "$image" --format '{{.Config.User}}')" = www
+      - name: Push unique primary candidate tag only
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          image="iam-primary-isolated:${CANDIDATE_SHA}"
+          target="ghcr.io/fangcunmount/iam:primary-schema39-${CANDIDATE_SHA}"
+          tag="primary-schema39-${CANDIDATE_SHA}"
+          existing_tags="$(gh api --paginate "orgs/${GITHUB_REPOSITORY_OWNER}/packages/container/iam/versions?per_page=100" --jq '.[] | .metadata.container.tags[]?')"
+          if grep -Fxq "$tag" <<< "$existing_tags"; then
+            echo "Candidate tag already exists; refusing to replace it" >&2
+            exit 1
+          fi
+          echo "$GH_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin >/dev/null
+          docker tag "$image" "$target"
+          docker push "$target"
+          digest="$(docker buildx imagetools inspect "$target" --format '{{.Manifest.Digest}}')"
+          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+          printf 'Reviewed primary image: `%s@%s`\n' "$target" "$digest" >> "$GITHUB_STEP_SUMMARY"

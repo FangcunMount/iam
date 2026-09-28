@@ -32,7 +32,7 @@ func TestPolicyWirePublisherKeepsLegacyIdentityAndRawPayload(t *testing.T) {
 	probe := &policyTransportProbe{}
 	publisher, err := NewPolicyWirePublisher(probe)
 	require.NoError(t, err)
-	// Golden bytes match component-base v0.6.3 PublishMessage, including the
+	// Golden bytes match the historical component-base envelope, including the
 	// original raw payload's trailing newline and legacy metadata.source.
 	want := `{"type":"component-base.messaging.message.v1","uuid":"original-id","metadata":{"aggregate_id":"2","aggregate_type":"PolicyVersion","event_type":"iam.authz.version_changed.v2","source":"iam-outbox-relay"},"payload":"eyJ2ZXJzaW9uIjoyfQo="}`
 	for _, outcome := range []transport.Outcome{transport.Unknown, transport.Confirmed, transport.Rejected} {
