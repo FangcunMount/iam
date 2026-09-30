@@ -389,3 +389,30 @@ func TestProductionReliableMessagingEnvironmentSelectsMode(t *testing.T) {
 		})
 	}
 }
+
+func TestProductionSDKSubscriberEnvironmentSelectsModeAndProvisioner(t *testing.T) {
+	t.Setenv("IAM_APISERVER_NSQ_CONSUMER_SDK_ENABLED", "true")
+	t.Setenv("IAM_APISERVER_NSQ_NSQD_HTTP_ADDRS", "http://nsqd.internal:4151")
+
+	flags := pflag.NewFlagSet(t.Name(), pflag.ContinueOnError)
+	opts := apiserveroptions.NewOptions()
+	opts.NSQOptions.AddFlags(flags)
+	reader := viper.New()
+	reader.SetConfigFile(filepath.Join(repoRoot(t), "configs/apiserver.prod.yaml"))
+	reader.SetEnvPrefix("IAM_APISERVER")
+	reader.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
+	reader.AutomaticEnv()
+	if err := reader.BindPFlags(flags); err != nil {
+		t.Fatal(err)
+	}
+	if err := reader.ReadInConfig(); err != nil {
+		t.Fatal(err)
+	}
+	if err := reader.Unmarshal(opts); err != nil {
+		t.Fatal(err)
+	}
+	assertEqual(t, "SDK subscriber enabled", opts.NSQOptions.ConsumerSDKEnabled, true)
+	if len(opts.NSQOptions.NSQdHTTPAddrs) != 1 || opts.NSQOptions.NSQdHTTPAddrs[0] != "http://nsqd.internal:4151" {
+		t.Fatalf("NSQdHTTPAddrs = %v, want one SDK provisioner endpoint", opts.NSQOptions.NSQdHTTPAddrs)
+	}
+}

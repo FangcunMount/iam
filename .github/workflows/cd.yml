@@ -160,6 +160,7 @@ jobs:
       - name: Prepare deployment package
         env:
           IAM_RELIABLE_MESSAGING_ENABLED: ${{ vars.IAM_RELIABLE_MESSAGING_ENABLED || 'false' }}
+          IAM_NSQ_CONSUMER_SDK_ENABLED: ${{ vars.IAM_NSQ_CONSUMER_SDK_ENABLED || 'false' }}
           MYSQL_HOST: ${{ secrets.MYSQL_HOST }}
           MYSQL_PORT: ${{ secrets.MYSQL_PORT || 3306 }}
           MYSQL_USERNAME: ${{ secrets.MYSQL_USERNAME }}
@@ -177,6 +178,7 @@ jobs:
           NSQ_LOOKUPD_PORT: ${{ secrets.NSQ_LOOKUPD_PORT || 4161 }}
           NSQ_NSQD_HOST: ${{ secrets.NSQ_NSQD_HOST }}
           NSQ_NSQD_PORT: ${{ secrets.NSQ_NSQD_PORT || 4150 }}
+          NSQ_NSQD_HTTP_PORT: ${{ secrets.NSQ_NSQD_HTTP_PORT || 4151 }}
           SMS_ALIYUN_ACCESS_KEY_ID: ${{ secrets.SMS_ALIYUN_ACCESS_KEY_ID }}
           SMS_ALIYUN_ACCESS_KEY_SECRET: ${{ secrets.SMS_ALIYUN_ACCESS_KEY_SECRET }}
           SEED_MOCK_AUTH_ENABLED: ${{ vars.SEED_MOCK_AUTH_ENABLED || 'true' }}

@@ -74,6 +74,7 @@ redact_env_file() {
 MYSQL_PORT="${MYSQL_PORT:-3306}"
 NSQ_LOOKUPD_PORT="${NSQ_LOOKUPD_PORT:-4161}"
 NSQ_NSQD_PORT="${NSQ_NSQD_PORT:-4150}"
+NSQ_NSQD_HTTP_PORT="${NSQ_NSQD_HTTP_PORT:-4151}"
 default_redis_ssl
 SMS_ALIYUN_ACCESS_KEY_ID="${SMS_ALIYUN_ACCESS_KEY_ID:-}"
 SMS_ALIYUN_ACCESS_KEY_SECRET="${SMS_ALIYUN_ACCESS_KEY_SECRET:-}"
@@ -86,6 +87,11 @@ case "$IAM_RELIABLE_MESSAGING_ENABLED" in
   true|false) ;;
   *) echo 'IAM_RELIABLE_MESSAGING_ENABLED must be true or false' >&2; exit 1 ;;
 esac
+IAM_NSQ_CONSUMER_SDK_ENABLED="${IAM_NSQ_CONSUMER_SDK_ENABLED:-false}"
+case "$IAM_NSQ_CONSUMER_SDK_ENABLED" in
+  true|false) ;;
+  *) echo 'IAM_NSQ_CONSUMER_SDK_ENABLED must be true or false' >&2; exit 1 ;;
+esac
 
 require_env \
   MYSQL_HOST MYSQL_PORT MYSQL_USERNAME MYSQL_PASSWORD MYSQL_DBNAME \
@@ -95,6 +101,19 @@ if [ -n "${NSQ_LOOKUPD_HOST:-}" ]; then
   NSQ_ENABLED=true
 else
   NSQ_ENABLED=false
+fi
+if [ "$IAM_NSQ_CONSUMER_SDK_ENABLED" = true ]; then
+  if [ "$IAM_RELIABLE_MESSAGING_ENABLED" != true ] || [ "$NSQ_ENABLED" != true ] || [ -z "${NSQ_NSQD_HOST:-}" ]; then
+    echo 'IAM_NSQ_CONSUMER_SDK_ENABLED requires reliable messaging, lookupd and nsqd' >&2
+    exit 1
+  fi
+  case "$NSQ_NSQD_HTTP_PORT" in
+    ''|*[!0-9]*) echo 'NSQ_NSQD_HTTP_PORT must be a numeric port' >&2; exit 1 ;;
+  esac
+  if [ "$NSQ_NSQD_HTTP_PORT" -lt 1 ] || [ "$NSQ_NSQD_HTTP_PORT" -gt 65535 ]; then
+    echo 'NSQ_NSQD_HTTP_PORT must be within 1..65535' >&2
+    exit 1
+  fi
 fi
 
 PACKAGE_DIR="${DEPLOY_PACKAGE_DIR:-deploy-package}"
@@ -135,9 +154,14 @@ IAM_APISERVER_SEED_MOCK_AUTH_SHARED_SECRET=${SEED_MOCK_AUTH_SHARED_SECRET}
 # NSQ configuration
 IAM_APISERVER_EVENTS_RELIABLE_MESSAGING_ENABLED=${IAM_RELIABLE_MESSAGING_ENABLED}
 IAM_APISERVER_NSQ_ENABLED=${NSQ_ENABLED}
+IAM_APISERVER_NSQ_CONSUMER_SDK_ENABLED=${IAM_NSQ_CONSUMER_SDK_ENABLED}
 IAM_APISERVER_NSQ_LOOKUPD_ADDRS=${NSQ_LOOKUPD_HOST:-}:${NSQ_LOOKUPD_PORT}
 IAM_APISERVER_NSQ_NSQD_ADDR=${NSQ_NSQD_HOST:-}:${NSQ_NSQD_PORT}
 EOF
+if [ "$IAM_NSQ_CONSUMER_SDK_ENABLED" = true ]; then
+  printf 'IAM_APISERVER_NSQ_NSQD_HTTP_ADDRS=http://%s:%s\n' \
+    "$NSQ_NSQD_HOST" "$NSQ_NSQD_HTTP_PORT" >> "$ENV_FILE"
+fi
 chmod 0600 "$ENV_FILE"
 
 echo "Generated config.prod.env for ${SERVICE}:"
