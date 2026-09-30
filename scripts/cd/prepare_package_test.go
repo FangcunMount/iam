@@ -293,3 +293,67 @@ func TestPreparePackageReliableMessagingMode(t *testing.T) {
 		})
 	}
 }
+
+func TestPreparePackageSDKSubscriberIsExplicitlyOptedIn(t *testing.T) {
+	tests := []struct {
+		name      string
+		extraEnv  []string
+		wantError string
+		wantHTTP  string
+	}{
+		{name: "default remains legacy"},
+		{name: "explicit SDK", extraEnv: []string{
+			"IAM_RELIABLE_MESSAGING_ENABLED=true", "IAM_NSQ_CONSUMER_SDK_ENABLED=true",
+			"NSQ_LOOKUPD_HOST=lookupd.internal", "NSQ_NSQD_HOST=nsqd.internal",
+		}, wantHTTP: "http://nsqd.internal:4151"},
+		{name: "custom HTTP port", extraEnv: []string{
+			"IAM_RELIABLE_MESSAGING_ENABLED=true", "IAM_NSQ_CONSUMER_SDK_ENABLED=true",
+			"NSQ_LOOKUPD_HOST=lookupd.internal", "NSQ_NSQD_HOST=nsqd.internal", "NSQ_NSQD_HTTP_PORT=4152",
+		}, wantHTTP: "http://nsqd.internal:4152"},
+		{name: "invalid selection", extraEnv: []string{"IAM_NSQ_CONSUMER_SDK_ENABLED=yes"}, wantError: "must be true or false"},
+		{name: "missing reliable mode", extraEnv: []string{
+			"IAM_NSQ_CONSUMER_SDK_ENABLED=true", "NSQ_LOOKUPD_HOST=lookupd.internal", "NSQ_NSQD_HOST=nsqd.internal",
+		}, wantError: "requires reliable messaging, lookupd and nsqd"},
+		{name: "missing broker", extraEnv: []string{
+			"IAM_RELIABLE_MESSAGING_ENABLED=true", "IAM_NSQ_CONSUMER_SDK_ENABLED=true", "NSQ_LOOKUPD_HOST=lookupd.internal",
+		}, wantError: "requires reliable messaging, lookupd and nsqd"},
+		{name: "invalid HTTP port", extraEnv: []string{
+			"IAM_RELIABLE_MESSAGING_ENABLED=true", "IAM_NSQ_CONSUMER_SDK_ENABLED=true",
+			"NSQ_LOOKUPD_HOST=lookupd.internal", "NSQ_NSQD_HOST=nsqd.internal", "NSQ_NSQD_HTTP_PORT=abc",
+		}, wantError: "must be a numeric port"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmp := t.TempDir()
+			packageDir := filepath.Join(tmp, "package")
+			input := append([]string{"SEED_MOCK_AUTH_ENABLED=false"}, tt.extraEnv...)
+			output, err := runPreparePackage(t, packageDir, filepath.Join(tmp, "package.tar.gz"), input)
+			if tt.wantError != "" {
+				if err == nil || !strings.Contains(output, tt.wantError) {
+					t.Fatalf("want error %q, got %v: %s", tt.wantError, err, output)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("package: %v %s", err, output)
+			}
+			body, err := os.ReadFile(filepath.Join(packageDir, "configs/env/config.prod.env"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			selected := "false"
+			if tt.wantHTTP != "" {
+				selected = "true"
+			}
+			if !strings.Contains(string(body), "IAM_APISERVER_NSQ_CONSUMER_SDK_ENABLED="+selected+"\n") {
+				t.Fatal("selected SDK subscriber mode missing from package")
+			}
+			if tt.wantHTTP == "" && strings.Contains(string(body), "IAM_APISERVER_NSQ_NSQD_HTTP_ADDRS=") {
+				t.Fatal("disabled SDK subscriber should not inject an HTTP endpoint")
+			}
+			if tt.wantHTTP != "" && !strings.Contains(string(body), "IAM_APISERVER_NSQ_NSQD_HTTP_ADDRS="+tt.wantHTTP+"\n") {
+				t.Fatal("SDK subscriber HTTP endpoint missing from package")
+			}
+		})
+	}
+}
