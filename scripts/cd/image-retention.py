@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Release image retention v1. Standard library; dry run unless --apply.
 
-Identical vendored file in each deploy repository. Never prune containers/volumes.
+Vendored policy; synchronize service copies before rollout. Never prune containers/volumes.
 """
 
 import argparse
@@ -77,7 +77,17 @@ def select(images, refs, service, image_id, image_ref, state, previous=()):
         )
     if len(history) >= 3:
         bootstrap = []
-    keep = set(history) | set(bootstrap) | refs
+    # Recovery tags are explicit operator-held rollback assets. Deployment
+    # history alone must never make them eligible for automatic deletion.
+    recovery = {
+        x["Id"]
+        for x in scoped
+        if any(
+            tag.rsplit(":", 1)[-1].startswith(("fallback-", "m6-rollback-"))
+            for tag in x["RepoTags"]
+        )
+    }
+    keep = set(history) | set(bootstrap) | refs | recovery
     candidates = [x for x in scoped if x["Id"] not in keep]
     return {"version": 1, "successful": history, "bootstrap": bootstrap}, keep, candidates
 
