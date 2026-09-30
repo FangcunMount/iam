@@ -72,6 +72,14 @@ class RetentionTests(unittest.TestCase):
         self.images[0]["RepoTags"] = []
         self.assertNotIn(self.images[0], self.select()[2])
 
+    def test_operator_recovery_tags_survive_expired_bootstrap(self):
+        self.images[0]["RepoTags"].append("qs-ai:fallback-schema40-fixed")
+        self.images[1]["RepoTags"].append("qs-ai:m6-rollback-fixed")
+        state = {"successful": [image(n)["Id"] for n in (4, 5, 6)], "bootstrap": []}
+        _, keep, delete = self.select(state=state)
+        self.assertTrue({image(1)["Id"], image(2)["Id"]} <= keep)
+        self.assertFalse({image(1)["Id"], image(2)["Id"]} & {x["Id"] for x in delete})
+
     def test_global_lock_contention(self):
         with tempfile.TemporaryDirectory() as directory:
             lockpath = Path(directory) / "lock"
@@ -227,6 +235,8 @@ class RetentionTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0)
         self.assertIn("::warning::", result.stderr)
         self.assertIn("deployed", result.stdout)
+        self.assertIn("/usr/local/libexec/fangcun/image-retention.py", helper.read_text())
+        self.assertNotIn('python3 "$SCRIPT_DIR/image-retention.py"', helper.read_text())
 
 
 if __name__ == "__main__":
