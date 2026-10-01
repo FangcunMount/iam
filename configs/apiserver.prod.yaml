@@ -104,6 +104,10 @@ grpc:
 # ============================================================================
 auth:
   resource_audience: "iam-api"
+  # Only qs-apiserver.svc may query notification recipients; limit it to the
+  # production Qlume mini-program identity used by task.opened reminders.
+  notification_recipient_app_ids:
+    - "wx72ade250b619a649"
   jwt_issuer: "https://iam.fangcunmount.cn"
   access_token_audience:
     - "iam-api"
