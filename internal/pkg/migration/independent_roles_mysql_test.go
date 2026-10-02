@@ -51,14 +51,16 @@ func freshStagesForTest(t *testing.T, db *gorm.DB) []FreshStage {
 	}
 	catalog, err := eventcatalog.Load(catalogPath)
 	require.NoError(t, err)
+	stager, err := eventoutbox.NewBootstrapStager(eventcatalog.NewCatalog(catalog))
+	require.NoError(t, err)
 	ctx := context.Background()
 	return []FreshStage{
 		{Version: 31, Prepare: func() error { return rolemodel.PrepareBootstrapTenant(ctx, db) }},
 		{Version: 33, Prepare: func() error {
-			return rolemodel.BootstrapIndependentRoles(ctx, db, eventoutbox.NewStore(db, eventcatalog.NewCatalog(catalog)))
+			return rolemodel.BootstrapIndependentRoles(ctx, db, stager)
 		}},
 		{Version: 35, Prepare: func() error {
-			return conditionretire.Bootstrap(ctx, db, eventoutbox.NewStore(db, eventcatalog.NewCatalog(catalog)))
+			return conditionretire.Bootstrap(ctx, db, stager)
 		}},
 	}
 }

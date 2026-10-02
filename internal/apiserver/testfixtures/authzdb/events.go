@@ -9,7 +9,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func Stager(t *testing.T, db *gorm.DB) *eventoutbox.Store {
+func Stager(t *testing.T, db *gorm.DB) *eventoutbox.BootstrapStager {
 	t.Helper()
 	cfg, err := eventcatalog.Parse([]byte(`version: "1"
 topics:
@@ -24,5 +24,7 @@ events:
     handler: iam-policy-sync
 `))
 	require.NoError(t, err)
-	return eventoutbox.NewStore(db, eventcatalog.NewCatalog(cfg))
+	stager, err := eventoutbox.NewBootstrapStager(eventcatalog.NewCatalog(cfg))
+	require.NoError(t, err)
+	return stager
 }

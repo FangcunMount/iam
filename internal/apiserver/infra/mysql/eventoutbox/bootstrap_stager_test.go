@@ -5,6 +5,9 @@ import (
 	"strings"
 	"testing"
 
+	policy "github.com/FangcunMount/iam/v5/internal/apiserver/domain/authz/policy"
+	"github.com/FangcunMount/iam/v5/pkg/eventcodec"
+
 	"github.com/FangcunMount/iam/v5/internal/apiserver/eventing"
 	"github.com/FangcunMount/iam/v5/internal/apiserver/infra/mysql/eventoutbox"
 	"github.com/FangcunMount/iam/v5/internal/pkg/database/mysql"
@@ -15,13 +18,15 @@ import (
 	"gorm.io/gorm"
 )
 
-func setupOutboxStore(t *testing.T) (*gorm.DB, *eventoutbox.Store, *eventcatalog.Catalog) {
+func setupOutboxStore(t *testing.T) (*gorm.DB, *eventoutbox.BootstrapStager, *eventcatalog.Catalog) {
 	t.Helper()
 	db, err := gorm.Open(sqlite.Open("file:"+strings.ReplaceAll(t.Name(), "/", "_")+"?mode=memory&cache=shared"), &gorm.Config{})
 	require.NoError(t, err)
 	require.NoError(t, db.AutoMigrate(&eventoutbox.OutboxPO{}))
 	catalog := testOutboxCatalog(t)
-	return db, eventoutbox.NewStore(db, catalog), catalog
+	stager, err := eventoutbox.NewBootstrapStager(catalog)
+	require.NoError(t, err)
+	return db, stager, catalog
 }
 
 func testOutboxCatalog(t *testing.T) *eventcatalog.Catalog {
@@ -52,10 +57,7 @@ events:
 }
 
 func versionEvent(version int) event.DomainEvent {
-	return event.New(eventing.AuthzVersionChanged, "PolicyVersion", "tenant-a", map[string]any{
-		"tenant_id": "tenant-a",
-		"version":   version,
-	})
+	return policy.NewVersionChangedEvent(int64(version))
 }
 
 func TestStageRequiresActiveTransaction(t *testing.T) {
@@ -70,14 +72,23 @@ func TestStageCommitsAndRollsBackWithUnitOfWork(t *testing.T) {
 	db, store, _ := setupOutboxStore(t)
 	uow := mysql.NewUnitOfWork(db)
 
+	evt := versionEvent(1)
 	err := uow.WithinTransaction(context.Background(), func(txCtx context.Context) error {
-		return store.Stage(txCtx, versionEvent(1))
+		return store.Stage(txCtx, evt)
 	})
 	require.NoError(t, err)
 
 	var count int64
 	require.NoError(t, db.Model(&eventoutbox.OutboxPO{}).Count(&count).Error)
 	require.Equal(t, int64(1), count)
+	var row eventoutbox.OutboxPO
+	require.NoError(t, db.First(&row).Error)
+	payload, err := eventcodec.EncodePayload(evt)
+	require.NoError(t, err)
+	require.Equal(t, evt.EventID(), row.EventID)
+	require.Equal(t, string(payload), row.PayloadJSON)
+	require.Equal(t, evt.AggregateID(), row.AggregateID)
+	require.Equal(t, "pending", row.Status)
 
 	err = uow.WithinTransaction(context.Background(), func(txCtx context.Context) error {
 		require.NoError(t, store.Stage(txCtx, versionEvent(2)))
@@ -98,5 +109,5 @@ func TestStageRejectsBestEffortEvents(t *testing.T) {
 		return store.Stage(txCtx, bestEffort)
 	})
 
-	require.ErrorContains(t, err, "cannot be staged to outbox")
+	require.ErrorContains(t, err, "unsupported policy event")
 }

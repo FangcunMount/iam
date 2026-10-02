@@ -10,7 +10,7 @@ M6-04 退役候选删除旧平台 Relay、调度循环和关闭钩子。`platfor
 
 第二批候选删除旧 EventBus、旧订阅构造器和路由发布封装，NSQ 消费要求 `nsq.consumer-sdk-enabled=true`。默认 API／维护命令依赖图不再包含 component-base 消息包；早期迁移旧表写入及测试历史兼容依赖仍待退役，本批不宣称旧实现全部移除。历史表、已发布记录及固定回退镜像保留；同一候选镜像不支持切回旧 Relay。回退使用经过核验的固定旧版，并满足原恢复约束。
 
-当前维护命令只支持显式 `--outbox-mode=standard`，使用同一宿主事务中的 SDK StandardStager；空值及 `legacy` 明确拒绝，不能通过旧运行手册恢复旧写入。标准模式要求 clean migration 39 或更高版本、标准表及失败状态列完整、旧链路已经排空。维护命令不负责启动 Relay，也不自动升级 schema。旧模式回退必须使用已核验的固定旧版。首次建库迁移 33／35 的旧通知写入暂保留。旧 Store 已删除认领、重试、结算及旧状态汇总，仅保留迁移需要的事务内写入；不以本批宣称旧 Store／core 整包已删除。
+当前维护命令只支持显式 `--outbox-mode=standard`，使用同一宿主事务中的 SDK StandardStager；空值及 `legacy` 明确拒绝，不能通过旧运行手册恢复旧写入。标准模式要求 clean migration 39 或更高版本、标准表及失败状态列完整、旧链路已经排空。维护命令不负责启动 Relay，也不自动升级 schema。旧模式回退必须使用已核验的固定旧版。首次建库 migration 33／35 先于 SDK 表 migration 38：它们使用 BootstrapStager 将现有 StandardStager.intent 生成的 SDK 消息映射到历史表，保留同一业务事务、原事件 ID／payload 及创建时间；当前运行时和维护命令不使用此适配器。旧 Store 构造器和 pkg/outboxcore 整包已经从候选删除，迁移顺序和历史通知保留。该适配器没有认领、重试、结算或恢复方法，不能当作现役可靠消息实现。
 
 隔离合同保留完整空库初始化和消息交接：当前版本迁移产生的早期通知由固定提交 `a929f5301ed8265a8f44726b474da27ae10cb1c1` 的独立测试二进制排空；当前二进制负责标准投递和新进程恢复；固定旧版负责回退阶段。参见[隔离验证](../../scripts/testing/reliable-messaging-proof.md)。旧 Relay 单元及旧关闭边界合同从固定旧提交运行，入口 `scripts/testing/run-retired-relay-contracts.sh`；它们不是当前 SDK 的验收证据。旧 Store 单元合同由该脚本的 `store` 模式从固定源执行；历史 ID-only 写入越过 fencing 的反证由固定旧版集成二进制执行，当前源码不保留旧结算算法。
 
@@ -243,8 +243,8 @@ Subscriber channel 包含 hostname + pid + `#ephemeral`，目的是广播到每�
 | event types | `internal/apiserver/eventing/eventing.go` |
 | catalog | `configs/events.yaml`、`pkg/eventcatalog` |
 | direct publisher | [固定旧提交的路由发布器](https://github.com/FangcunMount/iam/blob/a929f5301ed8265a8f44726b474da27ae10cb1c1/pkg/eventruntime/publisher.go) |
-| Outbox record/state | `pkg/outboxcore/core.go` |
-| MySQL store | `internal/apiserver/infra/mysql/eventoutbox/store.go` |
+| 原旧 Outbox core（固定历史源） | [a929f530 旧 core](https://github.com/FangcunMount/iam/blob/a929f5301ed8265a8f44726b474da27ae10cb1c1/pkg/outboxcore/core.go) |
+| 当前迁移专用历史表插入 | `internal/apiserver/infra/mysql/eventoutbox/bootstrap_stager.go` 与 `legacy_record.go` |
 | relay | [固定旧提交的 Relay](https://github.com/FangcunMount/iam/blob/a929f5301ed8265a8f44726b474da27ae10cb1c1/internal/apiserver/infra/messaging/outbox_relay.go) |
 | composition | `internal/apiserver/container/platform/eventing.go` |
 | AuthZ command services | `internal/apiserver/application/authz` |
@@ -255,7 +255,8 @@ Subscriber channel 包含 hostname + pid + `#ephemeral`，目的是广播到每�
 ```bash
 make docs-facts
 bash scripts/testing/run-retired-relay-contracts.sh bus
-go test ./pkg/eventcatalog ./pkg/eventcodec ./pkg/outboxcore
+go test ./pkg/eventcatalog ./pkg/eventcodec
+bash scripts/testing/run-retired-relay-contracts.sh store
 go test ./internal/apiserver/infra/mysql/eventoutbox ./internal/apiserver/infra/messaging
 go test ./internal/apiserver/application/authz/... ./internal/apiserver/infra/authz/runtime/...
 ```

@@ -2,11 +2,12 @@ package scopemigrate
 
 import (
 	"context"
-	"github.com/FangcunMount/iam/v5/internal/apiserver/infra/mysql/eventoutbox"
-	"github.com/FangcunMount/iam/v5/pkg/eventcatalog"
 	"os"
 	"testing"
 	"time"
+
+	"github.com/FangcunMount/iam/v5/internal/apiserver/infra/mysql/eventoutbox"
+	"github.com/FangcunMount/iam/v5/pkg/eventcatalog"
 )
 
 func TestConcurrentScopeApplySerializesAtPolicyMySQL(t *testing.T) {
@@ -26,7 +27,10 @@ func TestConcurrentScopeApplySerializesAtPolicyMySQL(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	store := eventoutbox.NewStore(iam, eventcatalog.NewCatalog(cfg))
+	store, err := eventoutbox.NewBootstrapStager(eventcatalog.NewCatalog(cfg))
+	if err != nil {
+		t.Fatal(err)
+	}
 	before, err := LoadSnapshot(ctx, iam, qs)
 	if err != nil {
 		t.Fatal(err)

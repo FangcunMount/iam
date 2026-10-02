@@ -4,10 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"testing"
+
 	"github.com/FangcunMount/iam/v5/internal/apiserver/infra/mysql/eventoutbox"
 	"github.com/FangcunMount/iam/v5/pkg/event"
 	"github.com/FangcunMount/iam/v5/pkg/eventcatalog"
-	"testing"
 )
 
 type failAfterDurableStage struct{ store event.Stager }
@@ -28,7 +29,10 @@ func TestScopeRealOutboxCommitsAndRollsBackWithPolicy(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	store := eventoutbox.NewStore(iam, eventcatalog.NewCatalog(cfg))
+	store, err := eventoutbox.NewBootstrapStager(eventcatalog.NewCatalog(cfg))
+	if err != nil {
+		t.Fatal(err)
+	}
 	before, err := LoadSnapshot(ctx, iam, qs)
 	if err != nil {
 		t.Fatal(err)
