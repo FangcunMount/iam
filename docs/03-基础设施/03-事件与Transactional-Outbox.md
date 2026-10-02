@@ -1,12 +1,18 @@
 # 事件目录、发布语义与 Transactional Outbox
 
-> 状态：已实现 · 已与 event catalog、publisher、MySQL outbox、relay、AuthZ policy version 链路和测试核对。
+## 当前运行时：SDK 标准 Outbox
 
-M3 候选新增 SDK 标准表路径：`events.reliable_messaging.enabled=true` 时，原业务事务经 StandardStager 写入 `rm_outbox`，投递直接复用 reliable-messaging 的 MySQL Store、Relay 和 NSQ 适配器。默认仍为 false，下文的历史表链路描述默认模式。标准表候选尚未完成生产切换验收。
+M6-04 退役候选删除旧平台 Relay、调度循环和关闭钩子。`platform.InitEventing` 要求 `events.reliable_messaging.enabled=true`，通过原 GORM 事务与 StandardStager 写入 `rm_outbox`，由 reliable-messaging Store、Relay 和 NSQ publisher 投递。禁用开关返回带 `ErrUnsafeMessagingHandoff` 的明确错误，阻止继续初始化业务模块，不再创建旧 Store 或选择旧 Relay。
 
-启用 SDK 前必须排空旧链路；新表仍有未完成记录时不能关闭 SDK 恢复能力。只读预检、双表积压可见性和启动限制不会自动证明旧进程退出或全部策略实例收敛。维护命令已显式选择写入模式，初始化保留受控旧链路排空阶段；完整服务切换/回退和业务验收仍未完成，详见 [隔离验证](../../scripts/testing/reliable-messaging-proof.md) 与 [切换候选流程](../../scripts/testing/reliable-messaging-handoff.md)。历史表及已发布记录保留，首次切换不清空它们。
+候选仍未发布；模板中的禁用默认值不能用于该候选的正常启动，部署必须显式选择标准模式。原事务、策略版本幂等、双表状态读取和 UTC+8 展示保持。结果未知不授权新的业务执行或盲目重发外部调用。
 
-M6 状态接口候选保留 `pkg/outbox` 公开 Go 类型的 IAM 定义包身份，在内部显式转换为 `reliable-messaging/outbox` 通用状态快照。旧／标准表读取、状态前缀、UTC+8 时间解码和 readiness 阈值仍归 IAM；这不表示业务切换或回退已验收。
+旧消息总线／订阅路径以及早期迁移／维护写入尚待后续退役，本批不宣称零旧依赖。历史表、已发布记录及固定回退镜像保留；同一候选镜像不支持切回旧 Relay。回退使用经过核验的固定旧版，并满足原恢复约束。
+
+隔离合同保留完整空库初始化和消息交接：当前版本迁移产生的早期通知由固定提交 `a929f5301ed8265a8f44726b474da27ae10cb1c1` 的独立测试二进制排空；当前二进制负责标准投递和新进程恢复；固定旧版负责回退阶段。参见[隔离验证](../../scripts/testing/reliable-messaging-proof.md)。旧 Relay 单元及旧关闭边界合同从固定旧提交运行，入口 `scripts/testing/run-retired-relay-contracts.sh`；它们不是当前 SDK 的验收证据。
+
+## 历史实现参考
+
+下方章节保留退役前旧表 Store／Relay 的原设计，用于理解历史合同与旧版回退；其中的旧状态机、旧 API 与默认运行模式不代表当前候选。
 
 ## 1. 本文回答
 

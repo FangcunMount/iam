@@ -11,16 +11,6 @@ import (
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 )
 
-// outboxRelayInterval 获取出box 间隔时间
-func (s *apiServer) outboxRelayInterval() time.Duration {
-	// 如果 API 服务器为空，则返回 2 秒
-	if s == nil || s.cfg == nil || s.cfg.Events == nil {
-		return 2 * time.Second
-	}
-	// 返回出box 间隔时间
-	return s.cfg.Events.OutboxRelayInterval
-}
-
 // startRuntimeTasks 启动运行时任务
 func (s *apiServer) startRuntimeTasks(lifecycle *processruntime.Lifecycle) error {
 	// 如果容器为空，则返回
@@ -30,9 +20,6 @@ func (s *apiServer) startRuntimeTasks(lifecycle *processruntime.Lifecycle) error
 	// 构建运行时依赖
 	deps := s.container.BuildRuntimeDeps()
 	if deps.ReliableMessaging != nil {
-		if deps.OutboxRelay != nil {
-			return fmt.Errorf("legacy and reliable Relay cannot run together")
-		}
 		if err := deps.ReliableMessaging.Start(context.Background()); err != nil {
 			return err
 		}
@@ -60,28 +47,6 @@ func (s *apiServer) startRuntimeTasks(lifecycle *processruntime.Lifecycle) error
 		}
 		// 记录旋转调度器初始化信息
 		log.Infow("Key rotation scheduler initialized", "description", "periodic key rotation scheduler started")
-	}
-	// 获取出box 依赖
-	if relay := deps.OutboxRelay; relay != nil {
-		// 创建上下文
-		ctx := context.Background()
-		// 如果生命周期不为空，则添加关闭钩子
-		if lifecycle != nil {
-			// 创建取消函数
-			var cancel context.CancelFunc
-			// 创建取消上下文
-			ctx, cancel = context.WithCancel(ctx)
-			// 添加关闭钩子
-			lifecycle.AddShutdownHook("stop outbox relay", func() error {
-				// 取消上下文
-				cancel()
-				return nil
-			})
-		}
-		// 启动出box 调度器
-		go s.runOutboxRelay(ctx, relay)
-		// 记录出box 调度器初始化信息
-		log.Infow("Outbox relay initialized", "description", "domain event outbox relay started")
 	}
 	if sync := deps.AuthzPolicySync; sync != nil {
 		if deps.PolicySyncDrain != nil {
@@ -123,34 +88,6 @@ func startAuthzPolicySync(lifecycle *processruntime.Lifecycle, sync authzPolicyS
 		channel = reporter.Channel()
 	}
 	log.Infow("Authz policy sync subscriber initialized", "topic", "iam.authz.version.v2", "channel", channel)
-}
-
-// runOutboxRelay 运行出box 调度器
-func (s *apiServer) runOutboxRelay(ctx context.Context, relay interface {
-	DispatchDue(context.Context) error
-}) {
-	// 获取出box 间隔时间
-	interval := s.outboxRelayInterval()
-	// 如果间隔时间小于等于 0，则使用 2 秒
-	if interval <= 0 {
-		interval = 2 * time.Second
-	}
-	// 创建定时器
-	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
-
-	for {
-		// 调度出box
-		if err := relay.DispatchDue(ctx); err != nil {
-			log.Warnw("outbox relay dispatch failed", "error", err)
-		}
-		// 选择上下文
-		select {
-		case <-ctx.Done(): // 如果上下文完成，则返回
-			return
-		case <-ticker.C: // 如果定时器触发，则继续
-		}
-	}
 }
 
 // registerShutdownCallbacks 注册关闭回调

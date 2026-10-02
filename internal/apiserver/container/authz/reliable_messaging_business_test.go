@@ -81,7 +81,6 @@ func TestReliableMessagingIAMQSBusinessRoundtrip(t *testing.T) {
 	opts.Enabled = true
 	owner, err := platform.InitEventing(platform.EventingDeps{DB: db, CatalogPath: os.Getenv("RM_IAM_EVENTS_CATALOG"), NSQEnabled: true, NSQAddress: os.Getenv("RM_IAM_NSQ_TCP"), ReliableMessaging: opts, OutboxInterval: 10 * time.Millisecond})
 	require.NoError(t, err)
-	require.Nil(t, owner.Relay, "standard mode must not retain the legacy relay")
 	defer func() {
 		stopCtx, stop := context.WithTimeout(context.Background(), 5*time.Second)
 		defer stop()

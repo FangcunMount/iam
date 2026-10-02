@@ -25,12 +25,19 @@ case "$architecture" in aarch64|arm64) goarch=arm64;;x86_64|amd64) goarch=amd64;
 # Compile the declared IAM dependency; the SDK checkout supplies isolated fixtures only.
 # Host lifecycle contract uses actual scheduling/shutdown functions with controlled
 # dispatch/close boundaries. It does not substitute for the database/broker proofs.
-(cd "$repo" && GOWORK=off go test -race -tags=reliable_messaging ./internal/apiserver/process -run '^TestReliable(MessagingShutdownJoinBoundary|ShutdownRetainsResourcesUntilRetryDrains|ShutdownFailureExitsNonzero)$' -count=10)
+(cd "$repo" && GOWORK=off go test -race -tags=reliable_messaging ./internal/apiserver/process -run '^TestReliable(ShutdownRetainsResourcesUntilRetryDrains|ShutdownFailureExitsNonzero)$' -count=10)
 (cd "$repo" && GOWORK=off go test -race ./internal/apiserver/infra/messaging -run '^TestReliableRuntime' -count=10)
 (cd "$repo" && GOWORK=off CGO_ENABLED=0 GOOS=linux GOARCH="$goarch" go test -c -tags=reliable_messaging -o "$build_dir/proof" ./internal/apiserver/infra/authz/integration)
 (cd "$repo" && GOWORK=off CGO_ENABLED=0 GOOS=linux GOARCH="$goarch" go test -c -o "$build_dir/migration-proof" ./internal/pkg/migration)
 (cd "$repo" && GOWORK=off CGO_ENABLED=0 GOOS=linux GOARCH="$goarch" go build -o "$build_dir/iam-maintenance" ./cmd/iam-maintenance)
 (cd "$repo" && GOWORK=off CGO_ENABLED=0 GOOS=linux GOARCH="$goarch" go test -c -tags=reliable_messaging -o "$build_dir/maintenance-proof" ./cmd/iam-maintenance)
+# Only the pinned old binary owns legacy drain/rollback; current code stays SDK-only.
+legacy_source=a929f5301ed8265a8f44726b474da27ae10cb1c1
+[[ $(git -C "$repo" rev-parse "$legacy_source^{commit}") == "$legacy_source" ]] || exit 1
+mkdir -p "$build_dir/legacy-source"
+git -C "$repo" archive "$legacy_source" | tar -x -C "$build_dir/legacy-source"
+(cd "$build_dir/legacy-source" && GOWORK=off CGO_ENABLED=0 GOOS=linux GOARCH="$goarch" go test -c -tags=reliable_messaging -o "$build_dir/legacy-maintenance-proof" ./cmd/iam-maintenance)
+echo "Historical bootstrap binary source: $legacy_source"
 "${compose[@]}" up -d --wait --wait-timeout 180 mysql nsqd
 "${compose[@]}" cp "$build_dir/proof" mysql:/tmp/iam-proof
 "${compose[@]}" cp "$repo/internal/pkg/migration/migrations/000006_add_domain_event_outbox.up.sql" mysql:/tmp/iam-old-outbox.sql
@@ -58,8 +65,9 @@ fi
 python3 -c 'import json,sys; r=json.loads(sys.argv[1]); assert r["legacy_unfinished"]==2 and r["standard_rows"]==0 and not r["sdk_data_ready"] and r["legacy_rollback_data_ready"] and not r["cutover_authorized"]; print("PASS fresh bootstrap blocks SDK cutover until legacy drain")' "$report"
 
 "${compose[@]}" cp "$build_dir/maintenance-proof" mysql:/tmp/iam-maintenance-proof
+"${compose[@]}" cp "$build_dir/legacy-maintenance-proof" mysql:/tmp/iam-maintenance-legacy-proof
 "${compose[@]}" exec -T -e TZ=UTC -e IAM_RM_TIMEZONE_REQUIRED=1 -e IAM_APISERVER_MYSQL_HOST=127.0.0.1 -e IAM_APISERVER_MYSQL_USERNAME=root -e IAM_APISERVER_MYSQL_PASSWORD='' -e IAM_APISERVER_MYSQL_DATABASE=rm_iam_full_chain -e MYSQL_HOST=127.0.0.1 -e MYSQL_USER=root -e MYSQL_PASSWORD='' -e MYSQL_DATABASE=rm_iam_full_chain mysql /tmp/iam-maintenance-proof -test.run '^TestMaintenanceDatabaseTimezoneMySQL$' -test.v
 
 # Child processes use the actual old EventBus/Relay and SDK composition in turn.
 # No SQL fixture marks notifications published: both paths must deliver to NSQ.
-"${compose[@]}" exec -T -e IAM_RM_BOOTSTRAP_REQUIRED=1 -e RM_IAM_NSQ_TCP=nsqd:4150 -e RM_IAM_EVENTS_CATALOG=/tmp/iam-events.yaml -e IAM_APISERVER_MYSQL_HOST=127.0.0.1 -e IAM_APISERVER_MYSQL_USERNAME=root -e IAM_APISERVER_MYSQL_PASSWORD='' -e IAM_APISERVER_MYSQL_DATABASE=rm_iam_full_chain mysql /tmp/iam-maintenance-proof -test.run '^TestMaintenanceBootstrapHandoff$' -test.v
+"${compose[@]}" exec -T -e IAM_RM_LEGACY_BINARY=/tmp/iam-maintenance-legacy-proof -e IAM_RM_BOOTSTRAP_REQUIRED=1 -e RM_IAM_NSQ_TCP=nsqd:4150 -e RM_IAM_EVENTS_CATALOG=/tmp/iam-events.yaml -e IAM_APISERVER_MYSQL_HOST=127.0.0.1 -e IAM_APISERVER_MYSQL_USERNAME=root -e IAM_APISERVER_MYSQL_PASSWORD='' -e IAM_APISERVER_MYSQL_DATABASE=rm_iam_full_chain mysql /tmp/iam-maintenance-proof -test.run '^TestMaintenanceBootstrapHandoff$' -test.v

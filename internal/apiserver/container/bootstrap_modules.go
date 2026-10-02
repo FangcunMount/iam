@@ -24,7 +24,6 @@ func (c *Container) initEventing() error {
 		NSQEnabled:        c.runtimeOptions.NSQEnabled,
 		NSQAddress:        c.runtimeOptions.NSQAddress,
 		OutboxInterval:    c.runtimeOptions.Events.OutboxRelayInterval,
-		EventBus:          c.eventBus,
 		CatalogPath:       c.runtimeOptions.Events.CatalogPath,
 		OutboxBatch:       c.runtimeOptions.Events.OutboxRelayBatchSize,
 		OutboxRetry:       c.runtimeOptions.Events.OutboxRelayRetryDelay,
@@ -37,7 +36,6 @@ func (c *Container) initEventing() error {
 	c.outboxStore = eventing.Outbox
 	c.eventStager = eventing.Stager
 	c.reliableRuntime = eventing.ReliableRuntime
-	c.outboxRelay = eventing.Relay
 	return nil
 }
 

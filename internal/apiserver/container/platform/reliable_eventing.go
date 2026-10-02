@@ -9,7 +9,6 @@ import (
 	"github.com/FangcunMount/iam/v5/internal/apiserver/eventing"
 	messagingInfra "github.com/FangcunMount/iam/v5/internal/apiserver/infra/messaging"
 	"github.com/FangcunMount/iam/v5/internal/apiserver/infra/mysql/eventoutbox"
-	"github.com/FangcunMount/iam/v5/pkg/outboxcore"
 	"github.com/FangcunMount/reliable-messaging/outbox"
 	"github.com/FangcunMount/reliable-messaging/relay"
 	sdkmysql "github.com/FangcunMount/reliable-messaging/storage/mysql"
@@ -27,6 +26,9 @@ func (p managedPolicyTransport) Drain(ctx context.Context) error {
 }
 
 func initReliableEventing(deps EventingDeps, result *Eventing) error {
+	if deps.DB == nil {
+		return errors.New("reliable messaging requires IAM MySQL")
+	}
 	opts := deps.ReliableMessaging
 	if err := opts.Validate(); err != nil {
 		return err
@@ -95,7 +97,7 @@ func initReliableEventing(deps EventingDeps, result *Eventing) error {
 	}
 	retry := deps.OutboxRetry
 	if retry <= 0 {
-		retry = outboxcore.DefaultRelayRetryDelay
+		retry = 10 * time.Second
 	}
 	runner, err := relay.New(store, publisher, relay.Config{
 		Concurrency: opts.Concurrency, PollInterval: poll, Lease: opts.Lease,

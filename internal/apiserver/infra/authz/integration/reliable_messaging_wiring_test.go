@@ -48,7 +48,6 @@ func TestReliableMessagingPlatformWiring(t *testing.T) {
 	require.NoError(t, db.Exec("UPDATE schema_migrations SET dirty=FALSE").Error)
 	platformEventing, err := platform.InitEventing(deps)
 	require.NoError(t, err)
-	require.Nil(t, platformEventing.Relay, "legacy Relay must not be selected alongside SDK")
 	require.IsType(t, &eventoutbox.StandardStager{}, platformEventing.Stager)
 	t.Cleanup(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
