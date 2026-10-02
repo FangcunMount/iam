@@ -7,21 +7,6 @@ import (
 	rmoutbox "github.com/FangcunMount/reliable-messaging/outbox"
 )
 
-type PendingEvent struct {
-	EventID       string
-	EventType     string
-	AggregateType string
-	AggregateID   string
-	TopicName     string
-	Payload       []byte
-}
-
-type Store interface {
-	ClaimDueEvents(ctx context.Context, limit int, now time.Time) ([]PendingEvent, error)
-	MarkEventPublished(ctx context.Context, eventID string, publishedAt time.Time) error
-	MarkEventFailed(ctx context.Context, eventID, lastError string, nextAttemptAt time.Time) error
-}
-
 // These public types retain IAM's Go type identity for existing callers.
 // ToSDK converts the legacy public boundary to the shared messaging contract.
 type StatusBucket struct {

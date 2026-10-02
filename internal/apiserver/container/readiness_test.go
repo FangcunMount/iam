@@ -2,39 +2,25 @@ package container
 
 import (
 	"context"
-	"strings"
 	"testing"
 	"time"
 
-	eventoutbox "github.com/FangcunMount/iam/v5/internal/apiserver/infra/mysql/eventoutbox"
 	apiserveroptions "github.com/FangcunMount/iam/v5/internal/apiserver/options"
-	"github.com/FangcunMount/iam/v5/pkg/outboxcore"
+	"github.com/FangcunMount/iam/v5/pkg/outbox"
 	"github.com/stretchr/testify/require"
-	"gorm.io/driver/sqlite"
-	"gorm.io/gorm"
 )
 
+// Readiness tests consume the status port. Real MySQL standard/legacy reading
+// is covered by the isolated StandardPreflight contract, not a SQLite old Store.
+type readinessOutboxSnapshot struct{ buckets []outbox.StatusBucket }
+
+func (s readinessOutboxSnapshot) OutboxStatusSnapshot(_ context.Context, now time.Time) (outbox.StatusSnapshot, error) {
+	return outbox.StatusSnapshot{Store: "iam-standard-and-legacy-outbox", GeneratedAt: now, Buckets: s.buckets}, nil
+}
+
 func TestDomainEventOutboxReadinessRejectsStaleBacklog(t *testing.T) {
-	db, err := gorm.Open(sqlite.Open("file:"+strings.ReplaceAll(t.Name(), "/", "_")+"?mode=memory&cache=shared"), &gorm.Config{})
-	require.NoError(t, err)
-	require.NoError(t, db.AutoMigrate(&eventoutbox.OutboxPO{}))
-
-	now := time.Now().UTC()
-	require.NoError(t, db.Create(&eventoutbox.OutboxPO{
-		EventID:       "stale-event",
-		EventType:     "iam.test",
-		AggregateType: "Test",
-		AggregateID:   "1",
-		TopicName:     "iam.test",
-		PayloadJSON:   `{}`,
-		Status:        outboxcore.StatusPending,
-		NextAttemptAt: now.Add(-10 * time.Minute),
-		CreatedAt:     now.Add(-10 * time.Minute),
-		UpdatedAt:     now.Add(-10 * time.Minute),
-	}).Error)
-
 	container := &Container{
-		outboxStore: eventoutbox.NewStore(db, nil),
+		outboxStore: readinessOutboxSnapshot{buckets: []outbox.StatusBucket{{Status: "standard_pending", Count: 1, OldestAgeSeconds: (10 * time.Minute).Seconds()}}},
 		runtimeOptions: RuntimeOptions{Health: apiserveroptions.HealthOptions{
 			Readiness: apiserveroptions.ReadinessOptions{OutboxMaxPendingAge: 5 * time.Minute},
 		}},
@@ -43,12 +29,8 @@ func TestDomainEventOutboxReadinessRejectsStaleBacklog(t *testing.T) {
 }
 
 func TestDomainEventOutboxReadinessAcceptsEmptyStore(t *testing.T) {
-	db, err := gorm.Open(sqlite.Open("file:"+strings.ReplaceAll(t.Name(), "/", "_")+"?mode=memory&cache=shared"), &gorm.Config{})
-	require.NoError(t, err)
-	require.NoError(t, db.AutoMigrate(&eventoutbox.OutboxPO{}))
-
 	container := &Container{
-		outboxStore: eventoutbox.NewStore(db, nil),
+		outboxStore: readinessOutboxSnapshot{},
 		runtimeOptions: RuntimeOptions{Health: apiserveroptions.HealthOptions{
 			Readiness: apiserveroptions.ReadinessOptions{OutboxMaxPendingAge: 5 * time.Minute},
 		}},

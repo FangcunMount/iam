@@ -2,17 +2,14 @@ package eventoutbox_test
 
 import (
 	"context"
-	"encoding/json"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/FangcunMount/iam/v5/internal/apiserver/eventing"
 	"github.com/FangcunMount/iam/v5/internal/apiserver/infra/mysql/eventoutbox"
 	"github.com/FangcunMount/iam/v5/internal/pkg/database/mysql"
 	"github.com/FangcunMount/iam/v5/pkg/event"
 	"github.com/FangcunMount/iam/v5/pkg/eventcatalog"
-	"github.com/FangcunMount/iam/v5/pkg/outboxcore"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -102,104 +99,4 @@ func TestStageRejectsBestEffortEvents(t *testing.T) {
 	})
 
 	require.ErrorContains(t, err, "cannot be staged to outbox")
-}
-
-func TestClaimAndMarkEventLifecycle(t *testing.T) {
-	db, store, _ := setupOutboxStore(t)
-	uow := mysql.NewUnitOfWork(db)
-	require.NoError(t, uow.WithinTransaction(context.Background(), func(txCtx context.Context) error {
-		return store.Stage(txCtx, versionEvent(3))
-	}))
-
-	now := time.Now().Add(time.Second)
-	claimed, err := store.ClaimDueEvents(context.Background(), 10, now)
-	require.NoError(t, err)
-	require.Len(t, claimed, 1)
-	require.Equal(t, eventing.AuthzVersionChanged, claimed[0].EventType)
-	require.Equal(t, "iam.authz.version.v2", claimed[0].TopicName)
-
-	var payload map[string]any
-	require.NoError(t, json.Unmarshal(claimed[0].Payload, &payload))
-	require.Equal(t, "tenant-a", payload["tenant_id"])
-	require.Equal(t, float64(3), payload["version"])
-
-	var row eventoutbox.OutboxPO
-	require.NoError(t, db.Where("event_id = ?", claimed[0].EventID).First(&row).Error)
-	require.Equal(t, outboxcore.StatusPublishing, row.Status)
-
-	publishedAt := now.Add(time.Second)
-	require.NoError(t, store.MarkEventPublished(context.Background(), claimed[0].EventID, publishedAt))
-	require.NoError(t, db.Where("event_id = ?", claimed[0].EventID).First(&row).Error)
-	require.Equal(t, outboxcore.StatusPublished, row.Status)
-	require.NotNil(t, row.PublishedAt)
-}
-
-func TestClaimReclaimsStalePublishingEvents(t *testing.T) {
-	db, store, _ := setupOutboxStore(t)
-	uow := mysql.NewUnitOfWork(db)
-	require.NoError(t, uow.WithinTransaction(context.Background(), func(txCtx context.Context) error {
-		return store.Stage(txCtx, versionEvent(4))
-	}))
-
-	now := time.Now()
-	claimed, err := store.ClaimDueEvents(context.Background(), 10, now)
-	require.NoError(t, err)
-	require.Len(t, claimed, 1)
-
-	reclaimed, err := store.ClaimDueEvents(context.Background(), 10, now.Add(outboxcore.DefaultPublishingStaleFor+time.Second))
-	require.NoError(t, err)
-	require.Len(t, reclaimed, 1)
-	require.Equal(t, claimed[0].EventID, reclaimed[0].EventID)
-}
-
-func TestMarkUnknownEventReturnsError(t *testing.T) {
-	_, store, _ := setupOutboxStore(t)
-
-	err := store.MarkEventPublished(context.Background(), "missing", time.Now())
-	require.ErrorContains(t, err, "not found")
-
-	err = store.MarkEventFailed(context.Background(), "missing", "failed", time.Now())
-	require.ErrorContains(t, err, "not found")
-}
-
-func TestOutboxStatusSnapshotCountsUnfinishedStatuses(t *testing.T) {
-	db, store, _ := setupOutboxStore(t)
-	now := time.Now()
-	require.NoError(t, db.Create([]eventoutbox.OutboxPO{
-		statusRow("evt-pending", outboxcore.StatusPending, now.Add(-3*time.Minute)),
-		statusRow("evt-failed", outboxcore.StatusFailed, now.Add(-2*time.Minute)),
-		statusRow("evt-publishing", outboxcore.StatusPublishing, now.Add(-time.Minute)),
-		statusRow("evt-published", outboxcore.StatusPublished, now.Add(-time.Minute)),
-		statusRow("evt-quarantined", outboxcore.StatusQuarantined, now.Add(-4*time.Minute)),
-	}).Error)
-
-	snapshot, err := store.OutboxStatusSnapshot(context.Background(), now)
-	require.NoError(t, err)
-
-	require.Equal(t, "iam-mysql-outbox", snapshot.Store)
-	require.Len(t, snapshot.Buckets, 4)
-	countByStatus := map[string]int64{}
-	for _, bucket := range snapshot.Buckets {
-		countByStatus[bucket.Status] = bucket.Count
-		require.GreaterOrEqual(t, bucket.OldestAgeSeconds, 0.0)
-	}
-	require.Equal(t, int64(1), countByStatus[outboxcore.StatusPending])
-	require.Equal(t, int64(1), countByStatus[outboxcore.StatusFailed])
-	require.Equal(t, int64(1), countByStatus[outboxcore.StatusPublishing])
-	require.Equal(t, int64(1), countByStatus[outboxcore.StatusQuarantined])
-}
-
-func statusRow(eventID, status string, createdAt time.Time) eventoutbox.OutboxPO {
-	return eventoutbox.OutboxPO{
-		EventID:       eventID,
-		EventType:     eventing.AuthzVersionChanged,
-		AggregateType: "PolicyVersion",
-		AggregateID:   "tenant-a",
-		TopicName:     "iam.authz.version.v2",
-		PayloadJSON:   `{"tenant_id":"tenant-a","version":1}`,
-		Status:        status,
-		NextAttemptAt: createdAt,
-		CreatedAt:     createdAt,
-		UpdatedAt:     createdAt,
-	}
 }

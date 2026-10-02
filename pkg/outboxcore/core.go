@@ -7,25 +7,9 @@ import (
 	"github.com/FangcunMount/iam/v5/pkg/event"
 	"github.com/FangcunMount/iam/v5/pkg/eventcatalog"
 	"github.com/FangcunMount/iam/v5/pkg/eventcodec"
-	outboxport "github.com/FangcunMount/iam/v5/pkg/outbox"
 )
 
-const (
-	StatusPending     = "pending"
-	StatusPublishing  = "publishing"
-	StatusPublished   = "published"
-	StatusFailed      = "failed"
-	StatusQuarantined = "quarantined"
-
-	DefaultPublishingStaleFor = time.Minute
-	DefaultRelayRetryDelay    = 10 * time.Second
-)
-
-var unfinishedStatuses = []string{StatusPending, StatusFailed, StatusPublishing, StatusQuarantined}
-
-func UnfinishedStatuses() []string {
-	return append([]string(nil), unfinishedStatuses...)
-}
+const StatusPending = "pending"
 
 type Record struct {
 	EventID       string
@@ -94,49 +78,4 @@ func BuildRecords(opts BuildRecordsOptions) ([]Record, error) {
 		})
 	}
 	return records, nil
-}
-
-type StatusObservation struct {
-	Status          string
-	Count           int64
-	OldestCreatedAt *time.Time
-}
-
-func BuildStatusSnapshot(store string, now time.Time, observations []StatusObservation) outboxport.StatusSnapshot {
-	if now.IsZero() {
-		now = time.Now()
-	}
-	byStatus := make(map[string]StatusObservation, len(observations))
-	for _, observation := range observations {
-		if isUnfinishedStatus(observation.Status) {
-			byStatus[observation.Status] = observation
-		}
-	}
-	buckets := make([]outboxport.StatusBucket, 0, len(unfinishedStatuses))
-	for _, status := range unfinishedStatuses {
-		observation := byStatus[status]
-		ageSeconds := 0.0
-		if observation.Count > 0 && observation.OldestCreatedAt != nil {
-			ageSeconds = now.Sub(*observation.OldestCreatedAt).Seconds()
-			if ageSeconds < 0 {
-				ageSeconds = 0
-			}
-		}
-		buckets = append(buckets, outboxport.StatusBucket{
-			Status:           status,
-			Count:            observation.Count,
-			OldestCreatedAt:  observation.OldestCreatedAt,
-			OldestAgeSeconds: ageSeconds,
-		})
-	}
-	return outboxport.StatusSnapshot{Store: store, GeneratedAt: now, Buckets: buckets}
-}
-
-func isUnfinishedStatus(status string) bool {
-	for _, known := range unfinishedStatuses {
-		if status == known {
-			return true
-		}
-	}
-	return false
 }

@@ -5,7 +5,7 @@ repo=$(git rev-parse --show-toplevel)
 source_commit=a929f5301ed8265a8f44726b474da27ae10cb1c1
 [[ $(git -C "$repo" rev-parse "$source_commit^{commit}") == "$source_commit" ]] || exit 1
 kind=${1:-unit}
-case "$kind" in unit|lifecycle|bus) ;; *) echo 'Usage: run-retired-relay-contracts.sh unit|lifecycle|bus' >&2; exit 2;; esac
+case "$kind" in unit|lifecycle|bus|store) ;; *) echo 'Usage: run-retired-relay-contracts.sh unit|lifecycle|bus|store' >&2; exit 2;; esac
 snapshot=$(mktemp -d "${TMPDIR:-/tmp}/iam-retired-relay-test.XXXXXX")
 trap 'rm -rf -- "$snapshot"' EXIT
 trap 'exit 130' INT
@@ -15,6 +15,7 @@ echo "Historical source: $source_commit; case: $kind"
 cd "$snapshot"
 export GOWORK=off
 case "$kind" in
+ store) go test -count=1 ./internal/apiserver/infra/mysql/eventoutbox ./pkg/outboxcore ;;
  bus) go test -count=1 ./pkg/eventruntime ./pkg/eventmessaging; go test -count=1 -run '^(TestNormalizeNSQConfig|TestEnsureDurableTopics|TestAuthzPolicySyncSubscriber|TestPolicySyncRetries)' ./internal/apiserver/process ./internal/apiserver/container/authz ;;
  unit) go test -count=1 -run '^TestOutboxRelay' ./internal/apiserver/infra/messaging ;;
  lifecycle) go test -tags=reliable_messaging -count=1 -run '^TestReliableMessagingShutdownJoinBoundary$' ./internal/apiserver/process ;;
