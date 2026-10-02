@@ -1,5 +1,7 @@
 # 事件目录、发布语义与 Transactional Outbox
 
+> 状态：已实现 · 指候选源码与隔离验证，尚未发布生产。
+
 ## 当前运行时：SDK 标准 Outbox
 
 M6-04 退役候选删除旧平台 Relay、调度循环和关闭钩子。`platform.InitEventing` 要求 `events.reliable_messaging.enabled=true`，通过原 GORM 事务与 StandardStager 写入 `rm_outbox`，由 reliable-messaging Store、Relay 和 NSQ publisher 投递。禁用开关返回带 `ErrUnsafeMessagingHandoff` 的明确错误，阻止继续初始化业务模块，不再创建旧 Store 或选择旧 Relay。
@@ -241,7 +243,7 @@ Subscriber channel 包含 hostname + pid + `#ephemeral`，目的是广播到每�
 | direct publisher | `pkg/eventruntime/publisher.go` |
 | Outbox record/state | `pkg/outboxcore/core.go` |
 | MySQL store | `internal/apiserver/infra/mysql/eventoutbox/store.go` |
-| relay | `internal/apiserver/infra/messaging/outbox_relay.go` |
+| relay | [固定旧提交的 Relay](https://github.com/FangcunMount/iam/blob/a929f5301ed8265a8f44726b474da27ae10cb1c1/internal/apiserver/infra/messaging/outbox_relay.go) |
 | composition | `internal/apiserver/container/platform/eventing.go` |
 | AuthZ command services | `internal/apiserver/application/authz` |
 | AuthZ consumer | `internal/apiserver/application/authz/policypublication/service.go` |
