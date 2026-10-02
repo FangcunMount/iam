@@ -133,14 +133,22 @@ func (dm *DatabaseManager) runMigrations() error {
 				if err != nil {
 					return err
 				}
-				return rolemodel.BootstrapIndependentRoles(context.Background(), gormDB, eventoutbox.NewStore(gormDB, eventcatalog.NewCatalog(catalog)))
+				stager, err := eventoutbox.NewBootstrapStager(eventcatalog.NewCatalog(catalog))
+				if err != nil {
+					return err
+				}
+				return rolemodel.BootstrapIndependentRoles(context.Background(), gormDB, stager)
 			}},
 			{Version: 35, Prepare: func() error {
 				catalog, err := eventcatalog.Load(dm.config.Options.Events.CatalogPath)
 				if err != nil {
 					return err
 				}
-				return conditionretire.Bootstrap(context.Background(), gormDB, eventoutbox.NewStore(gormDB, eventcatalog.NewCatalog(catalog)))
+				stager, err := eventoutbox.NewBootstrapStager(eventcatalog.NewCatalog(catalog))
+				if err != nil {
+					return err
+				}
+				return conditionretire.Bootstrap(context.Background(), gormDB, stager)
 			}},
 		},
 	})

@@ -2,6 +2,10 @@ package scopemigrate
 
 import (
 	"context"
+	"os"
+	"testing"
+	"time"
+
 	cbErrors "github.com/FangcunMount/component-base/pkg/errors"
 	assignmentApp "github.com/FangcunMount/iam/v5/internal/apiserver/application/authz/assignment"
 	"github.com/FangcunMount/iam/v5/internal/apiserver/application/authz/management"
@@ -19,9 +23,6 @@ import (
 	"github.com/FangcunMount/iam/v5/internal/pkg/meta"
 	"github.com/FangcunMount/iam/v5/pkg/eventcatalog"
 	"github.com/stretchr/testify/require"
-	"os"
-	"testing"
-	"time"
 )
 
 type scopedWriterUserResolver struct{}
@@ -48,7 +49,10 @@ func TestConcurrentScopedAssignmentWritersRejectStaleVersionMySQL(t *testing.T) 
 	require.NoError(t, db.Create(&version).Error)
 	config, err := eventcatalog.Load("../../../../configs/events.yaml")
 	require.NoError(t, err)
-	stager := eventoutbox.NewStore(db, eventcatalog.NewCatalog(config))
+	stager, err := eventoutbox.NewBootstrapStager(eventcatalog.NewCatalog(config))
+	if err != nil {
+		t.Fatal(err)
+	}
 	resolver := subjectresolver.NewUserSubjectResolver(scopedWriterUserResolver{})
 	service := assignmentApp.NewCommandService(assignment.NewValidator(roles, resolver), roles, authzUOW.NewUnitOfWork(db, resolver, stager), nil, management.NewGuard(nil))
 	sub, err := subject.NewUserRef(100)

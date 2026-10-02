@@ -150,7 +150,10 @@ func TestDurableOutboxAndPolicyVersionAreIdempotent(t *testing.T) {
 	require.NoError(t, db.AutoMigrate(&eventoutbox.OutboxPO{}))
 	cfg, err := eventcatalog.Load("../../../../configs/events.yaml")
 	require.NoError(t, err)
-	store := eventoutbox.NewStore(db, eventcatalog.NewCatalog(cfg))
+	store, err := eventoutbox.NewBootstrapStager(eventcatalog.NewCatalog(cfg))
+	if err != nil {
+		t.Fatal(err)
+	}
 	p, err := Preflight(ctx, db)
 	require.NoError(t, err)
 	_, err = Apply(ctx, db, store, p.Fingerprint, true)
