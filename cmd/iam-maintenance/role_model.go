@@ -35,7 +35,7 @@ func runRoleModelMigration(args []string, output io.Writer) error {
 	fingerprint := f.String("fingerprint", "", "reviewed source fingerprint")
 	stopped := f.Bool("writes-stopped", false, "authorization and relevant identity writers are stopped")
 	catalogPath := f.String("event-catalog", "configs/events.yaml", "durable event catalog")
-	outboxMode := f.String("outbox-mode", "", "standard or legacy, matching the reviewed running Relay; required after migration 38")
+	outboxMode := f.String("outbox-mode", "", "standard only; explicit selection required, legacy writer retired")
 	timeout := f.Duration("timeout", time.Minute, "operation timeout")
 	if err := f.Parse(args[1:]); err != nil {
 		return err

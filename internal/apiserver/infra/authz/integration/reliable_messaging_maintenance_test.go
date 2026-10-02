@@ -31,16 +31,17 @@ func TestReliableMessagingMaintenanceStager(t *testing.T) {
 	selectStager := func(mode string) (event.Stager, error) {
 		return eventoutbox.NewMaintenanceStager(ctx, db, catalog, mode)
 	}
-	legacy, err := selectStager("")
-	require.NoError(t, err)
-	require.IsType(t, &eventoutbox.Store{}, legacy, "pre-M3 maintenance retains its original writer")
+	for _, mode := range []string{"", "legacy", "STANDARD"} {
+		_, err = selectStager(mode)
+		require.ErrorContains(t, err, "explicit --outbox-mode=standard")
+	}
 	_, err = selectStager("standard")
 	require.Error(t, err, "standard mode cannot run before migration 38")
 	_, err = selectStager("STANDARD")
 	require.ErrorContains(t, err, "outbox-mode")
 	require.NoError(t, db.Exec("UPDATE schema_migrations SET dirty=TRUE").Error)
-	_, err = selectStager("legacy")
-	require.ErrorContains(t, err, "clean migration journal")
+	_, err = selectStager("standard")
+	require.ErrorContains(t, err, "clean migration 39")
 	require.NoError(t, db.Exec("UPDATE schema_migrations SET dirty=FALSE").Error)
 	ddl, err := os.ReadFile(os.Getenv("RM_IAM_OUTBOX_UPGRADE"))
 	require.NoError(t, err)
@@ -48,10 +49,10 @@ func TestReliableMessagingMaintenanceStager(t *testing.T) {
 	_, err = selectStager("")
 	require.ErrorContains(t, err, "explicit --outbox-mode", "unjournaled standard table must not silently choose legacy")
 	_, err = selectStager("legacy")
-	require.ErrorContains(t, err, "journaled standard Outbox")
+	require.ErrorContains(t, err, "legacy maintenance writer is retired")
 	require.NoError(t, db.Exec("UPDATE schema_migrations SET version=38").Error)
-	legacy, err = selectStager("legacy")
-	require.NoError(t, err, "legacy maintenance stays available during the additive upgrade")
+	_, err = selectStager("legacy")
+	require.ErrorContains(t, err, "legacy maintenance writer is retired")
 	_, err = selectStager("standard")
 	require.ErrorContains(t, err, "clean migration 39")
 	failureDDL, err := os.ReadFile(os.Getenv("RM_IAM_OUTBOX_FAILURE_UPGRADE"))
@@ -63,8 +64,11 @@ func TestReliableMessagingMaintenanceStager(t *testing.T) {
 	standard, err := selectStager("standard")
 	require.NoError(t, err)
 	require.IsType(t, &eventoutbox.StandardStager{}, standard)
-	legacy, err = selectStager("legacy")
-	require.NoError(t, err)
+	_, err = selectStager("legacy")
+	require.ErrorContains(t, err, "legacy maintenance writer is retired")
+	// Historical fixture writes model old responsibility; current maintenance
+	// cannot select this writer. Preserve the existing unfinished-data gate.
+	legacy := authzdb.Stager(t, db)
 	// Maintenance uses the original host UoW and insert-only Stager, without a
 	// separate transaction or Relay. Actual scheduling/transport has other proofs.
 	uow := dbmysql.NewUnitOfWork(db)
@@ -104,14 +108,16 @@ func TestReliableMessagingMaintenanceStager(t *testing.T) {
 	for _, state := range []string{"pending", "retry_wait", "publishing", "quarantined", "unknown", "Published", "published "} {
 		require.NoError(t, db.Exec("UPDATE rm_outbox SET state=?", state).Error)
 		_, err = selectStager("legacy")
-		require.ErrorIs(t, err, eventoutbox.ErrUnsafeMessagingHandoff)
+		require.ErrorContains(t, err, "legacy maintenance writer is retired")
 	}
 	require.NoError(t, db.Exec("UPDATE rm_outbox SET state='published'").Error)
 	_, err = selectStager("legacy")
-	require.NoError(t, err)
+	require.ErrorContains(t, err, "legacy maintenance writer is retired")
+	_, err = selectStager("standard")
+	require.NoError(t, err, "standard maintenance remains available after published receipts")
 	canceled, stop := context.WithCancel(ctx)
 	stop()
-	_, err = eventoutbox.NewMaintenanceStager(canceled, db, catalog, "legacy")
+	_, err = eventoutbox.NewMaintenanceStager(canceled, db, catalog, "standard")
 	require.ErrorIs(t, err, context.Canceled)
 	// A dropped table on a migrated database cannot reactivate an implicit writer.
 	require.NoError(t, db.Exec("RENAME TABLE rm_outbox TO retained_rm_outbox").Error)

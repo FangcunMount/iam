@@ -27,7 +27,7 @@ func runConditionRetirement(args []string, output io.Writer) error {
 	fp := f.String("fingerprint", "", "reviewed preflight fingerprint")
 	stopped := f.Bool("writes-stopped", false, "authorization writers and affected operations are stopped")
 	catalog := f.String("event-catalog", "configs/events.yaml", "durable event catalog")
-	outboxMode := f.String("outbox-mode", "", "standard or legacy, matching the reviewed running Relay; required after migration 38")
+	outboxMode := f.String("outbox-mode", "", "standard only; explicit selection required, legacy writer retired")
 	timeout := f.Duration("timeout", time.Minute, "operation timeout")
 	if err := f.Parse(args[1:]); err != nil {
 		return err
