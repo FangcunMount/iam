@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	cbmessaging "github.com/FangcunMount/component-base/pkg/messaging"
 	appuow "github.com/FangcunMount/iam/v5/internal/apiserver/application/authz/uow"
 	"github.com/FangcunMount/iam/v5/internal/apiserver/container"
 	"github.com/FangcunMount/iam/v5/internal/apiserver/container/platform"
@@ -18,6 +17,7 @@ import (
 	smsInfra "github.com/FangcunMount/iam/v5/internal/apiserver/infra/sms"
 	"github.com/FangcunMount/iam/v5/internal/apiserver/options"
 	"github.com/FangcunMount/iam/v5/internal/apiserver/testfixtures/authzdb"
+	"github.com/FangcunMount/reliable-messaging/wire/legacy"
 	"github.com/nsqio/go-nsq"
 	"github.com/stretchr/testify/require"
 )
@@ -103,7 +103,7 @@ func TestReliableMessagingPlatformWiring(t *testing.T) {
 	require.NoError(t, platformEventing.ReliableRuntime.Start(context.Background()))
 	select {
 	case body := <-received:
-		envelope, ok, err := cbmessaging.DecodeMessagePayload(body)
+		envelope, ok, err := legacy.Decode(body)
 		require.NoError(t, err)
 		require.True(t, ok, "retain the original component-base wire envelope")
 		require.Equal(t, evt.EventID(), envelope.UUID, "broker ID must not replace application identity")
@@ -140,7 +140,7 @@ func TestReliableMessagingPlatformWiring(t *testing.T) {
 	require.NoError(t, platformEventing.Publisher.Publish(context.Background(), smsEvent))
 	select {
 	case body := <-smsReceived:
-		envelope, ok, err := cbmessaging.DecodeMessagePayload(body)
+		envelope, ok, err := legacy.Decode(body)
 		require.NoError(t, err)
 		require.True(t, ok, "old SMS consumer must decode the SDK wire")
 		require.Equal(t, smsEvent.EventID(), envelope.UUID)

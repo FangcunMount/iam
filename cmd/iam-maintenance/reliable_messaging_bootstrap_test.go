@@ -11,13 +11,13 @@ import (
 	"testing"
 	"time"
 
-	cbmessaging "github.com/FangcunMount/component-base/pkg/messaging"
 	appuow "github.com/FangcunMount/iam/v5/internal/apiserver/application/authz/uow"
 	"github.com/FangcunMount/iam/v5/internal/apiserver/container/platform"
 	policy "github.com/FangcunMount/iam/v5/internal/apiserver/domain/authz/policy"
 	"github.com/FangcunMount/iam/v5/internal/apiserver/infra/mysql/eventoutbox"
 	authzuow "github.com/FangcunMount/iam/v5/internal/apiserver/infra/mysql/uow/authz"
 	"github.com/FangcunMount/iam/v5/internal/apiserver/options"
+	"github.com/FangcunMount/reliable-messaging/wire/legacy"
 	"github.com/nsqio/go-nsq"
 	"github.com/stretchr/testify/require"
 )
@@ -92,7 +92,7 @@ func TestMaintenanceBootstrapHandoff(t *testing.T) {
 		for len(seen) < len(want) {
 			select {
 			case body := <-received:
-				decoded, ok, err := cbmessaging.DecodeMessagePayload(body)
+				decoded, ok, err := legacy.Decode(body)
 				require.NoError(t, err)
 				require.True(t, ok, "both transports must keep the existing envelope")
 				payload, exists := want[decoded.UUID]

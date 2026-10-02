@@ -3,6 +3,7 @@ name: IAM M6 SDK messaging isolation
 on:
   pull_request:
     paths:
+      - scripts/testing/build-retired-subscriber.sh
       - go.mod
       - go.sum
       - internal/apiserver/container/**
@@ -35,6 +36,8 @@ jobs:
           --health-retries=30
     steps:
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
       - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
@@ -58,7 +61,9 @@ jobs:
           RM_IAM_NSQ_HTTP: http://127.0.0.1:4151
         run: |
           set -euo pipefail
-          go test -tags reliable_messaging ./internal/apiserver/container/authz \
+          old_binary="$RUNNER_TEMP/iam-v061-policy-proof"
+          scripts/testing/build-retired-subscriber.sh "$old_binary"
+          IAM_RM_LEGACY_SUBSCRIBER_BINARY="$old_binary" go test -tags reliable_messaging ./internal/apiserver/container/authz \
             -run '^(TestIAMV061CutoffThenSDKReconcilesMySQLVersion|TestSDKPolicySyncFailureHandoffAcrossEphemeralChannels)$' -count=1 -v
       - name: Verify standard Outbox publisher wire and lifecycle
         env:
