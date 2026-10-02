@@ -39,7 +39,6 @@ type Container struct {
 	eventStager     event.Stager
 	reliableRuntime *messagingInfra.ReliableRuntime
 	sdkPolicySync   authz.PolicySyncSubscriber
-	outboxRelay     messagingInfra.OutboxRelay
 
 	// 业务模块
 	AuthnModule            *authn.AuthnModule
@@ -112,13 +111,6 @@ func (c *Container) HealthCheck(ctx context.Context) error {
 // GetMySQLDB 获取MySQL数据库连接
 func (c *Container) GetMySQLDB() *gorm.DB {
 	return c.mysqlDB
-}
-
-func (c *Container) OutboxRelay() messagingInfra.OutboxRelay {
-	if c == nil {
-		return nil
-	}
-	return c.outboxRelay
 }
 
 // IsInitialized 检查容器是否已初始化

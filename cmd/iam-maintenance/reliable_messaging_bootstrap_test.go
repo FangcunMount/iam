@@ -12,7 +12,6 @@ import (
 	"time"
 
 	cbmessaging "github.com/FangcunMount/component-base/pkg/messaging"
-	_ "github.com/FangcunMount/component-base/pkg/messaging/nsq"
 	appuow "github.com/FangcunMount/iam/v5/internal/apiserver/application/authz/uow"
 	"github.com/FangcunMount/iam/v5/internal/apiserver/container/platform"
 	policy "github.com/FangcunMount/iam/v5/internal/apiserver/domain/authz/policy"
@@ -73,6 +72,10 @@ func TestMaintenanceBootstrapHandoff(t *testing.T) {
 		defer cancel()
 		binary, err := os.Executable()
 		require.NoError(t, err)
+		if phase == "legacy-drain" || phase == "legacy-rollback" {
+			binary = os.Getenv("IAM_RM_LEGACY_BINARY")
+			require.Equal(t, "/tmp/iam-maintenance-legacy-proof", binary, "fixed historical binary must be installed by the isolated proof script")
+		}
 		cmd := exec.CommandContext(ctx, binary, "-test.run=^TestMaintenanceBootstrapHandoffChild$", "-test.v")
 		cmd.Env = append(os.Environ(), "IAM_RM_HANDOFF_PHASE="+phase)
 		output, err := cmd.CombinedOutput()
@@ -170,15 +173,12 @@ func TestMaintenanceBootstrapHandoffChild(t *testing.T) {
 	pool, err := db.DB()
 	require.NoError(t, err)
 	defer func() { require.NoError(t, pool.Close()) }()
-	cfg := cbmessaging.DefaultConfig()
-	cfg.NSQ.NSQdAddr = os.Getenv("RM_IAM_NSQ_TCP")
-	bus, err := cbmessaging.NewEventBus(cfg)
-	require.NoError(t, err)
-	defer func() { require.NoError(t, bus.Close()) }()
+	// Old drain/rollback phases run the pinned prior binary; this child owns SDK phases only.
+	require.Contains(t, []string{"standard", "standard-resume"}, phase)
 	opts := options.DefaultReliableMessagingOptions()
-	opts.Enabled = phase == "standard" || phase == "standard-resume"
-	owner, err := platform.InitEventing(platform.EventingDeps{DB: db, EventBus: bus,
-		CatalogPath: os.Getenv("RM_IAM_EVENTS_CATALOG"), NSQEnabled: true, NSQAddress: cfg.NSQ.NSQdAddr,
+	opts.Enabled = true
+	owner, err := platform.InitEventing(platform.EventingDeps{DB: db,
+		CatalogPath: os.Getenv("RM_IAM_EVENTS_CATALOG"), NSQEnabled: true, NSQAddress: os.Getenv("RM_IAM_NSQ_TCP"),
 		ReliableMessaging: opts, OutboxInterval: 10 * time.Millisecond})
 	require.NoError(t, err)
 	if owner.ReliableRuntime != nil {
@@ -190,7 +190,7 @@ func TestMaintenanceBootstrapHandoffChild(t *testing.T) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-	if phase == "standard" || phase == "legacy-rollback" {
+	if phase == "standard" {
 		uow := authzuow.NewUnitOfWork(db, nil, owner.Stager)
 		require.NoError(t, uow.WithinTx(ctx, func(txctx context.Context, repos appuow.TxRepositories) error {
 			version, err := repos.PolicyVersions.Increment(txctx, "isolated-bootstrap-proof", phase)
@@ -200,13 +200,6 @@ func TestMaintenanceBootstrapHandoffChild(t *testing.T) {
 			return repos.Events.Stage(txctx, policy.NewVersionChangedEvent(version.Version))
 		}))
 	}
-	if owner.Relay != nil {
-		require.Nil(t, owner.ReliableRuntime)
-		require.NoError(t, owner.Relay.DispatchDue(ctx))
-		require.NoError(t, eventoutbox.CheckLegacyDrained(ctx, db))
-		return
-	}
-	require.Nil(t, owner.Relay)
 	require.NoError(t, owner.ReliableRuntime.Start(ctx))
 	if phase == "standard" {
 		require.Eventually(t, func() bool { return eventoutbox.CheckStandardDrained(ctx, db) == nil }, 10*time.Second, 10*time.Millisecond)

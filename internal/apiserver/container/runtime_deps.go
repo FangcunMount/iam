@@ -15,10 +15,6 @@ type RotationScheduler interface {
 	IsRunning() bool
 }
 
-type OutboxRelay interface {
-	DispatchDue(context.Context) error
-}
-
 type ReliableMessagingRuntime interface {
 	Start(context.Context) error
 	Stop(context.Context) error
@@ -28,7 +24,6 @@ type RuntimeDeps struct {
 	ReliableMessaging       ReliableMessagingRuntime
 	ReliableShutdownTimeout time.Duration
 	RotationScheduler       RotationScheduler
-	OutboxRelay             OutboxRelay
 	AuthzPolicySync         authz.PolicySyncSubscriber
 	PolicySyncDrain         func(context.Context) error
 	SuggestCleanup          func() error
@@ -49,7 +44,6 @@ func (c *Container) runtimeHooks() RuntimeDeps {
 	var rotation authn.KeyRotationScheduler
 	authn.CollectRuntime(c.AuthnModule, &rotation)
 	deps.RotationScheduler = rotation
-	deps.OutboxRelay = c.OutboxRelay()
 	if c.reliableRuntime != nil {
 		deps.ReliableMessaging = c.reliableRuntime
 		deps.ReliableShutdownTimeout = c.runtimeOptions.Events.ReliableMessaging.ShutdownTimeout
