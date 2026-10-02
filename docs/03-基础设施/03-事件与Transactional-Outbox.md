@@ -14,6 +14,8 @@ M6-04 退役候选删除旧平台 Relay、调度循环和关闭钩子。`platfor
 
 隔离合同保留完整空库初始化和消息交接：当前版本迁移产生的早期通知由固定提交 `a929f5301ed8265a8f44726b474da27ae10cb1c1` 的独立测试二进制排空；当前二进制负责标准投递和新进程恢复；固定旧版负责回退阶段。参见[隔离验证](../../scripts/testing/reliable-messaging-proof.md)。旧 Relay 单元及旧关闭边界合同从固定旧提交运行，入口 `scripts/testing/run-retired-relay-contracts.sh`；它们不是当前 SDK 的验收证据。旧 Store 单元合同由该脚本的 `store` 模式从固定源执行；历史 ID-only 写入越过 fencing 的反证由固定旧版集成二进制执行，当前源码不保留旧结算算法。
 
+当前测试构建也不再依赖 component-base 消息包。SMS 完整 wire 字节与固定 a929f530／v0.6.1 编码器实际捕获样本对比；旧 NSQ cutoff 在该固定提交的独立测试二进制中执行，由当前 SDK 子进程写出二进制身份和权限结果回执，缺失即失败。当前失败回执中转仍由当前二进制验证。CI 的旧版二进制构建入口为 `scripts/testing/build-retired-subscriber.sh`，不是现役依赖或新的消息执行实现。
+
 ## 历史实现参考
 
 下方章节保留退役前旧表 Store／Relay 的原设计，用于理解历史合同与旧版回退；其中的旧状态机、旧 API 与默认运行模式不代表当前候选。

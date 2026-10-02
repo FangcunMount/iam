@@ -5,10 +5,10 @@ import (
 	"testing"
 	"time"
 
-	cbmessaging "github.com/FangcunMount/component-base/pkg/messaging"
+	"os"
+
 	"github.com/FangcunMount/iam/v5/pkg/event"
 	"github.com/FangcunMount/iam/v5/pkg/eventcatalog"
-	"github.com/FangcunMount/iam/v5/pkg/eventcodec"
 	"github.com/FangcunMount/reliable-messaging/transport"
 	"github.com/stretchr/testify/require"
 )
@@ -60,10 +60,8 @@ events:
 		},
 		Data: map[string]string{"event_type": "iam.login_otp_sms", "scene": "login", "phone_e164": "+8613800138000", "code": "123456"},
 	}
-	oldPayload, err := eventcodec.EncodePayload(evt)
-	require.NoError(t, err)
-	wantWire, err := cbmessaging.EncodeMessagePayload(&cbmessaging.Message{UUID: evt.EventID(), Payload: oldPayload, Metadata: eventcodec.MetadataFromEvent(evt, "iam-apiserver")})
-	require.NoError(t, err)
+	wantWire, err := os.ReadFile("testdata/sms-v061-wire.json")
+	require.NoError(t, err, "golden captured through fixed a929f530/component-base v0.6.1, not the current encoder")
 	for _, tc := range []struct {
 		outcome transport.Outcome
 		wantErr error
