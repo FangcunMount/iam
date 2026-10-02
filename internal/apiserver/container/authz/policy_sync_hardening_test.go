@@ -8,9 +8,10 @@ import (
 	"testing"
 	"time"
 
-	cbmessaging "github.com/FangcunMount/component-base/pkg/messaging"
 	"github.com/FangcunMount/iam/v5/internal/apiserver/domain/authz/authorization"
 	authzruntime "github.com/FangcunMount/iam/v5/internal/apiserver/infra/authz/runtime"
+	sdktransport "github.com/FangcunMount/reliable-messaging/transport"
+	"github.com/FangcunMount/reliable-messaging/wire/legacy"
 	"github.com/stretchr/testify/require"
 )
 
@@ -20,18 +21,14 @@ type retrySubscriber struct {
 	stops   atomic.Int32
 }
 
-func (s *retrySubscriber) Subscribe(string, string, cbmessaging.Handler) error {
+func (s *retrySubscriber) Subscribe(context.Context, string, string, sdktransport.Handler, func(context.Context, legacy.FailedHandoff) error) error {
 	s.calls.Add(1)
 	if !s.allowed.Load() {
 		return fmt.Errorf("registration unavailable")
 	}
 	return nil
 }
-func (s *retrySubscriber) SubscribeWithMiddleware(topic, channel string, handler cbmessaging.Handler, _ ...cbmessaging.Middleware) error {
-	return s.Subscribe(topic, channel, handler)
-}
-func (s *retrySubscriber) Stop()        { s.stops.Add(1) }
-func (s *retrySubscriber) Close() error { return nil }
+func (s *retrySubscriber) Close(context.Context) error { s.stops.Add(1); return nil }
 
 type lifecycleSource struct {
 	version atomic.Int64
@@ -59,8 +56,8 @@ func TestPolicySyncRetriesRegistrationRestoresReadinessAndCancels(t *testing.T) 
 	source.version.Store(2) // committed during the initial-load / subscription window; no event
 	module := &AuthzModule{policyReloader: runtime, runtimeHealth: runtime}
 	subscriber := &retrySubscriber{}
-	syncer := module.PolicySyncSubscriber(subscriber)
-	require.Same(t, syncer, module.PolicySyncSubscriber(subscriber))
+	syncer := module.newSDKPolicySyncSubscriber(subscriber, policyProvisionerStub{}, ignorePolicyFailure)
+	require.Same(t, syncer, module.newSDKPolicySyncSubscriber(subscriber, policyProvisionerStub{}, ignorePolicyFailure))
 	ready, _, _ := runtime.ReloadHealth()
 	require.False(t, ready)
 	require.NoError(t, syncer.Start(context.Background()))

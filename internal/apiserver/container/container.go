@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/FangcunMount/component-base/pkg/messaging"
 	redis "github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 
@@ -28,9 +27,6 @@ type Container struct {
 	// 数据库连接
 	mysqlDB     *gorm.DB
 	redisClient *redis.Client // Redis（缓存、令牌等）
-
-	// 消息总线（可选）
-	eventBus messaging.EventBus
 
 	// 事件平台
 	eventCatalog    *eventcatalog.Catalog
@@ -62,11 +58,10 @@ type Container struct {
 }
 
 // NewContainerWithOptions 创建带 typed runtime options 的容器。
-func NewContainerWithOptions(mysqlDB *gorm.DB, redisClient *redis.Client, eventBus messaging.EventBus, encryptionKey []byte, opts RuntimeOptions) *Container {
+func NewContainerWithOptions(mysqlDB *gorm.DB, redisClient *redis.Client, encryptionKey []byte, opts RuntimeOptions) *Container {
 	return &Container{
 		mysqlDB:          mysqlDB,
 		redisClient:      redisClient,
-		eventBus:         eventBus,
 		idpEncryptionKey: encryptionKey,
 		runtimeOptions:   opts,
 	}

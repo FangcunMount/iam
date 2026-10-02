@@ -63,10 +63,11 @@ func (c *Container) initAuthzModule() error {
 		return fmt.Errorf("failed to initialize authz module: %w", err)
 	}
 	c.AuthzModule = authzModule
-	if c.runtimeOptions.NSQConsumerSDKEnabled {
-		if err := c.initSDKPolicySync(authzModule); err != nil {
-			return fmt.Errorf("initialize SDK policy subscriber: %w", err)
-		}
+	if !c.runtimeOptions.NSQConsumerSDKEnabled {
+		return fmt.Errorf("legacy policy subscriber is retired; enable nsq.consumer-sdk-enabled")
+	}
+	if err := c.initSDKPolicySync(authzModule); err != nil {
+		return fmt.Errorf("initialize SDK policy subscriber: %w", err)
 	}
 	return nil
 }

@@ -8,7 +8,7 @@ M6-04 退役候选删除旧平台 Relay、调度循环和关闭钩子。`platfor
 
 候选仍未发布；模板中的禁用默认值不能用于该候选的正常启动，部署必须显式选择标准模式。原事务、策略版本幂等、双表状态读取和 UTC+8 展示保持。结果未知不授权新的业务执行或盲目重发外部调用。
 
-旧消息总线／订阅路径以及早期迁移／维护写入尚待后续退役，本批不宣称零旧依赖。历史表、已发布记录及固定回退镜像保留；同一候选镜像不支持切回旧 Relay。回退使用经过核验的固定旧版，并满足原恢复约束。
+第二批候选删除旧 EventBus、旧订阅构造器和路由发布封装，NSQ 消费要求 `nsq.consumer-sdk-enabled=true`。默认 API／维护命令依赖图不再包含 component-base 消息包；早期迁移／维护旧表写入及测试历史兼容依赖仍待退役，本批不宣称旧实现全部移除。历史表、已发布记录及固定回退镜像保留；同一候选镜像不支持切回旧 Relay。回退使用经过核验的固定旧版，并满足原恢复约束。
 
 隔离合同保留完整空库初始化和消息交接：当前版本迁移产生的早期通知由固定提交 `a929f5301ed8265a8f44726b474da27ae10cb1c1` 的独立测试二进制排空；当前二进制负责标准投递和新进程恢复；固定旧版负责回退阶段。参见[隔离验证](../../scripts/testing/reliable-messaging-proof.md)。旧 Relay 单元及旧关闭边界合同从固定旧提交运行，入口 `scripts/testing/run-retired-relay-contracts.sh`；它们不是当前 SDK 的验收证据。
 
@@ -240,7 +240,7 @@ Subscriber channel 包含 hostname + pid + `#ephemeral`，目的是广播到每�
 | --- | --- |
 | event types | `internal/apiserver/eventing/eventing.go` |
 | catalog | `configs/events.yaml`、`pkg/eventcatalog` |
-| direct publisher | `pkg/eventruntime/publisher.go` |
+| direct publisher | [固定旧提交的路由发布器](https://github.com/FangcunMount/iam/blob/a929f5301ed8265a8f44726b474da27ae10cb1c1/pkg/eventruntime/publisher.go) |
 | Outbox record/state | `pkg/outboxcore/core.go` |
 | MySQL store | `internal/apiserver/infra/mysql/eventoutbox/store.go` |
 | relay | [固定旧提交的 Relay](https://github.com/FangcunMount/iam/blob/a929f5301ed8265a8f44726b474da27ae10cb1c1/internal/apiserver/infra/messaging/outbox_relay.go) |
@@ -252,7 +252,8 @@ Subscriber channel 包含 hostname + pid + `#ephemeral`，目的是广播到每�
 
 ```bash
 make docs-facts
-go test ./pkg/eventcatalog ./pkg/eventcodec ./pkg/eventmessaging ./pkg/eventruntime ./pkg/outboxcore
+bash scripts/testing/run-retired-relay-contracts.sh bus
+go test ./pkg/eventcatalog ./pkg/eventcodec ./pkg/outboxcore
 go test ./internal/apiserver/infra/mysql/eventoutbox ./internal/apiserver/infra/messaging
 go test ./internal/apiserver/application/authz/... ./internal/apiserver/infra/authz/runtime/...
 ```

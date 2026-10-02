@@ -8,7 +8,6 @@ import (
 	"github.com/FangcunMount/iam/v5/internal/apiserver/eventing"
 	"github.com/FangcunMount/iam/v5/internal/apiserver/infra/sms"
 	"github.com/FangcunMount/iam/v5/pkg/eventcodec"
-	"github.com/FangcunMount/iam/v5/pkg/eventmessaging"
 	"github.com/stretchr/testify/require"
 )
 
@@ -27,15 +26,15 @@ func TestAuthzVersionChangedPublishesOnlyGlobalVersion(t *testing.T) {
 func TestLoginOTPSMSKeepsLegacyPayloadShapeAndTopicMetadata(t *testing.T) {
 	evt := sms.NewLoginOTPSMSEvent("+8613800138000", "123456")
 
-	msg, err := eventmessaging.BuildMessage(evt, eventing.SourceAPIServer)
+	payload, err := eventcodec.EncodePayload(evt)
 	require.NoError(t, err)
 
 	var decoded sms.LoginOTPSMSPayload
-	require.NoError(t, json.Unmarshal(msg.Payload, &decoded))
+	require.NoError(t, json.Unmarshal(payload, &decoded))
 	require.Equal(t, sms.EventLoginOTPSMS, decoded.EventType)
 	require.Equal(t, "login", decoded.Scene)
 	require.Equal(t, "+8613800138000", decoded.PhoneE164)
 	require.Equal(t, "123456", decoded.Code)
-	require.Equal(t, eventing.LoginOTPSMS, msg.Metadata["event_type"])
-	require.Equal(t, eventing.SourceAPIServer, msg.Metadata["source"])
+	require.Equal(t, eventing.LoginOTPSMS, eventcodec.MetadataFromEvent(evt, eventing.SourceAPIServer)["event_type"])
+	require.Equal(t, eventing.SourceAPIServer, eventcodec.MetadataFromEvent(evt, eventing.SourceAPIServer)["source"])
 }

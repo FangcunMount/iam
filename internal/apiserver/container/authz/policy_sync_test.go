@@ -5,9 +5,10 @@ import (
 	"testing"
 	"time"
 
-	cbmessaging "github.com/FangcunMount/component-base/pkg/messaging"
 	"github.com/FangcunMount/iam/v5/internal/apiserver/application/authz/policypublication"
 	"github.com/FangcunMount/iam/v5/internal/apiserver/eventing"
+	sdktransport "github.com/FangcunMount/reliable-messaging/transport"
+	"github.com/FangcunMount/reliable-messaging/wire/legacy"
 	"github.com/stretchr/testify/require"
 )
 
@@ -22,7 +23,7 @@ func TestAuthzPolicySyncSubscriberRegistersAndReloadsRuntime(t *testing.T) {
 		runtimeHealth:  recorder,
 	}
 
-	sync := module.PolicySyncSubscriber(subscriber)
+	sync := module.newSDKPolicySyncSubscriber(subscriber, policyProvisionerStub{}, ignorePolicyFailure)
 	require.NotNil(t, sync)
 	require.NoError(t, sync.Start(context.Background()))
 
@@ -31,9 +32,9 @@ func TestAuthzPolicySyncSubscriberRegistersAndReloadsRuntime(t *testing.T) {
 	require.Contains(t, subscriber.channel, ChannelPrefix+".")
 	require.Contains(t, subscriber.channel, "#ephemeral")
 	require.Equal(t, subscriber.channel, recorder.policySyncChannel)
-	msg := cbmessaging.NewMessage("msg-1", []byte(`{"version":12}`))
+	msg := sdktransport.Received{ID: "msg-1", Payload: []byte(`{"version":12}`)}
 	msg.Metadata = map[string]string{"event_type": eventing.AuthzVersionChanged}
-	require.NoError(t, subscriber.handler(context.Background(), msg))
+	require.NoError(t, subscriber.handler(context.Background(), policyDeliveryStub{msg}))
 	require.Equal(t, 1, reloader.reloads)
 	require.Equal(t, int64(12), recorder.version)
 	require.False(t, recorder.eventAt.IsZero())
@@ -45,28 +46,34 @@ func TestAuthzPolicySyncSubscriberRegistersAndReloadsRuntime(t *testing.T) {
 type policySyncSubscriberStub struct {
 	topic   string
 	channel string
-	handler cbmessaging.Handler
+	handler sdktransport.Handler
 	stopped bool
 }
 
-func (s *policySyncSubscriberStub) Subscribe(topic, channel string, handler cbmessaging.Handler) error {
+func (s *policySyncSubscriberStub) Subscribe(_ context.Context, topic, channel string, handler sdktransport.Handler, _ func(context.Context, legacy.FailedHandoff) error) error {
 	s.topic = topic
 	s.channel = channel
 	s.handler = handler
 	return nil
 }
 
-func (s *policySyncSubscriberStub) SubscribeWithMiddleware(topic, channel string, handler cbmessaging.Handler, _ ...cbmessaging.Middleware) error {
-	return s.Subscribe(topic, channel, handler)
-}
-
-func (s *policySyncSubscriberStub) Stop() {
+func (s *policySyncSubscriberStub) Close(context.Context) error {
 	s.stopped = true
-}
-
-func (s *policySyncSubscriberStub) Close() error {
 	return nil
 }
+
+type policyProvisionerStub struct{}
+
+func (policyProvisionerStub) EnsureTopic(context.Context, string) error           { return nil }
+func (policyProvisionerStub) EnsureChannel(context.Context, string, string) error { return nil }
+func ignorePolicyFailure(context.Context, legacy.FailedHandoff) error             { return nil }
+
+type policyDeliveryStub struct{ value sdktransport.Received }
+
+func (d policyDeliveryStub) Message() sdktransport.Received { return d.value }
+func (policyDeliveryStub) Ack() error                       { return nil }
+func (policyDeliveryStub) Nack(error) error                 { return nil }
+func (policyDeliveryStub) Settled() bool                    { return false }
 
 type policySyncReloaderStub struct {
 	reloads int
