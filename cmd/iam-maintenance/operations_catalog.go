@@ -24,7 +24,7 @@ func runOperationsCatalog(args []string, output io.Writer) error {
 	paused := f.Bool("writes-stopped", false, "authorization writes are paused")
 	path := f.String("report", "", "new restricted report path")
 	catalog := f.String("event-catalog", "configs/events.yaml", "event catalog")
-	outboxMode := f.String("outbox-mode", "", "standard or legacy, matching the reviewed running Relay; required after migration 38")
+	outboxMode := f.String("outbox-mode", "", "standard only; explicit selection required, legacy writer retired")
 	if e := f.Parse(args[1:]); e != nil {
 		return e
 	}

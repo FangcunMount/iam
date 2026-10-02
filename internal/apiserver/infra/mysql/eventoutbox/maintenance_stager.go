@@ -3,65 +3,25 @@ package eventoutbox
 import (
 	"context"
 	"errors"
-	"slices"
 
 	"github.com/FangcunMount/iam/v5/pkg/event"
 	"github.com/FangcunMount/iam/v5/pkg/eventcatalog"
 	"gorm.io/gorm"
 )
 
-// NewMaintenanceStager selects an insert-only writer for a reviewed maintenance
-// operation. Schema presence never selects SDK mode. These checks cannot prove
-// the live Relay mode or exclude another process: operators must freeze writers
-// during handoff and choose the mode owned by the reviewed running release.
+// NewMaintenanceStager stages maintenance notifications in the host transaction
+// through the SDK standard Outbox only. An explicit mode prevents stale runbooks
+// from choosing a writer silently. Schema/drain checks do not prove live writer
+// exclusion; operations must still freeze writers during handoff.
 func NewMaintenanceStager(ctx context.Context, db *gorm.DB, catalog *eventcatalog.Catalog, mode string) (event.Stager, error) {
-	if mode != "" && mode != "standard" && mode != "legacy" {
-		return nil, errors.New("outbox-mode must be standard or legacy")
+	if mode != "standard" {
+		return nil, errors.New("explicit --outbox-mode=standard required; legacy maintenance writer is retired (use the reviewed prior release for legacy rollback)")
 	}
-	if db == nil || db.Dialector == nil || db.Dialector.Name() != "mysql" {
-		return nil, errors.New("maintenance Outbox requires MySQL")
-	}
-	var versions []struct {
-		Version uint64
-		Dirty   bool
-	}
-	if err := db.WithContext(ctx).Raw("SELECT version, dirty FROM schema_migrations").Scan(&versions).Error; err != nil {
+	if err := CheckReliableSchema(ctx, db); err != nil {
 		return nil, err
 	}
-	if len(versions) != 1 || versions[0].Dirty {
-		return nil, errors.New("maintenance Outbox requires a clean migration journal")
-	}
-	tables, err := db.WithContext(ctx).Migrator().GetTables()
-	if err != nil {
+	if err := CheckLegacyDrained(ctx, db); err != nil {
 		return nil, err
 	}
-	hasStandardTable := slices.Contains(tables, "rm_outbox")
-	if mode == "" {
-		if versions[0].Version >= 38 || hasStandardTable {
-			return nil, errors.New("explicit --outbox-mode=standard or legacy matching the reviewed Relay is required after standard schema installation")
-		}
-		mode = "legacy" // Preserve pre-M3 maintenance on its original schema.
-	}
-	// A migrated database must retain its standard receipts even in legacy mode.
-	if mode == "standard" {
-		if err := CheckReliableSchema(ctx, db); err != nil {
-			return nil, err
-		}
-	} else if versions[0].Version >= 38 {
-		if err := checkLegacyCompatibleSchema(ctx, db); err != nil {
-			return nil, err
-		}
-	} else if hasStandardTable {
-		return nil, errors.New("legacy maintenance requires a journaled standard Outbox table")
-	}
-	if mode == "standard" {
-		if err := CheckLegacyDrained(ctx, db); err != nil {
-			return nil, err
-		}
-		return NewStandardStager(catalog)
-	}
-	if err := CheckStandardDrained(ctx, db); err != nil {
-		return nil, err
-	}
-	return NewStore(db, catalog), nil
+	return NewStandardStager(catalog)
 }

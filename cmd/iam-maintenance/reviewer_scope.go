@@ -26,7 +26,7 @@ func runReviewerScope(args []string, output io.Writer) error {
 	orgRaw := f.String("org-id", "", "QS verified common company")
 	fingerprint := f.String("fingerprint", "", "reviewed authorization facts")
 	catalog := f.String("event-catalog", "configs/events.yaml", "event catalog")
-	outboxMode := f.String("outbox-mode", "", "standard or legacy, matching the reviewed running Relay; required after migration 38")
+	outboxMode := f.String("outbox-mode", "", "standard only; explicit selection required, legacy writer retired")
 	if err := f.Parse(args[1:]); err != nil || f.NArg() != 0 {
 		return errors.New("invalid reviewer scope arguments")
 	}

@@ -10,16 +10,6 @@ import (
 // CheckReliableSchema is explicit startup I/O; constructors never install DDL.
 // This checks migration readiness, not the operational exclusive-writer handoff.
 func CheckReliableSchema(ctx context.Context, db *gorm.DB) error {
-	return checkReliableSchema(ctx, db, true)
-}
-
-// A legacy maintenance writer must remain usable while additive migration 39
-// is pending, but must still reject a missing or unjournaled standard table.
-func checkLegacyCompatibleSchema(ctx context.Context, db *gorm.DB) error {
-	return checkReliableSchema(ctx, db, false)
-}
-
-func checkReliableSchema(ctx context.Context, db *gorm.DB, requireFailureState bool) error {
 	if db == nil || db.Dialector == nil || db.Dialector.Name() != "mysql" {
 		return errors.New("reliable messaging requires MySQL")
 	}
@@ -30,15 +20,8 @@ func checkReliableSchema(ctx context.Context, db *gorm.DB, requireFailureState b
 	if err := db.WithContext(ctx).Raw("SELECT version, dirty FROM schema_migrations").Scan(&versions).Error; err != nil {
 		return err
 	}
-	minimum := uint64(38)
-	if requireFailureState {
-		minimum = 39
-	}
-	if len(versions) != 1 || versions[0].Dirty || versions[0].Version < minimum {
-		if requireFailureState {
-			return errors.New("reliable messaging requires clean migration 39 or later")
-		}
-		return errors.New("legacy maintenance requires clean migration 38 or later")
+	if len(versions) != 1 || versions[0].Dirty || versions[0].Version < 39 {
+		return errors.New("reliable messaging requires clean migration 39 or later")
 	}
 	// Resolve every required column even on an empty table. Exact column/index
 	// definitions are owned by migrations 38/39 and their real MySQL tests.
@@ -48,8 +31,5 @@ func checkReliableSchema(ctx context.Context, db *gorm.DB, requireFailureState b
         transport_confirmed_at, created_at FROM rm_outbox LIMIT 0`).Error; err != nil {
 		return err
 	}
-	if requireFailureState {
-		return db.WithContext(ctx).Exec("SELECT failure_count, updated_at FROM rm_outbox LIMIT 0").Error
-	}
-	return nil
+	return db.WithContext(ctx).Exec("SELECT failure_count, updated_at FROM rm_outbox LIMIT 0").Error
 }

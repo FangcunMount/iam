@@ -44,7 +44,7 @@ func parseScopeOptions(args []string) (scopeOptions, error) {
 	f.StringVar(&o.mapping, "mapping", "", "explicit version 1 assignment mapping JSON")
 	f.StringVar(&o.report, "report", "", "new absolute report path in private directory")
 	f.StringVar(&o.catalog, "event-catalog", "configs/events.yaml", "durable event catalog")
-	f.StringVar(&o.outboxMode, "outbox-mode", "", "standard or legacy, matching the reviewed running Relay; required after migration 38")
+	f.StringVar(&o.outboxMode, "outbox-mode", "", "standard only; explicit selection required, legacy writer retired")
 	f.BoolVar(&o.stopped, "writes-stopped", false, "IAM authorization and QS membership/store writers paused")
 	f.DurationVar(&o.timeout, "timeout", 2*time.Minute, "overall operation timeout")
 	if err := f.Parse(args[1:]); err != nil {
