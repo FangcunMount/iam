@@ -2,19 +2,14 @@ package eventoutbox
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	dbmysql "github.com/FangcunMount/iam/v5/internal/pkg/database/mysql"
 	"github.com/FangcunMount/iam/v5/pkg/event"
 	"github.com/FangcunMount/iam/v5/pkg/eventcatalog"
-	outboxport "github.com/FangcunMount/iam/v5/pkg/outbox"
 	"github.com/FangcunMount/iam/v5/pkg/outboxcore"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
-
-const storeName = "iam-mysql-outbox"
 
 type OutboxPO struct {
 	ID            uint64     `gorm:"primaryKey;autoIncrement"`
@@ -37,18 +32,16 @@ func (OutboxPO) TableName() string {
 	return "domain_event_outbox"
 }
 
+// Store retains insert-only staging for pre-standard bootstrap migrations.
+// It has no claim, retry, settlement or runtime status responsibilities.
 type Store struct {
-	db                 *gorm.DB
-	publishingStaleFor time.Duration
-	topicResolver      eventcatalog.TopicResolver
-	deliveryResolver   eventcatalog.DeliveryClassResolver
+	topicResolver    eventcatalog.TopicResolver
+	deliveryResolver eventcatalog.DeliveryClassResolver
 }
 
 var _ event.Stager = (*Store)(nil)
-var _ outboxport.Store = (*Store)(nil)
-var _ outboxport.StatusReader = (*Store)(nil)
 
-func NewStore(db *gorm.DB, catalog *eventcatalog.Catalog) *Store {
+func NewStore(_ *gorm.DB, catalog *eventcatalog.Catalog) *Store {
 	var topicResolver eventcatalog.TopicResolver = eventcatalog.NewCatalog(nil)
 	var deliveryResolver eventcatalog.DeliveryClassResolver
 	if catalog != nil {
@@ -56,10 +49,8 @@ func NewStore(db *gorm.DB, catalog *eventcatalog.Catalog) *Store {
 		deliveryResolver = catalog
 	}
 	return &Store{
-		db:                 db,
-		publishingStaleFor: outboxcore.DefaultPublishingStaleFor,
-		topicResolver:      topicResolver,
-		deliveryResolver:   deliveryResolver,
+		topicResolver:    topicResolver,
+		deliveryResolver: deliveryResolver,
 	}
 }
 
@@ -112,121 +103,4 @@ func (s *Store) buildRowsAt(events []event.DomainEvent, now time.Time) ([]*Outbo
 		})
 	}
 	return rows, nil
-}
-
-func (s *Store) ClaimDueEvents(ctx context.Context, limit int, now time.Time) ([]outboxport.PendingEvent, error) {
-	if s == nil || s.db == nil || limit <= 0 {
-		return nil, nil
-	}
-	var rows []*OutboxPO
-	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		staleBefore := now.Add(-s.publishingStaleFor)
-		query := tx
-		if tx.Dialector == nil || tx.Dialector.Name() != "sqlite" {
-			query = query.Clauses(clause.Locking{Strength: "UPDATE", Options: "SKIP LOCKED"})
-		}
-		if err := query.Where(
-			"(status = ? AND next_attempt_at <= ?) OR (status = ? AND next_attempt_at <= ?) OR (status = ? AND updated_at <= ?)",
-			outboxcore.StatusPending, now,
-			outboxcore.StatusFailed, now,
-			outboxcore.StatusPublishing, staleBefore,
-		).
-			Order("created_at ASC").
-			Limit(limit).
-			Find(&rows).Error; err != nil {
-			return err
-		}
-		if len(rows) == 0 {
-			return nil
-		}
-		ids := make([]uint64, 0, len(rows))
-		for _, row := range rows {
-			ids = append(ids, row.ID)
-		}
-		return tx.Model(&OutboxPO{}).
-			Where("id IN ?", ids).
-			Updates(map[string]interface{}{
-				"status":     outboxcore.StatusPublishing,
-				"updated_at": now,
-			}).Error
-	})
-	if err != nil {
-		return nil, err
-	}
-	claimed := make([]outboxport.PendingEvent, 0, len(rows))
-	for _, row := range rows {
-		claimed = append(claimed, outboxport.PendingEvent{
-			EventID:       row.EventID,
-			EventType:     row.EventType,
-			AggregateType: row.AggregateType,
-			AggregateID:   row.AggregateID,
-			TopicName:     row.TopicName,
-			Payload:       []byte(row.PayloadJSON),
-		})
-	}
-	return claimed, nil
-}
-
-func (s *Store) MarkEventPublished(ctx context.Context, eventID string, publishedAt time.Time) error {
-	result := s.db.WithContext(ctx).Model(&OutboxPO{}).
-		Where("event_id = ?", eventID).
-		Updates(map[string]interface{}{
-			"status":       outboxcore.StatusPublished,
-			"published_at": publishedAt,
-			"updated_at":   publishedAt,
-		})
-	if result.Error != nil {
-		return result.Error
-	}
-	if result.RowsAffected == 0 {
-		return fmt.Errorf("outbox event %q not found", eventID)
-	}
-	return nil
-}
-
-func (s *Store) MarkEventFailed(ctx context.Context, eventID, lastError string, nextAttemptAt time.Time) error {
-	now := time.Now()
-	result := s.db.WithContext(ctx).Model(&OutboxPO{}).
-		Where("event_id = ?", eventID).
-		Updates(map[string]interface{}{
-			"status":          outboxcore.StatusFailed,
-			"last_error":      lastError,
-			"next_attempt_at": nextAttemptAt,
-			"updated_at":      now,
-			"attempt_count":   gorm.Expr("attempt_count + ?", 1),
-		})
-	if result.Error != nil {
-		return result.Error
-	}
-	if result.RowsAffected == 0 {
-		return fmt.Errorf("outbox event %q not found", eventID)
-	}
-	return nil
-}
-
-func (s *Store) OutboxStatusSnapshot(ctx context.Context, now time.Time) (outboxport.StatusSnapshot, error) {
-	if s == nil || s.db == nil {
-		return outboxcore.BuildStatusSnapshot(storeName, now, nil), nil
-	}
-	observations := make([]outboxcore.StatusObservation, 0, len(outboxcore.UnfinishedStatuses()))
-	for _, status := range outboxcore.UnfinishedStatuses() {
-		var count int64
-		if err := s.db.WithContext(ctx).Model(&OutboxPO{}).Where("status = ?", status).Count(&count).Error; err != nil {
-			return outboxport.StatusSnapshot{}, err
-		}
-		var oldestCreatedAt *time.Time
-		if count > 0 {
-			var oldest OutboxPO
-			if err := s.db.WithContext(ctx).Where("status = ?", status).Order("created_at ASC").Limit(1).Find(&oldest).Error; err != nil {
-				return outboxport.StatusSnapshot{}, err
-			}
-			oldestCreatedAt = &oldest.CreatedAt
-		}
-		observations = append(observations, outboxcore.StatusObservation{
-			Status:          status,
-			Count:           count,
-			OldestCreatedAt: oldestCreatedAt,
-		})
-	}
-	return outboxcore.BuildStatusSnapshot(storeName, now, observations), nil
 }

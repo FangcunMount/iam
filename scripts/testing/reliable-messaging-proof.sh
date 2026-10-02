@@ -37,6 +37,7 @@ legacy_source=a929f5301ed8265a8f44726b474da27ae10cb1c1
 mkdir -p "$build_dir/legacy-source"
 git -C "$repo" archive "$legacy_source" | tar -x -C "$build_dir/legacy-source"
 (cd "$build_dir/legacy-source" && GOWORK=off CGO_ENABLED=0 GOOS=linux GOARCH="$goarch" go test -c -tags=reliable_messaging -o "$build_dir/legacy-maintenance-proof" ./cmd/iam-maintenance)
+(cd "$build_dir/legacy-source" && GOWORK=off CGO_ENABLED=0 GOOS=linux GOARCH="$goarch" go test -c -tags=reliable_messaging -o "$build_dir/legacy-store-proof" ./internal/apiserver/infra/authz/integration)
 echo "Historical bootstrap binary source: $legacy_source"
 "${compose[@]}" up -d --wait --wait-timeout 180 mysql nsqd
 "${compose[@]}" cp "$build_dir/proof" mysql:/tmp/iam-proof
@@ -44,7 +45,11 @@ echo "Historical bootstrap binary source: $legacy_source"
 "${compose[@]}" cp "$repo/internal/pkg/migration/migrations/000038_standard_message_outbox.up.sql" mysql:/tmp/iam-rm-upgrade.sql
 "${compose[@]}" cp "$repo/internal/pkg/migration/migrations/000039_reliable_messaging_failure_state.up.sql" mysql:/tmp/iam-rm-failure-state.sql
 "${compose[@]}" cp "$repo/configs/events.yaml" mysql:/tmp/iam-events.yaml
-"${compose[@]}" exec -T -e RM_IAM_EVENTS_CATALOG=/tmp/iam-events.yaml -e RM_IAM_OUTBOX_UPGRADE='/tmp/iam-rm-upgrade.sql' -e RM_IAM_OUTBOX_FAILURE_UPGRADE='/tmp/iam-rm-failure-state.sql' -e RM_IAM_OUTBOX_SCHEMA='/tmp/iam-old-outbox.sql' -e RM_IAM_NSQ_TCP='nsqd:4150' -e RM_IAM_NSQ_HTTP='http://nsqd:4151' -e IAM_AUTHZ_TEST_MYSQL_DSN='root@tcp(127.0.0.1:3306)/?parseTime=true&loc=UTC' mysql /tmp/iam-proof -test.run '^TestReliableMessaging(OriginalUoW|PolicyConsumer|HistoricalFencing|PlatformWiring|StandardPreflight|StandardUoW|MaintenanceStager)$' -test.v
+# The ID-only late settlement counterexample belongs to the fixed old writer,
+# not the current binary, which no longer contains those execution methods.
+"${compose[@]}" cp "$build_dir/legacy-store-proof" mysql:/tmp/iam-legacy-store-proof
+"${compose[@]}" exec -T -e RM_IAM_EVENTS_CATALOG=/tmp/iam-events.yaml -e RM_IAM_OUTBOX_SCHEMA='/tmp/iam-old-outbox.sql' -e IAM_AUTHZ_TEST_MYSQL_DSN='root@tcp(127.0.0.1:3306)/?parseTime=true&loc=UTC' mysql /tmp/iam-legacy-store-proof -test.run '^TestReliableMessagingHistoricalFencing$' -test.v
+"${compose[@]}" exec -T -e RM_IAM_EVENTS_CATALOG=/tmp/iam-events.yaml -e RM_IAM_OUTBOX_UPGRADE='/tmp/iam-rm-upgrade.sql' -e RM_IAM_OUTBOX_FAILURE_UPGRADE='/tmp/iam-rm-failure-state.sql' -e RM_IAM_OUTBOX_SCHEMA='/tmp/iam-old-outbox.sql' -e RM_IAM_NSQ_TCP='nsqd:4150' -e RM_IAM_NSQ_HTTP='http://nsqd:4151' -e IAM_AUTHZ_TEST_MYSQL_DSN='root@tcp(127.0.0.1:3306)/?parseTime=true&loc=UTC' mysql /tmp/iam-proof -test.run '^TestReliableMessaging(OriginalUoW|PolicyConsumer|PlatformWiring|StandardPreflight|StandardUoW|MaintenanceStager)$' -test.v
 
 # Real production migration files and full fresh bootstrap use separate,
 # disposable databases in this same isolated MySQL container.

@@ -10,9 +10,9 @@ M6-04 退役候选删除旧平台 Relay、调度循环和关闭钩子。`platfor
 
 第二批候选删除旧 EventBus、旧订阅构造器和路由发布封装，NSQ 消费要求 `nsq.consumer-sdk-enabled=true`。默认 API／维护命令依赖图不再包含 component-base 消息包；早期迁移旧表写入及测试历史兼容依赖仍待退役，本批不宣称旧实现全部移除。历史表、已发布记录及固定回退镜像保留；同一候选镜像不支持切回旧 Relay。回退使用经过核验的固定旧版，并满足原恢复约束。
 
-当前维护命令只支持显式 `--outbox-mode=standard`，使用同一宿主事务中的 SDK StandardStager；空值及 `legacy` 明确拒绝，不能通过旧运行手册恢复旧写入。标准模式要求 clean migration 39 或更高版本、标准表及失败状态列完整、旧链路已经排空。维护命令不负责启动 Relay，也不自动升级 schema。旧模式回退必须使用已核验的固定旧版。首次建库迁移 33／35 的旧通知写入暂保留，属于下一批退役范围，不以本批宣称旧 Store 已删除。
+当前维护命令只支持显式 `--outbox-mode=standard`，使用同一宿主事务中的 SDK StandardStager；空值及 `legacy` 明确拒绝，不能通过旧运行手册恢复旧写入。标准模式要求 clean migration 39 或更高版本、标准表及失败状态列完整、旧链路已经排空。维护命令不负责启动 Relay，也不自动升级 schema。旧模式回退必须使用已核验的固定旧版。首次建库迁移 33／35 的旧通知写入暂保留。旧 Store 已删除认领、重试、结算及旧状态汇总，仅保留迁移需要的事务内写入；不以本批宣称旧 Store／core 整包已删除。
 
-隔离合同保留完整空库初始化和消息交接：当前版本迁移产生的早期通知由固定提交 `a929f5301ed8265a8f44726b474da27ae10cb1c1` 的独立测试二进制排空；当前二进制负责标准投递和新进程恢复；固定旧版负责回退阶段。参见[隔离验证](../../scripts/testing/reliable-messaging-proof.md)。旧 Relay 单元及旧关闭边界合同从固定旧提交运行，入口 `scripts/testing/run-retired-relay-contracts.sh`；它们不是当前 SDK 的验收证据。
+隔离合同保留完整空库初始化和消息交接：当前版本迁移产生的早期通知由固定提交 `a929f5301ed8265a8f44726b474da27ae10cb1c1` 的独立测试二进制排空；当前二进制负责标准投递和新进程恢复；固定旧版负责回退阶段。参见[隔离验证](../../scripts/testing/reliable-messaging-proof.md)。旧 Relay 单元及旧关闭边界合同从固定旧提交运行，入口 `scripts/testing/run-retired-relay-contracts.sh`；它们不是当前 SDK 的验收证据。旧 Store 单元合同由该脚本的 `store` 模式从固定源执行；历史 ID-only 写入越过 fencing 的反证由固定旧版集成二进制执行，当前源码不保留旧结算算法。
 
 ## 历史实现参考
 
