@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/FangcunMount/component-base/pkg/log"
-	cbmessaging "github.com/FangcunMount/component-base/pkg/messaging"
 	"github.com/FangcunMount/iam/v5/internal/apiserver/application/authz/policypublication"
 	authzruntime "github.com/FangcunMount/iam/v5/internal/apiserver/infra/authz/runtime"
 	sdktransport "github.com/FangcunMount/reliable-messaging/transport"
@@ -21,26 +20,19 @@ type policySyncRuntime interface {
 	SetSyncState(bool, bool)
 }
 
-func (m *AuthzModule) PolicySyncSubscriber(subscriber cbmessaging.Subscriber) *policySyncSubscriber {
-	if m == nil || subscriber == nil || m.policyReloader == nil {
-		return nil
-	}
-	m.syncOnce.Do(func() {
-		recorder, _ := m.runtimeHealth.(policypublication.PolicyVersionEventRecorder)
-		runtime, _ := m.policyReloader.(policySyncRuntime)
-		channel := CurrentInstanceChannel()
-		if setter, ok := m.runtimeHealth.(interface{ SetPolicySyncChannel(string) }); ok {
-			setter.SetPolicySyncChannel(channel)
-		}
-		m.policySync = &policySyncSubscriber{subscriber: subscriber, handler: policypublication.NewService(m.policyReloader, recorder), channel: channel, runtime: runtime}
-	})
-	return m.policySync
+// Narrow host lifecycle seams use SDK delivery contracts; transport algorithms remain in the SDK.
+type policySubscriber interface {
+	Subscribe(context.Context, string, string, sdktransport.Handler, func(context.Context, legacy.FailedHandoff) error) error
+	Close(context.Context) error
+}
+type policyProvisioner interface {
+	EnsureTopic(context.Context, string) error
+	EnsureChannel(context.Context, string, string) error
 }
 
 type policySyncSubscriber struct {
-	subscriber       cbmessaging.Subscriber
-	sdkSubscriber    *sdknsq.Subscriber
-	sdkProvisioner   *sdknsq.Provisioner
+	sdkSubscriber    policySubscriber
+	sdkProvisioner   policyProvisioner
 	sdkFailed        func(context.Context, legacy.FailedHandoff) error
 	handler          *policypublication.Service
 	channel          string
@@ -50,16 +42,21 @@ type policySyncSubscriber struct {
 	done             chan struct{}
 	started, stopped bool
 	registered       bool // owned by the single synchronization loop
-	stopOnce         sync.Once
 	sdkStopMu        sync.Mutex
 	sdkClosed        bool
 }
 
 // SDKPolicySyncSubscriber retains the existing per-process business channel
 // and uses a stable failure group so a replacement process can audit failures
-// left by its predecessor. Only one of the legacy and SDK constructors may be
-// selected for a module instance.
+// left by its predecessor. SDK transport is the only supported constructor.
 func (m *AuthzModule) SDKPolicySyncSubscriber(subscriber *sdknsq.Subscriber, provisioner *sdknsq.Provisioner, failed func(context.Context, legacy.FailedHandoff) error) *policySyncSubscriber {
+	if m == nil || subscriber == nil || provisioner == nil || failed == nil || m.policyReloader == nil {
+		return nil
+	}
+	return m.newSDKPolicySyncSubscriber(subscriber, provisioner, failed)
+}
+
+func (m *AuthzModule) newSDKPolicySyncSubscriber(subscriber policySubscriber, provisioner policyProvisioner, failed func(context.Context, legacy.FailedHandoff) error) *policySyncSubscriber {
 	if m == nil || subscriber == nil || provisioner == nil || failed == nil || m.policyReloader == nil {
 		return nil
 	}
@@ -81,7 +78,7 @@ func (m *AuthzModule) SDKPolicySyncSubscriber(subscriber *sdknsq.Subscriber, pro
 // Start establishes a managed loop even if the first subscription attempt fails.
 // The failure is reflected in readiness and retried; the lifecycle always owns Stop.
 func (s *policySyncSubscriber) Start(ctx context.Context) error {
-	if s == nil || (s.subscriber == nil && s.sdkSubscriber == nil) || s.handler == nil {
+	if s == nil || s.sdkSubscriber == nil || s.handler == nil {
 		return fmt.Errorf("policy sync dependencies unavailable")
 	}
 	s.mu.Lock()
@@ -150,13 +147,6 @@ func (s *policySyncSubscriber) step(ctx context.Context) {
 					return s.handle(ctx, deliveryCtx, message.Payload, message.Metadata["event_type"])
 				}, s.sdkFailed)
 			}
-		} else {
-			err = s.subscriber.Subscribe(policypublication.Topic, s.Channel(), func(deliveryCtx context.Context, msg *cbmessaging.Message) error {
-				if msg == nil {
-					return nil
-				}
-				return s.handle(ctx, deliveryCtx, msg.Payload, msg.Metadata["event_type"])
-			})
 		}
 		s.registered = err == nil
 		if err != nil {
@@ -185,35 +175,16 @@ func (s *policySyncSubscriber) Channel() string {
 	return s.channel
 }
 func (s *policySyncSubscriber) Stop() error {
-	if s == nil {
-		return nil
-	}
-	if s.sdkSubscriber != nil {
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		defer cancel()
-		return s.StopWithContext(ctx)
-	}
-	s.stopOnce.Do(func() {
-		s.mu.Lock()
-		s.stopped = true
-		cancel, done := s.cancel, s.done
-		s.mu.Unlock()
-		if cancel != nil {
-			cancel()
-			<-done
-		}
-		if s.subscriber != nil {
-			s.subscriber.Stop()
-		}
-	})
-	return nil
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	return s.StopWithContext(ctx)
 }
 
 // StopWithContext is a retryable resource-close gate for the SDK path. A
 // timeout leaves IAM's MySQL connection open for the next drain attempt.
 func (s *policySyncSubscriber) StopWithContext(ctx context.Context) error {
 	if s == nil || s.sdkSubscriber == nil {
-		return s.Stop()
+		return nil
 	}
 	s.sdkStopMu.Lock()
 	defer s.sdkStopMu.Unlock()

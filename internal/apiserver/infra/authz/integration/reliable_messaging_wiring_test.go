@@ -92,7 +92,7 @@ func TestReliableMessagingPlatformWiring(t *testing.T) {
 	require.ErrorIs(t, err, eventoutbox.ErrUnsafeMessagingHandoff, "cannot disable SDK with pending standard work")
 	eventOptions := *options.NewEventOptions()
 	eventOptions.CatalogPath = deps.CatalogPath
-	blockedContainer := container.NewContainerWithOptions(db, nil, nil, nil, container.RuntimeOptions{Events: eventOptions})
+	blockedContainer := container.NewContainerWithOptions(db, nil, nil, container.RuntimeOptions{Events: eventOptions})
 	require.ErrorIs(t, blockedContainer.Initialize(), eventoutbox.ErrUnsafeMessagingHandoff, "container must preserve the cause for the process degraded-startup gate")
 	require.Nil(t, blockedContainer.AuthzModule, "unsafe handoff must stop bootstrap before initializing other modules")
 	snapshot, err := platformEventing.Outbox.OutboxStatusSnapshot(context.Background(), time.Now())

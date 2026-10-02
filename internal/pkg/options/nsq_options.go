@@ -1,9 +1,6 @@
 package options
 
 import (
-	"time"
-
-	"github.com/FangcunMount/component-base/pkg/messaging"
 	"github.com/spf13/pflag"
 )
 
@@ -87,22 +84,4 @@ func (o *NSQOptions) AddFlags(fs *pflag.FlagSet) {
 
 	fs.IntVar(&o.RequeueDelay, "nsq.requeue-delay", o.RequeueDelay,
 		"Delay before requeuing a failed message in seconds.")
-}
-
-// ToMessagingConfig 转换为 messaging.Config
-func (o *NSQOptions) ToMessagingConfig() *messaging.Config {
-	return &messaging.Config{
-		Provider: messaging.ProviderNSQ,
-		NSQ: messaging.NSQConfig{
-			LookupdAddrs: o.LookupdAddrs,
-			NSQdAddr:     o.NSQdAddr,
-			MaxAttempts:  o.MaxAttempts,
-			MaxInFlight:  o.MaxInFlight,
-			MsgTimeout:   time.Duration(o.MsgTimeout) * time.Second,
-			RequeueDelay: time.Duration(o.RequeueDelay) * time.Second,
-			DialTimeout:  5 * time.Second,
-			ReadTimeout:  60 * time.Second,
-			WriteTimeout: 5 * time.Second,
-		},
-	}
 }

@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/FangcunMount/component-base/pkg/log"
-	"github.com/FangcunMount/component-base/pkg/messaging"
 	"github.com/FangcunMount/component-base/pkg/processruntime"
 	"github.com/FangcunMount/iam/v5/internal/apiserver/container"
 	"github.com/FangcunMount/iam/v5/internal/apiserver/infra/mysql/eventoutbox"
@@ -27,10 +26,9 @@ type runtimeOutput struct {
 
 // resourceOutput 资源输出
 type resourceOutput struct {
-	mysqlDB          *gorm.DB           // MySQL 数据库
-	cacheClient      *redis.Client      // Redis 缓存客户端
-	idpEncryptionKey []byte             // IDP 加密密钥
-	eventBus         messaging.EventBus // 事件总线
+	mysqlDB          *gorm.DB      // MySQL 数据库
+	cacheClient      *redis.Client // Redis 缓存客户端
+	idpEncryptionKey []byte        // IDP 加密密钥
 }
 
 // containerOutput 容器输出
@@ -110,13 +108,8 @@ func (s *apiServer) prepareResources(rt runtimeOutput) (resourceOutput, error) {
 	}
 
 	// Prepare the selected messaging transport before initializing the modules.
-	eventBus, err := s.prepareMessaging()
-	if err != nil {
-		if s.reliableMessagingEnabled() {
-			return resourceOutput{}, fmt.Errorf("prepare reliable messaging: %w", err)
-		}
-		log.Warnw("event bus unavailable; continue without notifier", "error", err)
-		eventBus = nil
+	if err := s.prepareMessaging(); err != nil {
+		return resourceOutput{}, fmt.Errorf("prepare reliable messaging: %w", err)
 	}
 
 	// 返回资源输出
@@ -124,7 +117,6 @@ func (s *apiServer) prepareResources(rt runtimeOutput) (resourceOutput, error) {
 		mysqlDB:          mysqlDB,
 		cacheClient:      cacheClient,
 		idpEncryptionKey: idpEncryptionKey,
-		eventBus:         eventBus,
 	}, nil
 }
 
@@ -134,7 +126,6 @@ func (s *apiServer) prepareContainer(rt runtimeOutput, resources resourceOutput)
 	s.container = container.NewContainerWithOptions(
 		resources.mysqlDB,
 		resources.cacheClient,
-		resources.eventBus,
 		resources.idpEncryptionKey,
 		container.RuntimeOptionsFromAPIServerOptions(s.cfg.Options, rt.profile.Environment),
 	)

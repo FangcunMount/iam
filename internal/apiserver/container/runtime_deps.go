@@ -53,8 +53,6 @@ func (c *Container) runtimeHooks() RuntimeDeps {
 		if drain, ok := c.sdkPolicySync.(interface{ StopWithContext(context.Context) error }); ok {
 			deps.PolicySyncDrain = drain.StopWithContext
 		}
-	} else if c.eventBus != nil {
-		authz.CollectRuntime(c.AuthzModule, c.eventBus.Subscriber(), &deps.AuthzPolicySync)
 	}
 	var cleanup func() error
 	suggest.CollectRuntime(c.SuggestModule, &cleanup)
