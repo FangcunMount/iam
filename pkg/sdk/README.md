@@ -1,8 +1,8 @@
 # IAM SDK for Go
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/FangcunMount/iam/v5/pkg/sdk.svg)](https://pkg.go.dev/github.com/FangcunMount/iam/v5/pkg/sdk)
-[![Go Version](https://img.shields.io/badge/go-%3E%3D1.21-blue.svg)](https://golang.org/)
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Go Version](https://img.shields.io/badge/go-%3E%3D1.25.9-blue.svg)](https://golang.org/)
+[![License](https://img.shields.io/badge/license-Apache%202.0-green.svg)](../../LICENSE)
 
 `pkg/sdk` 是 IAM 的官方 Go 接入入口。当前公开稳定面固定为：
 
@@ -21,6 +21,8 @@
 - `pkg/sdk/errors`
 
 `transport`、`observability` 和高级错误分析能力已经收回内部实现，不再作为公开稳定包。
+
+当前工作树go.mod要求Go 1.25.9；具体发布标签须核对自己的go.mod。构造默认TLS不自动提供mTLS材料，完整接入与资源所有权见[宿主接入正文](../../docs/04-接口与SDK/02-Go-SDK与业务系统接入.md)。
 
 当前 Go module major 为 v5，import 根路径为 `github.com/FangcunMount/iam/v5`。选择已经发布的 v5 标签安装；本文中的 Scope 新接口必须使用包含该实现的 SDK 版本，不能直接用现有 v5.1.0 替代。
 
@@ -59,7 +61,7 @@ pkg/sdk/
 │   ├── transport/             # gRPC 连接、重试、metadata、拦截器
 │   ├── observability/         # 默认 metrics / tracing / circuit breaker
 │   └── errorsx/               # 高级错误分析 / matcher / handler
-└── _examples/                 # 完整可运行示例
+└── _examples/                 # 程序示例，须单独编译并验证环境
 ```
 
 ## 快速开始
@@ -68,6 +70,7 @@ pkg/sdk/
 import (
     "context"
     "log"
+    "time"
 
     authnv3 "github.com/FangcunMount/iam/v5/api/grpc/iam/authn/v3"
     sdk "github.com/FangcunMount/iam/v5/pkg/sdk"
@@ -84,14 +87,21 @@ func main() {
     }
     defer client.Close()
 
-    resp, err := client.Auth().VerifyToken(ctx, &authnv3.VerifyTokenRequest{
+    callCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+    defer cancel()
+    resp, err := client.Auth().VerifyToken(callCtx, &authnv3.VerifyTokenRequest{
         AccessToken: "jwt-token",
+        ExpectedAudience: []string{"qs-api"}, // 从资源服务可信配置取得
     })
     if err != nil {
         log.Fatal(err)
     }
 
-    log.Printf("valid=%v", resp.GetValid())
+    if resp == nil || !resp.GetValid() || resp.GetClaims() == nil {
+        log.Print("user credential rejected")
+        return
+    }
+    log.Printf("user=%s", resp.GetClaims().GetUserId())
 }
 ```
 
@@ -191,7 +201,7 @@ log.Printf("user=%s session=%s", result.Claims.UserID, result.Claims.SessionID)
 
 ### 服务间认证
 
-配置 mTLS 客户端证书后直接调用 SDK，服务端通过证书身份、ACL 和业务 AuthZ 逐层校验。参见 [服务间认证](docs/05-service-auth.md)。
+配置mTLS客户端证书后直接调用SDK，服务端通过证书身份、方法ACL及该方法的内容准入；Identity/IDP读取并不自动执行终端用户资源AuthZ，宿主仍负责可信subject、归属/范围接受。参见[服务间认证](docs/05-service-auth.md)。
 
 ## Identity / Profile 拆分式客户端
 
@@ -237,7 +247,7 @@ profileClient := identity.NewProfileClient(
 ```go
 import sdkerrors "github.com/FangcunMount/iam/v5/pkg/sdk/errors"
 
-resp, err := client.Identity().GetUser(ctx, "user-123")
+resp, err := client.Identity().GetUser(ctx, "1001")
 if err != nil {
     switch {
     case sdkerrors.IsNotFound(err):
@@ -267,7 +277,7 @@ if iamErr, ok := sdkerrors.AsIAMError(err); ok {
 }
 ```
 
-服务端 V2 gRPC 错误映射已经统一：常见业务错误会稳定落到 `InvalidArgument`、`Unauthenticated`、`PermissionDenied`、`NotFound`、`AlreadyExists`、`FailedPrecondition`、`ResourceExhausted`、`Unavailable`、`DeadlineExceeded` 或 `Internal`。SDK 调用方不要解析错误消息文本。
+服务端显式 mapper 的已覆盖路径将常见业务错误映射到 `InvalidArgument`、`Unauthenticated`、`PermissionDenied`、`NotFound`、`AlreadyExists`、`FailedPrecondition`、`ResourceExhausted`、`Unavailable`、`DeadlineExceeded` 或 `Internal`；并非所有前置拒绝/Recovery都通过同一mapper。Raw、本地validator及构造错误也不保证IAMError。SDK调用方不要解析错误消息文本，详见[错误出口合同](../../docs/04-接口与SDK/01-REST-gRPC与契约治理.md)。
 
 ## Metrics 与 Tracing Hook
 
@@ -294,9 +304,11 @@ func (t *myTracing) StartSpan(ctx context.Context, name string) (context.Context
 func (t *myTracing) SetAttributes(context.Context, map[string]string) {}
 func (t *myTracing) RecordError(context.Context, error) {}
 
+obs := sdk.DefaultObservabilityConfig()
+obs.EnableTracing = true
 client, err := sdk.NewClient(ctx, &sdk.Config{
     Endpoint:      "iam.example.com:8081",
-    Observability: sdk.DefaultObservabilityConfig(),
+    Observability: obs,
 }, sdk.WithMetricsCollector(&myMetrics{}), sdk.WithTracingHook(&myTracing{}))
 ```
 
@@ -305,7 +317,7 @@ client, err := sdk.NewClient(ctx, &sdk.Config{
 | 模块 | 设计重点 | 说明 |
 | ---- | ---- | ---- |
 | `pkg/sdk` | 统一接入入口 | `sdk.Client` 负责装配连接与子客户端 |
-| `auth/loginv3` | REST v2 显式登录 | 覆盖 `/api/v3/authn/login`；gRPC 登录走 `auth/client` |
+| `auth/loginv3` | REST v3 显式登录 | 覆盖 `/api/v3/authn/login`；gRPC 登录走 `auth/client` |
 | `auth/jwks` | Chain of Responsibility | Cache → HTTP → gRPC → Seed |
 | `auth/verifier` | Strategy | Local / Remote / Fallback / Cache |
 | `identity` | 拆分式 Identity SDK | `Client` 负责 User / IdentityRead / IdentityLifecycle；`ProfileClient` 负责 ProfileCommand；`ProfileLinkClient` 负责 ProfileLink query/command |
@@ -319,7 +331,7 @@ client, err := sdk.NewClient(ctx, &sdk.Config{
 - 历史 v2 import `github.com/FangcunMount/iam/v2/pkg/sdk/transport` 已删除
 - 历史 v2 import `github.com/FangcunMount/iam/v2/pkg/sdk/observability` 已删除
 - `pkg/sdk/errors` 的高级分析 / matcher / handler API 已收回内部
-- `pkg/sdk/auth/loginv3` 是 REST AuthN v2 显式登录入口；`pkg/sdk/auth/client` 已对齐 gRPC v2 Login/token/JWKS/onboarding 契约
+- `pkg/sdk/auth/loginv3` 是 REST AuthN v3 显式登录入口；`pkg/sdk/auth/client` 封装 AuthN v3 Login/Token/JWKS/Signup/Challenge/LoginIdentity/通知契约
 - `pkg/sdk/idp` 已对齐 v2 WeChat app 查询与 access token 获取/刷新契约
 - `pkg/sdk/identity` 保持拆分式客户端：`Client`、`ProfileClient`、`ProfileLinkClient`；ProfileLink 查询支持 `include_revoked`
 

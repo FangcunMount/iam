@@ -190,7 +190,11 @@ JWKS熔断器包住整个获取链，半开时直接放行，当前未使用Half
 
 本地策略先校验可信配置（固定 issuer、非空 audience），再获取集合，检查算法allowlist并调用 pinned JWX 验签/claims验证，最后限制为支持的 access类型。调用级 ExpectedIssuer只能增加约束，不能覆盖可信issuer；header中的 jku/jwk 不能替换已配置 KeySet来源。当前IAM签发的JWT不包含Role/PermissionGrant事实；SDK仍兼容提取历史roles/scopes字段，不能据此宣称当前IAM会签发或已核验这些授权事实。
 
-当前SDK只接受RS256，ClockSkew零值为0，不自动补一分钟。时间声明存在时会验证；exp存在性要显式RequireExpirationTime或RequiredClaims。RequiredClaims只检查字段存在，不验证SID/UserID/LoginIdentityID有效性或sub与UserID相等；已有测试接受没有这三个身份字段的签名JWT。IAM在线codec/领域AccessClaims则另有更强结构约束。因此“签名与配置claims通过”不能直接提升为完整IAM用户上下文成立。
+当前SDK只允许RS256配置和受保护header；获取的KeySet直接交给pinned JWX，未再次核对所选JWK.alg与header.alg，也没有统一拒绝私钥/对称JWK或重复kid。标准IAM发布RSA/RS256公钥，但自定义链、seed或异常源集合不能自动获得同样的profile保证。异常KeySet使实际验签算法与header不一致的输入属于源码推论，没有现有专项或生产证明。
+
+ClockSkew零值为0，不自动补一分钟。默认不要求exp存在，RequireExpirationTime/RequiredClaims仅增加字段存在检查；pinned JWX在exp/iat/nbf的Unix值为0时跳过对应时间验证。因此已签名的`exp:0`即使满足required检查，也不能据此承诺有效截止时间；此输入同样只是源码推论，未作专项实验。
+
+RequiredClaims不验证SID/UserID/LoginIdentityID有效性或sub与UserID相等；已有测试接受没有这三个身份字段的签名JWT。IAM在线codec/领域AccessClaims另有更强结构约束。“签名与配置claims通过”不能直接提升为完整IAM用户上下文成立，完整对照见[密码材料、密钥存储与令牌验签](../../03-基础设施/04-密码学密钥与令牌.md)。
 
 **非空集合中缺少 kid 是解析/Token失败，既不 ForceRefresh，也不远端 fallback。**仅获取链报错或集合为空可以切远端，且须配置远端策略；本地签名/算法/时间/issuer/audience等语义失败直接拒绝。具体必填声明、兼容投影、类型与缓存结果合同见 [SDK接入](../../04-接口与SDK/02-Go-SDK与业务系统接入.md) 和 [Token篇](05-关键链路-Token签发刷新吊销.md)。
 

@@ -1,5 +1,7 @@
 # 配置详解
 
+> 状态：已实现 · 说明当前SDK配置和构造边界，不代表连接、握手或部署验收。
+
 ## 🎯 30 秒搞懂
 
 ### 金字塔模型
@@ -49,19 +51,19 @@
 
 ### 配置场景速查
 
-| 场景 | 配置重点 | 耗时 |
+| 场景 | 配置重点 | 实际验证出口 |
 | ------ | --------- | ------ |
-| 🚀 **本地开发** | `Endpoint` | 10秒 |
-| 🧪 **测试环境** | `Endpoint` + `TLS.InsecureSkipVerify` | 30秒 |
-| 🏢 **生产环境** | `Endpoint` + `TLS` + `Retry` + `CircuitBreaker` | 5分钟 |
-| ⚡ **高性能** | + `JWKS` + `Keepalive` | 10分钟 |
-| 🔍 **可观测** | + `Observability` + `WithMetricsCollector` / `WithTracingHook` | 15分钟 |
+| 本机明文替身 | Endpoint、显式TLS.Enabled=false | 明文与默认TLS分别核对，不用于远端服务信任 |
+| 服务间接入 | CA、客户端证书/私钥、ServerName | 带deadline的所需RPC、证书身份与方法ACL |
+| 写命令 | 显式重试政策、请求预算 | 提交后丢响应与结果协调，不能只测配置解析 |
+| 本地验签 | 显式Manager/Verifier及issuer/audience | key来源、claims及在线状态/撤销差异 |
+| 可观测 | 显式开关、宿主collector/hook | registry/exporter和跨服务context桥接 |
 
 ### 配置模板
 
 ```go
-// 🚀 开发环境 (最简)
-&Config{Endpoint: "localhost:8081"}
+// 本机明文替身；nil TLS会补成默认启用
+&Config{Endpoint: "localhost:8081", TLS: &TLSConfig{Enabled: false}}
 
 // 🧪 测试环境 (快速)
 &Config{
@@ -69,25 +71,28 @@
     TLS: &TLSConfig{Enabled: true, InsecureSkipVerify: true},
 }
 
-// 🏢 生产环境 (完整)
+// 服务间装配片段，真实RPC与业务接受另验
 &Config{
     Endpoint: "iam.example.com:8081",
-    TLS: &TLSConfig{Enabled: true, CACert: "/etc/certs/ca.crt"},
-    Retry: &RetryConfig{Enabled: true, MaxAttempts: 3},
-    CircuitBreaker: &CircuitBreakerConfig{FailureThreshold: 5},
+    TLS: &TLSConfig{
+        Enabled: true, CACert: "/etc/certs/ca.crt",
+        ClientCert: "/etc/certs/client.crt", ClientKey: "/etc/certs/client.key",
+        ServerName: "iam.example.com",
+    },
+    Retry: &RetryConfig{Enabled: false},
 }
 ```
 
 ### 配置优先级
 
 ```text
-代码配置 (最高)
+宿主选择 FromEnv 或 FromViper（分别加载）
     ↓
-环境变量 (IAM_ENDPOINT, IAM_TIMEOUT...)
+宿主显式覆盖/合并，Viper环境与文件规则由宿主设置
     ↓
-配置文件 (config.yaml)
+NewClient 对传入配置 WithDefaults（原地补全）
     ↓
-默认值 (最低)
+options / TLS / service config / interceptor 形成实际行为
 ```
 
 ### 示例约定
@@ -95,7 +100,7 @@
 - 上面的“配置模板”保留完整 `&sdk.Config{...}` 形态，适合直接照抄起步
 - 下面各小节默认只展示 **`Config` 内部字段片段**
 - `TLS:`、`Retry:`等片段嵌入Config；JWKS字段只是保存配置，NewClient不自动装配Manager/Verifier，宿主须显式使用
-- 完整可运行示例优先看 [../_examples/mtls/main.go](../_examples/mtls/main.go)
+- 程序示例需独立编译与环境核验，见 [../_examples/mtls/main.go](../_examples/mtls/main.go)
 
 ---
 
@@ -179,11 +184,15 @@ type TLSConfig struct {
     ClientCertPEM      []byte   // 客户端证书 PEM 内容
     ClientKey          string   // 客户端私钥文件路径（mTLS）
     ClientKeyPEM       []byte   // 客户端私钥 PEM 内容
-    ServerName         string   // 服务端名称（SNI）
-    InsecureSkipVerify bool     // 跳过证书验证（仅测试）
+    ServerName         string   // 服务端证书名称校验与 SNI
+    InsecureSkipVerify bool     // 跳过服务端证书链和名称验证
     MinVersion         uint16   // 最低 TLS 版本（默认 TLS 1.2）
 }
 ```
+
+CA内存PEM优先于文件，解析失败不回退；显式CA使用新建的根池，未提供CA时才使用系统根。客户端cert/key须来自完整PEM对或完整文件对，不按字段混合拼接。完整文件对再加半套PEM仍可能被忽略或构造失败；来源选择矩阵由[传输层与服务间安全](../../../docs/03-基础设施/05-传输层与服务间安全.md)维护。
+
+`ServerName`参与名称校验及SNI；为空时gRPC可按目标authority取得校验名称。`InsecureSkipVerify`没有SDK环境门禁，设为true会跳过服务端证书链和名称验证。证书仅在构造时加载，没有客户端自动重读任务。公开`WithDialOptions`随后追加，可以覆盖自动TLS credentials或默认service config；配置字段本身不是最终传输保证。
 
 ### 示例：单向 TLS
 
@@ -249,7 +258,7 @@ Keepalive: &KeepaliveConfig{
 ```go
 type RetryConfig struct {
     Enabled           bool          // 是否启用重试
-    MaxAttempts       int           // 最大重试次数
+    MaxAttempts       int           // 最多尝试数，包含首次请求
     InitialBackoff    time.Duration // 初始退避时间
     MaxBackoff        time.Duration // 最大退避时间
     BackoffMultiplier float64       // 退避时间乘数
@@ -315,6 +324,8 @@ JWKS: &JWKSConfig{
 
 ## 熔断器配置
 
+标准RPC路径须显式EnableCircuitBreaker；非nil公开CircuitBreakerConfig映射内部结构时当前未补内部FailureCodes默认，公开配置本身没有该字段。内部不会逐字段补默认，普通RPC失败可能被RecordSuccess。只给阈值不提供所述故障保护；nil配置配合启用开关才使用内部默认失败码，细节与候选见[宿主接入正文](../../../docs/04-接口与SDK/02-Go-SDK与业务系统接入.md#3-配置如何变成实际连接和每次调用)。这一缺口不等同于JWKS fetcher的独立熔断实现。
+
 JWKS熔断器须显式WithCircuitBreakerConfig启用，作用于整个HTTP/gRPC/seed链；当前HalfOpenRequests未用于JWKS半开并发限制。它与标准RPC拦截器装配是两条路径。
 
 ```go
@@ -326,7 +337,7 @@ type CircuitBreakerConfig struct {
 }
 ```
 
-### 示例：标准熔断器配置
+### 示例：参数形状，不证明失败分类已生效
 
 ```go
 CircuitBreaker: &CircuitBreakerConfig{
@@ -347,7 +358,7 @@ type ObservabilityConfig struct {
     EnableRequestID      bool   // 启用请求 ID 注入
     MetricsNamespace     string // Prometheus 指标命名空间
     MetricsSubsystem     string // Prometheus 指标子系统
-    ServiceName          string // 服务名称（用于 tracing）
+    ServiceName          string // 保留配置字段；当前默认 tracing 链未消费
 }
 ```
 
@@ -376,12 +387,15 @@ Observability: &ObservabilityConfig{
 
 ```go
 cfg.Observability = sdk.DefaultObservabilityConfig()
+cfg.Observability.EnableTracing = true // 默认函数的 tracing 为 false
 
 client, err := sdk.NewClient(ctx, cfg,
     sdk.WithMetricsCollector(myMetrics),
     sdk.WithTracingHook(myTracing),
 )
 ```
+
+默认 Prometheus collector 只创建/累加，不自动 Register；公开 Client 不提供该内部对象或 HTTP metrics 端点。这里的 `myMetrics` 应由宿主拥有注册和导出，`myTracing` 应由宿主拥有 exporter、上下文桥接及关闭；仅开启开关不证明采集接线。两个 option 也需要非 nil 的 Observability 与对应 Enabled 字段才进入默认 unary 链。ServiceName 当前没有默认消费点，RPC service/method 从 FullMethod 提取，不能将该字段当作已设置 OTel resource。具体信号和既有 stub 测试边界见[观测正文](../../../docs/03-基础设施/06-可观测性就绪与关闭.md#10-sdk观测属于宿主不继承服务端接线)。
 
 ## 负载均衡
 
@@ -421,6 +435,8 @@ LoadBalancer: "round_robin"
 | `IAM_OBSERVABILITY_ENABLE_METRICS` | `Observability.EnableMetrics` | `false` |
 | `IAM_OBSERVABILITY_ENABLE_REQUEST_ID` | `Observability.EnableRequestID` | `false` |
 | `IAM_LOAD_BALANCER` | `LoadBalancer` | `round_robin` |
+
+上述映射须与`NewClient`的默认填充一起理解：Env解析的false、Viper getter返回的布尔false会使TLS或Retry变为nil，随后`WithDefaults()`重新启用该项。要在程序配置中保留关闭，须传入非nil的`TLSConfig{Enabled:false}`或`RetryConfig{Enabled:false}`。因此`IAM_TLS_ENABLED=false`、`IAM_RETRY_ENABLED=false`及对应Viper字段不能据loader输出被解释为最终已关闭。该链是源码事实，当前没有完整关闭路径专项测试。
 
 ### 使用环境变量
 
@@ -535,14 +551,16 @@ if err != nil {
 当前检查边界：
 
 - 配置验证：`Endpoint` 为空会直接报错；负 timeout、retry 次数或负载均衡名称没有在 `Config.Validate()` 中逐项检查。不能把配置字段存在当作校验已实现。
-- TLS 构造：启用 TLS 且配置 CA 时，读取 CA 文件或解析 PEM 失败会报错；成对配置客户端 cert/key 时才加载 key pair。只提供其中一方不会由当前 validator 拒绝，也不会自动补成 mTLS。
+- TLS 构造：启用TLS时按上述来源规则读取CA及完整client cert/key；加载失败会报错。validator不统一拒绝半套材料，混合PEM/file也不承诺回退到可用的一对，具体条件见[传输主文](../../../docs/03-基础设施/05-传输层与服务间安全.md)。
 - 实际连接与 RPC：服务器证书名称/信任链、客户端证书是否被接受、证书服务身份是否符合方法 ACL，需通过握手及真实 RPC 验证。默认非阻塞 Dial 的构造成功不证明这些检查通过。
 
 补充说明：
 
-- `ConfigFromEnv` 主要覆盖基础、TLS、Retry、JWKS 这些常用字段。
-- `config.FromViper(...)` 可以加载 YAML 中的 Keepalive、CircuitBreaker、Observability 段。
+- `ConfigFromEnv` 还加载Keepalive、CircuitBreaker、Observability；输出字段不等于默认链已消费它们。
+- `config.FromViper(...)`只读取宿主getter，文件解析/环境绑定由宿主做；可以映射Keepalive、CircuitBreaker、Observability段。
 - 自定义 metrics / tracing collector 始终通过 `sdk.WithMetricsCollector(...)`、`sdk.WithTracingHook(...)` 注入。
+
+AuthN独立REST子客户端与JWKS HTTP获取不继承统一gRPC配置的TLS、Timeout或Retry。REST默认`http.DefaultClient`没有总超时，请求仍使用调用方context；JWKS提供自定义HTTPClient后，RequestTimeout也不会另加请求deadline。宿主须分别提供HTTP transport、超时和重定向策略。当前默认客户端未强制HTTPS/同源：301/302/303可改POST为GET，307/308可重发body；标准敏感头有host/subdomain剥离规则，名单之外的自定义秘密头不会被同样自动剥离，亦未统一禁止降级。具体输入条件为源码推论，未作专项实验，见[传输层与服务间安全](../../../docs/03-基础设施/05-传输层与服务间安全.md)。
 
 ## 下一步
 

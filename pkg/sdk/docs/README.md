@@ -10,7 +10,7 @@
 ## 30 秒结论
 
 - `pkg/sdk/docs/*` 负责解释思路、参数、边界和最小可理解示例。
-- `pkg/sdk/_examples/*` 负责放完整可运行程序。
+- `pkg/sdk/_examples/*` 放程序形态示例，必须单独编译并核验环境；现行状态见[示例索引](../_examples/README.md)。
 - 如果你第一次接 IAM SDK，先看 [快速开始](./01-quick-start.md)。
 - SDK 文档现在按“接入基础 → Token 主轴 → 授权判定 → 迁移说明”的顺序组织。
 - 如果你已经知道要做什么，直接按下面的“我想...”跳转。
@@ -69,18 +69,18 @@
 
 5. **[服务间认证](./05-service-auth.md)**
    - mTLS 证书配置
-   - 自动 Token 刷新
-   - Jitter 和退避策略
-   - 熔断保护
-   - 状态监控
-   - 生产环境最佳实践
+   - 方法ACL与用户/对象授权的不同责任
+   - 证书读取、换证与旧连接
+   - 构造、真实RPC和业务接受的证据边界
+   - 宿主关闭与借用资源所有权
+   - 退役服务Token的消费者协调
 
 ### 第三组：授权判定
 
 6. **[授权判定（PDP）](./06-authz.md)**
    - `Authz()` 的定位
    - `Check` / `Allow`
-   - `subject / domain / object / action` 组织方式
+   - `subject / resource / action`与Scope消费边界
    - 当前能力边界
 
 7. **[迁移说明](./07-migration-breaking-changes.md)**
@@ -116,17 +116,17 @@
 | 配置开发 / 测试 / 生产环境 | [配置详解](./02-configuration.md) | 看 `Config`、TLS、超时、重试、hook 注入 |
 | 搞清 token 怎么校验 / 刷新 / 撤销 | [Token 生命周期](./03-token-lifecycle.md) | 先建立 token 消费面的总心智模型 |
 | 本地验证 JWT | [JWT 本地验证](./04-jwt-verification.md) | 看 verifier、JWKS、降级策略 |
-| 实现服务间认证 | [服务间认证](./05-service-auth.md) | 看 helper、自动刷新、回退策略 |
+| 实现服务间认证 | [服务间认证](./05-service-auth.md) | 看mTLS身份、方法ACL与宿主换证/连接生命周期 |
 | 做单次权限判定 | [授权判定（PDP）](./06-authz.md) | 看 `Authz().Check()` / `Allow()` |
 | 接入身份 / 档案 / 档案关系 | [快速开始](./01-quick-start.md) | 看 `Identity()` / `Profile()` / `ProfileLink()` 与 `identity.New*FromConn` |
-| 从旧 SDK 低层包迁移 | [迁移说明](./07-migration-breaking-changes.md) | 看公开面收口与替代入口，包含 REST AuthN v2 登录入口 |
-| 直接复制完整程序 | [示例索引](../_examples/README.md) | 进入 `_examples` 看可运行代码 |
+| 从旧 SDK 低层包迁移 | [迁移说明](./07-migration-breaking-changes.md) | 看公开面收口与替代入口，包含 REST AuthN v3 登录入口 |
+| 直接复制完整程序 | [示例索引](../_examples/README.md) | 进入 `_examples` 核对独立编译与环境状态 |
 
 ## 📖 文档约定
 
 - 各篇文档会在正文里声明自己的“示例约定”；默认省略重复的 `package`、`import` 和基础 `ctx` 初始化。
-- 文档内保留“最小可理解示例”，完整程序统一放在 [示例索引](../_examples/README.md)。
-- 如果某个能力同时有“文档示例”和“完整示例”，先读文档，再去 `_examples` 复制运行。
+- 文档内保留“最小可理解示例”，程序示例放在[示例索引](../_examples/README.md)；已单独编译的公开API接入骨架由[宿主接入正文](../../../docs/04-接口与SDK/02-Go-SDK与业务系统接入.md)维护。
+- 如果某个能力同时有“文档示例”和“完整示例”，先读文档，再按示例索引核验编译、可信输入和真实RPC接受。
 
 ## 🤝 贡献
 
