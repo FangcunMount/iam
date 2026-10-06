@@ -1,281 +1,333 @@
 # 关键链路：Token 签发、刷新、吊销
 
-> 状态：已实现 · 本文负责初始 Grant、在线 Verify、Refresh、Logout/Revoke 的真实顺序和失败语义；密钥管理由 签名密钥生命周期与 JWKS 发布文档负责。
+> 状态：已实现 · 当前设计与实现。 本文拥有初始颁发、在线 Verify、Refresh、Logout/Revoke 的执行顺序、失败状态与设计取舍；模型、密钥与部署证据分别维护。
 
-## 1. 结论与对象边界
+## 1. 结论：交付令牌、当前可用与完成清理是不同结果
 
-用户证明通过后，SignIn 先执行 Admission，再创建 Session、mint UserTokenSet、保存 RefreshToken，最后交付完整结果。后续访问用 AccessToken，续期用 RefreshToken，在线有效性由 Session 与当前 User/LoginIdentity 准入共同约束。
+Login 通过证明/记录/Admission后创建Session，再mint并保存初始refresh，全部完成才交付TokenPair。在线Verify依次检查JWT、受众、撤销标记、active Session和User/LoginIdentity准入。Refresh读取服务端refresh记录，再从Session重新投影，先延期、后轮换。Logout/Revoke是按提供的令牌或管理目标分步撤销，不是全局事务。
 
-| 对象 | 权威事实或用途 | 生命周期边界 |
+由此有三个实际区别：成功拿到pair不保证其Session在使用时仍active；Verify返回valid=false通常仍是成功HTTP/RPC响应；撤销请求失败可能已经撤掉Session或写了jti标记。正常签发保证声明来源，但在线Verify没有再把JWT身份/上下文与Session逐项对齐。下面分别说明检查到了哪里、留下什么状态。
+
+| 对象 | 当前用途 | 不能据此推断 |
 | --- | --- | --- |
-| Principal | 本次证明成功的运行时主体 | 不代表已通过后续准入，不是持久化 User |
-| 登录结果 | Principal + TokenPair 的应用结果 | 不独立持久化，由传输层映射为响应 |
-| Session | 原始认证上下文、续期投影、在线状态 | Redis 保存，可过期、延期、撤销 |
-| UserTokenSet | 一次初始颁发/刷新产生的 AccessToken + RefreshToken | 仅包含用户令牌 |
-| AccessToken | 用户访问凭证，RS256 Signed JWT | 包含 Session 关联；可在线撤销 |
-| RefreshToken | 不透明续期凭证 | 关联 Session，严格轮换，以 Session 为上下文权威来源 |
+| Principal / 登录结果 | 证明成功主体 / Principal与TokenPair的应用结果 | 已持久化User或完整业务授权 |
+| Session | Redis保存原认证上下文、业务快照、状态与期限 | 主体当前组织资格、所有历史索引完整或所有请求已停 |
+| AccessToken / AccessTokenClaims | RS256 Signed JWT / 声明值对象 | Claims构造即已验签，或本地验签即在线可用 |
+| RefreshToken | 不透明、关联Session的单次续期凭证 | JWT、独立授权事实或无限续期能力 |
+| consumed marker | 旧refresh轮换后用于识别重放的Session/User引用 | 永久记录或完整token-family图谱 |
+| jti marker | 指定access的在线撤销事实 | 全部同Session令牌都被逐个标记或物理清理 |
 
-公开登录与刷新返回 token pair（AccessToken、RefreshToken、ExpiresIn、TokenType），不单独暴露 SessionID。Token 内容、JOSE 概念与历史格式兼容见 [Session、Token 与 JWKS](03-Session-Token与JWKS.md)；Principal 的形成见 [Login 链路](04-关键链路-Login登录认证.md)。本文是各生命周期操作的 canonical 说明。
+对象与兼容协议见 [Session、Token与JWKS](03-Session-Token与JWKS.md)，证明副作用与新Session补偿由 [Login](04-关键链路-Login登录认证.md)维护；签名密钥生命周期归 [JWKS](06-关键链路-JWKS与本地验签.md)。服务身份本身通过mTLS/ACL建立，不靠Service Token或用户Session/refresh；获准服务执行用户Login仍需用户证明。
 
-## 2. 初始颁发：成功与补偿
+## 2. 公开入口：令牌从body进入，服务身份不等于用户身份
+
+| 能力 | REST | gRPC / SDK Auth() |
+| --- | --- | --- |
+| 在线验证 | POST /api/v3/authn/verify，匿名路由 | VerifyToken，受已装配服务准入/方法ACL约束 |
+| 续期 | POST /api/v3/authn/refresh_token，匿名路由 | RefreshToken，同上 |
+| 显式退出 | POST /api/v3/authn/logout，匿名路由，至少一种令牌 | 无Logout RPC；可分别调用两种Revoke |
+| 独立access/refresh撤销 | 两个handler存在，但当前没有公开注册 | RevokeToken / RevokeRefreshToken |
+| 按SID/用户/登录入口管理撤销 | v2 admin三条路由，JWT + Resource/Action | 无对应批量RPC/SDK方法 |
+
+匿名指路由不先要求一个用户JWT，仍会验证提交的续期/访问凭证；Logout不从Authorization header或middleware Principal自动取得当前SID。gRPC handler也不自行完成mTLS，是否接线服务拦截器/ACL必须由组合根和生效配置证明，模板不是部署证据。
+
+Verify/Refresh不单独接受客户端SID。gRPC Verify的force_remote未进入服务端应用请求，服务器始终走在线验证；Refresh的context未被采用，两种Revoke的operator也未读取。accepted_token_types可以缩小接受结果，不能令真实domain支持refresh/service验签；include_metadata只在valid时投影同源claims。不要把proto字段存在写成已经改变业务语义。
+
+Login/Refresh的公开TokenPair只有access_token、refresh_token、expires_in、token_type；没有单独SID、refresh expiry、Session状态或完整上下文。SID可在Verify claims中取得。REST expires_in按access剩余时间截断为整数秒，没有负数裁剪；gRPC使用Duration并把负数裁到零。REST响应还有code/message/data封装。机器契约当前继承bearer安全声明、成功payload和错误面有偏移，见 [契约治理](../../04-接口与SDK/01-REST-gRPC与契约治理.md)。
+
+## 3. 初始颁发：先建立在线状态，再保存续期凭证
 
 ```mermaid
 sequenceDiagram
     participant S as SignIn
-    participant AP as AdmissionPolicy
-    participant SC as SessionCreator
-    participant TI as InitialTokenIssuer
-    participant TM as TokenSetMinter
-    participant RS as RefreshToken Store
-    participant SR as SessionRevoker
-    S->>AP: Evaluate(Subject)
-    AP-->>S: Decision or evaluation error
-    break denied or evaluation failed
-        S-->>S: map error; no Session
+    participant SS as SessionCreator / Store
+    participant I as InitialTokenIssuer
+    participant M as TokenSetMinter / Encoder
+    participant R as Refresh Store
+    S->>S: Admission passes after proof and credential record
+    S->>SS: Create and Save new Session
+    SS-->>S: Session or error
+    break error or nil Session
+        S-->>S: return failure, no known Session compensation
     end
-    S->>SC: Create(Principal)
-    SC-->>S: Session or error
-    break creation failed or missing Session
-        S-->>S: return error
-    end
-    S->>S: validate Principal / Session alignment
-    break alignment mismatch
-        S->>SR: compensate newly created Session
-        S-->>S: return error
-    end
-    S->>TI: IssueInitialTokens(Session)
-    TI->>TM: MintTokenSet(Session)
-    TM-->>TI: complete set or error
-    opt complete set
-        TI->>RS: SaveRefreshToken
-        RS-->>TI: saved or error
-    end
-    TI-->>S: TokenPair or error
-    alt mint or save failed
-        S->>SR: Revoke(authentication_grant_failed)
-        Note over S,SR: independent 5s timeout, detached cancellation
-        SR-->>S: success or compensation error
-        S-->>S: return failure; retain both errors if compensation fails
-    else success
-        S-->>S: Result(Principal, TokenPair)
+    S->>S: check limited Principal / Session alignment
+    alt mismatch
+        S->>SS: Revoke known SID with detached 5s timeout
+    else aligned
+        S->>I: IssueInitialTokens(Session)
+        I->>M: MintTokenSet(Session)
+        M-->>I: candidate access and refresh, or error
+        opt complete candidate set
+            I->>R: SaveRefreshToken
+            R-->>I: saved or error
+        end
+        I-->>S: pair or error
+        alt error or incomplete pair
+            S->>SS: Revoke known SID with detached 5s timeout
+        else saved complete pair
+            S-->>S: return login result
+        end
     end
 ```
 
-图中 Session 创建错误会立即结束；后续 mint/save/补偿分支只针对成功返回的 Session。空 Principal、缺少依赖或 Admission 拒绝均不能创建 Session；mint 后也要求 AccessToken/RefreshToken 都存在。
+TokenSetMinter一次取服务器UTC时间：access jti随机生成，iat/nbf和exp精确到秒，exp为now+AccessTTL；encoder映射固定顶层声明及Session已有Attributes，选择active签名key。refresh另生成随机ID/value，期限交给SessionRefreshExpirer。AccessToken不是存入Redis的一份完整JWT记录，初始保存的是refresh；在线撤销另维护jti marker。refresh JSON没有IssuedAt，读取构造使用当前时间，该值不能作原始签发时间证据。
 
-Session/Token TTL、issuer、audience 和签名密钥来自组合时配置，客户端不能在每次 SignIn 中任意指定。TokenSetMinter 统一生成 ID、时间与声明，经 AccessTokenEncoder 生成访问令牌；适配器负责选取当前 active key，再生成与 Session 对齐的 refresh 凭证。私钥不越过 signer/codec 边界，也不进入响应。
+身份、SID、AMR、auth_time及已有BusinessContext从Session投影，issuer/audience/AccessTTL来自装配。新登录的BusinessContext为空，不通过签发查询组织或AuthZ权限；JWT不写Method/Realm或任意Principal.Claims。Attributes在投影/codec中原样复制，allowlist在legacy恢复等入口执行，不能把固定顶层字段理解为对任意内部Session属性统一过滤。私钥只在signer/codec内使用，公钥与发布过程归JWKS主文。
 
-### 补偿保证及剩余窗口
+InitialTokenIssuer只要求已有Session，负责mint、pair完整性和refresh保存；它不另做Admission或创建Session。SignIn负责前置准入、有限alignment与已知SID补偿，不能把单独调用issuer当作完整Login。Creator返回nil/error时不会补偿未知写入结果；已返回Session后的失败使用WithoutCancel+独立5秒撤销，补偿失败保留两个原因。Revoke不物理删除可能已保存的refresh；响应丢失也没有登录结果复用合同，具体窗口回链Login。
 
-mint、TokenSet 完整性或初始 refresh 保存失败时，独立补偿撤销 Session，即使客户端已经取消请求也执行。保存结果不确定时，成功撤销 Session 可以阻断潜在 refresh 记录的在线使用，不要求先知道该记录到底是否落库。
+## 4. 在线Verify：检查当前状态，返回的仍是JWT声明
 
-补偿不是全局原子提交：补偿失败会保留两阶段错误并记录 Session 关联日志，剩余记录需依靠 TTL 或运维收敛。Session 创建本身返回错误时，跨存储结果也可能不确定，不能宣称所有写入已回滚。失败时不向客户端交付候选 token pair。
-
-## 3. 在线验证：类型分流之前检查撤销
+下图是各步都通过的路径，任一步拒绝/错误立即结束；应用随后决定是无效结果还是error。
 
 ```mermaid
 sequenceDiagram
-    participant C as Caller
     participant A as Token Application
     participant V as Domain Verifier
-    participant Codec as AccessTokenSignatureVerifier / KeySet
+    participant C as Codec / KeySource
     participant TS as Token Store
-    participant SS as Session Store
-    participant AP as AdmissionPolicy
-    C->>A: VerifyToken(value, application policy)
-    A->>A: validate required ExpectedAudience
-    A->>V: VerifyToken(value, ExpectedAudience)
-    V->>Codec: VerifySignatureAndClaims(value)
-    Codec-->>V: AccessTokenClaims or error
-    V->>V: match required audience before state access
+    participant S as Session Loader
+    participant P as Admission
+    A->>A: require nonempty ExpectedAudience
+    A->>V: VerifyToken(value, audience)
+    V->>C: verify RS256 signature and registered claims
+    C-->>V: access claims or error
+    V->>V: require access and any audience match
     V->>TS: IsBearerTokenRevoked(jti)
     TS-->>V: not revoked or error
-    V->>SS: GetActive(sessionID)
-    SS-->>V: active Session or error
-    V->>AP: Require(UserID, LoginIdentityID)
-    AP-->>V: admitted or error
-    V-->>A: verified claims
-    A->>A: enforce accepted type and optional extra issuer
-    A-->>C: claims or failure
+    V->>S: GetActive(claims SID)
+    S-->>V: Session or error
+    Note over V,S: returned Session object is not compared with claims
+    V->>P: require claims UserID and LoginIdentityID
+    P-->>V: admitted or error
+    V-->>A: original verified claims
+    A->>A: optional extra issuer and accepted type restriction
+    A-->>A: Valid true, Valid false, or error
 ```
 
-任何一步错误立即拒绝，图中后续步骤只在前一步成功时执行。Codec 校验签名、RS256 算法与 key 绑定、canonical issuer、exp/nbf/iat，并解析已登记类型。应用层要求 expected audience 非空并约束 accepted token type；领域在线验证在访问状态存储前检查 audience；仅接受 access，退役和未知类型均拒绝。
+Codec检查RS256、kid及key算法一致、签名、canonical issuer、当前JWT库的exp/nbf/iat验证；领域还要求jti/sub/iss/aud、三种时间、exp>nbf及sid/非零User/入口ID，sub必须等于UserID。缺失token_type仍按access兼容并计指标，显式非access拒绝；auth_time优先numeric，再回退attributes的RFC3339，缺失不被Claims.Validate拒绝，也不与Session时间/iat逐项比较。
 
-用户令牌的 Session/Admission 不是可选检查。服务间调用使用 mTLS + ACL，不颁发用户 Session 或 RefreshToken。
+ExpectedAudience由接收方声明，非空且任一匹配即可；不是全部aud均相等。额外ExpectedIssuer在在线检查之后再约束，不能替代codec的canonical issuer。当前没有由Credential材料/锁定、Session实体版本、AuthZ版本或QS组织资格产生的在线逐次门禁。
 
-SDK 本地 JWKS 验签不读取在线撤销、Session 或 User/LoginIdentity 状态。它只能按本地策略接受签名和声明，不能提供同等即时撤销能力。缓存或远程失败后 fallback local 会改变安全语义；业务接入应明确选择，见 [两类验签边界](03-Session-Token与JWKS.md)。验签成功后仍需 AuthZ 资源授权。
+**Session活跃检查与声明对齐不是同一保证。** GetActive的返回对象被丢弃，Admission查询JWT中UID/LIID，最终返回JWT中的Org/Attributes/AMR/auth_time。标准mint从Session投影保证正常来源；若历史/非标准签发状态不一致，Verify不会重投影修复或逐项发现。Refresh则使用Session主体，这两个路径的权威来源不同，不据缺少二次比较直接认定可伪造漏洞。
 
-## 4. Refresh：Session 是上下文权威来源
+| 失败阶段 | 应用结果与公开表现 |
+| --- | --- |
+| ExpectedAudience缺失/非法 | 参数错误，在codec/在线存储前终止 |
+| Codec任意错误，包括KeySource读取技术失败 | domain统一包装TokenInvalid；应用转Valid=false+FailureCode，error=nil |
+| audience不匹配、jti已撤销、SessionInactive、已映射User/入口拒绝 | 已登记拒绝转Valid=false；不能按理想“业务/技术”分类推断所有错误面 |
+| jti存储/Session读取技术失败或未映射准入错误 | 通常Internal等error，未产生有效claims |
+| 额外issuer或accepted类型不匹配 | Valid=false，FailureCode为0 |
+| REST公开Verify无效结果 | HTTP200封装valid=false，claims省略，不公开应用FailureCode |
+| gRPC公开Verify无效结果 | 正常RPC响应，统一status=REVOKED及泛化failure_reason；不证明真的发生了撤销 |
+| JWT middleware遇到error或!Valid | 统一拒绝401/102002；不能从独立Verify的响应合同推断受保护路由返回200 |
 
-请求只提交不透明 RefreshToken value。Refresher 先从服务端记录取得 SessionID，加载 active Session，再执行 Admission 和 refresh 过期检查；签发以 Session 为依据，缺失的历史上下文在 Session 副本上恢复，历史 RefreshToken 上的重复上下文字段仅作为兼容 fallback。
+因此“Verify成功响应”不是业务接受，客户端必须读取valid。REST的TokenInvalid替身错误测试也不能用来证明真实应用所有无效令牌都会返回401。
+
+### 4.1 SDK本地、远程与显式结果缓存
+
+本地JWKS验签不查jti/Session/User状态；远程策略调用IAM在线Verify，再把无效结果转SDK错误。默认constructor选择local、remote或local→remote；只有JWKS获取错误/空集合允许远程fallback，未知kid、签名/声明无效不自动ForceRefresh或借远程放行，没有默认remote→local接管。
+
+验证结果缓存另是宿主显式包装的CachingVerifyStrategy，标准constructor没有自动装配，也没有仓库内建VerifyResultCache实现。命中key只含token，当前只检查Claims非nil与type，不重新校验valid、exp、audience、issuer或调用选项；TTL原样交给宿主cache、没有按exp裁剪，直接返回同一结果pointer。具体推论：同一token先按audience A接受，随后按B查缓存，包装器不会按B重新检查；宿主缓存若允许结果活过exp，也没有命中时到期复核。现无这些缓存专项，不描述成默认SDK行为。
+
+标准NewTokenVerifier保存可用remoteStrategy，调用级Verify(ForceRemote=true)直接走remote；没有远端时返回不可用错误。显式缓存用NewTokenVerifierWithStrategy(caching)构造时未配置remoteStrategy，该实例的ForceRemote会报错，并非现成提供缓存旁路；直接调用Caching.Verify也不解释该标志。JWKS公钥缓存与valid结果缓存不是同一个对象或撤销预算。接入合同与验证边界见 [SDK接入](../../04-接口与SDK/02-Go-SDK与业务系统接入.md)。
+
+## 5. Refresh：从Session重投影，先延期再交换旧凭证
 
 ```mermaid
 sequenceDiagram
     participant C as Client
-    participant R as Domain Refresher
-    participant TS as RefreshToken Store
-    participant SS as Session Store
-    participant AP as AdmissionPolicy
-    participant TM as TokenSetMinter
-    C->>R: RefreshToken(value)
-    R->>TS: GetRefreshToken(value)
-    alt token missing
-        R->>TS: GetConsumedRefreshToken(value)
-        opt consumed marker exists
-            R->>SS: Revoke Session(reason=refresh_token_replay)
+    participant R as Refresher
+    participant T as Refresh Store
+    participant S as Session Loader / Extender / Revoker
+    participant P as Admission
+    participant M as TokenSetMinter
+    C->>R: refresh value
+    R->>T: GetRefreshToken
+    alt record missing
+        R->>T: GetConsumedRefreshToken
+        opt marker exists
+            R->>S: Revoke marker SID as replay
         end
-        R-->>C: refresh failed
-    else token exists
-        R->>SS: GetActive(SessionID)
-        R->>AP: Require(Session.UserID, Session.LoginIdentityID)
-        R->>R: check refresh expiry, restore legacy context in Session copy
-        R->>TM: MintTokenSet(Session)
-        TM-->>R: candidate UserTokenSet
-        R->>SS: ExtendToRefreshExpiry(Session, candidate expiry)
-        alt extension failed
-            R-->>C: error, old refresh remains, candidate not saved
-        else extension succeeded
-            R->>TS: RotateRefreshToken(old, expected ID, candidate)
+        R-->>C: not found or inspection / revoke error
+    else record found
+        R->>S: GetActive(record SID)
+        R->>P: require Session UserID and LoginIdentityID
+        R->>R: check refresh expiry, restore context in copy
+        R->>M: MintTokenSet(Session copy)
+        M-->>R: complete candidate set or error
+        R->>S: ExtendToRefreshExpiry by SID
+        alt extension error
+            R-->>C: stop before Rotate
+        else extension returned success
+            R->>T: Rotate old value and expected ID to candidate
             alt store error
-                R-->>C: internal error, write result may be uncertain
-            else old token already consumed
-                R->>SS: Revoke Session(reason=refresh_token_replay)
-                R-->>C: ErrRefreshTokenNotFound or revoke error
-            else rotation succeeded
-                R-->>C: new token pair
+                R-->>C: error, result may be uncertain
+            else CAS false
+                R->>S: Revoke old record SID as replay
+                R-->>C: not found or revoke error
+            else CAS true
+                R-->>C: candidate pair
             end
         end
     end
+    Note over R,S: early gates stop later steps, no final re-admission
 ```
 
-active Session、Admission、expiry 和 mint 任一步失败都会提前结束。`auth_time` 保持原始认证时间，刷新不会让敏感绑定/解绑自动满足最近认证。
+GetActive/Admission/expiry/mint的任一步失败都会在延期前结束。refresh记录的User/入口字段不重新作为认证主体；新claims来自Session，历史重复字段只参与下面的兼容。没有轮换后的Session/Admission复核，也没有把成功返回与之后的请求原子绑定。
 
-### 寿命与先延期的取舍
+### 5.1 寿命：实际模板与可滑动能力分开
 
-LifetimePolicy 把当前滑动有效期与绝对上限分开。新 refresh expiry 取 `now + refreshTTL` 与 `CreatedAt + sessionMaxTTL` 的较早者；缺少创建时间或正数绝对上限时，保守沿用现有到期时间。精确模型与兼容门禁见 [Session 生命周期](03-Session-Token与JWKS.md)。
+Session.ExpiresAt是当前有效期；当前LifetimePolicy计算绝对上限CreatedAt+**当前装配**sessionMaxTTL，未持久化每Session最初采用的policy版本：
 
-当前先延期 Session，再轮换 refresh。延期失败时旧 refresh 保持有效；轮换错误时 Session TTL 可能已经延长。原子脚本通信错误还可能意味着轮换已发生但响应未被确认，不能一律认为旧 token 仍可用。
-
-把延期和轮换合进单 Lua 可缩小窗口，但要同时承担 Session ownership、绝对寿命、索引和 token schema 校验。先轮换再延期则会出现“新 token 已生效，但 Session 延期失败”的窗口。当前没有将两种操作合并成一个原子事务。
-
-## 5. 严格轮换与重放处置
-
-Redis Lua 在旧 value 存在且 token ID 符合预期时，原子写新 token、删除旧 token，并写 consumed marker。marker key 使用旧 token 的摘要，值只保留 Session/User 引用，TTL 为旧 token 原剩余寿命，不保存令牌明文。
-
-```mermaid
-stateDiagram-v2
-    [*] --> Available: issue and save
-    Available --> Consumed: successful atomic rotation
-    Available --> Removed: explicit revoke
-    Available --> Expired: expiry reached
-    Consumed --> ReplayDetected: old value submitted again
-    ReplayDetected --> SessionRevoked: revoke succeeds
-    ReplayDetected --> RevokeFailed: revoke fails, return internal error
-    Consumed --> MarkerExpired: old token original expiry
+```text
+initial_session_expiry = min(created_now + refreshTTL, created_now + positive sessionMaxTTL)
+new_refresh_expiry = min(now + refreshTTL, CreatedAt + positive sessionMaxTTL)
+access_expiry = now + AccessTTL    # 秒级，未裁到Session期限
 ```
 
-该图表达存储事实与业务结果，不是 RefreshToken 上的一组 status 枚举。重放只在 consumed marker 尚可识别或 CAS 明确冲突时触发；任意未签发 token 不会凭空撤销 Session。
+缺CreatedAt或正数绝对上限时，沿用现有Session.ExpiresAt作为保守边界；无有效未来期限则拒绝。原auth_time不提升为刷新时刻，续期本身不满足敏感绑定/解绑最近认证。
 
-并发刷新只有一个原子交换成功，输家按 replay 处理并撤销同一个 Session。因此赢家即使获得 token pair，也不能被承诺该会话继续有效。合法重复提交和被盗旧 token 使用按同一安全契约处理。成功轮换后响应丢失或进程崩溃时，需要重新登录；当前没有重试 grace window。
+例如refresh窗口2h、绝对上限8h：10:00创建至12:00，11:00刷新可滑至13:00，17:30刷新最多至18:00。当前prod/dev模板却是refresh168h、Session24h，初始就到24h上限，通常只轮换而没有继续延期空间。prod access60m，dev/options access15m；模板不证明生效部署。
 
-当前有 Session 级重放处置，没有完整 token-family 图谱，也不跨 Session 批量撤销其他家族。设计扩展必须区分“已有 consumed marker”与“完整 family 追踪”。
+access寿命独立：假设上限次日10:00，09:50按60m签access可得到10:50的exp，但Session/refresh先在10:00失效；在线验证届时拒绝，本地验签仍可能按JWT期限接受。这是寿命计算的源码推论，不承诺已在生产观察到，也不把AccessTTL当作Session的绝对寿命。
 
-## 6. Logout、单令牌撤销与状态联动
+### 5.2 历史上下文：整块回退只恢复到副本
 
-| 操作 | 实际副作用 | 边界 |
+只有AuthContext的Method/Realm/AMR/AuthenticatedAt**全部缺失**才读旧refresh的AuthMethod/Realm/AMR/SessionClaims，不是逐字段补洞。非空legacy claims可替换副本的整个BusinessContext；原Session的Org42并非在此分支一定优先于旧Org99。认证时间先取Session AuthenticatedAt/CreatedAt，仍缺失才读legacy auth_time；AMR为空时用jwt，不制造新的认证时间。
+
+具体连续两轮案例：原Session认证/业务上下文空、CreatedAt=C；旧refresh带password/global/pwd和Org99。第一轮在副本上恢复并签发，但Extender按SID重新读取原Redis Session只改期限；新refresh也不保存legacy副本。第二轮仍加载空认证上下文，且新refresh已无旧字段，Method/Realm为空、AMR退为jwt、Org回到原Session值0，auth_time仍C。若C也缺失，首轮靠legacy恢复的时间下一轮可为zero。
+
+当前单次测试证明副本恢复且原对象不变，没有覆盖真实store连续两轮的上述场景；因此不能写成“刷新完成历史Session迁移”。它也不查询QS当前组织资格。若要持久迁移，需另定义与Revoke/并发刷新兼容的条件写及缺失字段策略。
+
+### 5.3 失败状态不能只用一个“刷新失败”概括
+
+| 位置 | 当前后果 |
+| --- | --- |
+| GetRefreshToken技术错误/损坏记录 | 包装TokenInvalid；与missing后marker读取Internal的分类不同 |
+| Session/Admission提前拒绝 | 不进入refresh过期删除，也不mint/rotate |
+| record已过期且到达expiry检查 | 尽力Delete，忽略删除错误，返回RefreshTokenExpired；Redis正常TTL到期时往往已作为missing处理 |
+| mint或延期返回error | 不调用Rotate；该请求不保存candidate。延期的写入结果仍可能不确定，不能把所有error当作零写入 |
+| 延期成功、Rotate报错 | Session期限可能已变；通信错误不足以判定旧key保留或新key未生效 |
+| Rotate=true，响应丢失 | 已消费旧refresh；重发旧value可能触发replay，没有结果复用/grace window |
+
+## 6. 原子轮换与重放：原子范围是三种token key
+
+Redis脚本读取旧refresh，比较token_id并要求旧key PTTL>0，再写新refresh、写旧value摘要对应的consumed marker、删除旧refresh。新refresh TTL来自candidate剩余寿命；marker TTL来自执行时旧key的PTTL，而非另给一个固定观察窗。marker只保留旧Session/User引用，不保存旧value明文；**可用refresh主key仍直接包含不透明value**，不能把marker摘要当作整个存储已摘要化。
+
+脚本不读取Session，不校验new/old SessionID或UserID一致，也不重新检查User准入/refresh JSON中的ExpiresAt。正常minter从同Session生成candidate；这份应用构造保证不能扩大成store对任意candidate的验证。miniredis交换测试刻意使用不同candidate Session/User，仍可选中一个赢家。
+
+| 原子交换结果 | Refresher当前处理 | 能推断什么 |
 | --- | --- | --- |
-| Revoke AccessToken | 验证 bearer，写 jti marker，再撤销关联 Session | 标记 TTL 来自剩余令牌寿命；分步失败返回错误 |
-| Revoke RefreshToken | 查 refresh，撤销关联 Session，再删除 refresh | 不枚举全部 access token |
-| Revoke Session | 改为 revoked 并清理关联索引 | 不删除 User/LoginIdentity |
-| User block/deactivate | MySQL 同事务写状态和撤销 outbox，worker 批量撤销 Session | 在线 Admission 同时阻断，outbox 负责最终收敛 |
+| true | 返回candidate pair | 该旧key比较/交换完成，不证明Session此刻仍active |
+| false | 按replay撤旧记录SID，返回not found或撤销错误 | 可由旧key缺失、ID不符、PTTL<=0触发，**不能确定已被别人消费** |
+| error | 返回Internal | 需要区分脚本/通信阶段，不从错误响应推断旧/新记录状态 |
+| 初次读取missing，marker存在 | 按marker SID撤销，再not found | 在marker有效窗口内识别旧value；不是永久family查找 |
+| missing且marker不存在 | not found，不凭空撤Session | 任意未签发value不能定位一个撤销目标 |
+
+并发A/B使用同一有效旧key时，原子比较最多一方交换成功；到达Rotate=false或missing+marker的请求会撤Session。其他请求也可能早在GetActive/Admission/mint/Extend处拒绝，不能统一说所有输家都执行replay。合法重复提交与被盗旧value当前使用同一处理，没有幂等回执、宽限或完整token-family。
+
+两组跨步骤推论需要保留：A延期成功→管理员撤SID→A轮换成功，可能返回关联revoked Session的pair；或者A早先GetActive成功，但Extend读取时主对象已丢失，当前store该nil分支返回nil，后续仍可交换。Session WATCH保证普通Extend不恢复revoked状态，不保证后面的token Lua与Session同事务；成功pair不保证在线可用。
+
+gRPC SDK默认全方法最多3次尝试，重试Unavailable/ResourceExhausted/Aborted，未排除Refresh。若已轮换但响应丢失且满足gRPC重试条件，重发旧value可触发replay撤SID；配置存在不证明每次网络失败都会重放。调用方应按不确定状态设计恢复，不能把自动重试称为安全续期。当前处理依赖请求ctx，replay撤销不采用Login补偿的独立5秒上下文，取消/撤销失败会明确返回错误。
+
+## 7. Logout与管理撤销：持有凭证和管理权限是不同入口
+
+Logout处理body中的refresh在前、access在后，第一次错误就停止。SID分别来自Redis refresh记录和验签access声明，没有比较当前User或两份令牌属于同一Session。持有A的access与B的refresh会先作用于B、再作用于A；不要按成功日志“当前登录会话已退出”推断只撤当前操作者。
 
 ```mermaid
-sequenceDiagram
-    participant C as Client
-    participant S as SignOut Application
-    participant T as Token Capabilities
-    participant TS as Token Store
-    participant SS as SessionRevoker
-    C->>S: access token and/or refresh token
-    opt refresh supplied
-        S->>T: RevokeRefreshToken(value)
-        T->>TS: GetRefreshToken(value)
-        T->>SS: revoke associated Session if present
-        T->>TS: DeleteRefreshToken(value)
-    end
-    opt access supplied
-        S->>T: revoke bearer value
-        T->>T: verify bearer
-        T->>TS: MarkBearerTokenRevoked(jti, remaining TTL)
-        T->>SS: revoke associated user Session
-    end
-    Note over S,SS: stop on first error, later revoke steps may not execute
-    S-->>C: success or explicit failure
+flowchart TD
+    L["Logout with explicit token values"] --> RF{"refresh supplied"}
+    RF -->|yes| RS["Load refresh record and Revoke its SID"]
+    RS -->|success or missing record| RD["Delete supplied refresh value"]
+    RS -->|error| E["Return failure, keep completed effects"]
+    RD -->|error| E
+    RD -->|success| AF{"access supplied"}
+    RF -->|no| AF
+    AF -->|yes| CV["Codec signature and claims check"]
+    CV -->|error| E
+    CV -->|accepted and unexpired| JM["Write jti marker with remaining TTL"]
+    JM -->|error| E
+    JM -->|success| SR["Revoke access claims SID"]
+    SR -->|error| E
+    SR -->|success| OK["Return success"]
+    AF -->|no| OK
+    Note["Both token branches use request context"] -.-> L
 ```
 
-Logout 使用调用方显式提供的令牌，不从 middleware Principal 推导 SessionID；多步失败不能表述为全局回滚。重复 Session 撤销应收敛，缺失 refresh 可以走删除；失效或无法解析 bearer 仍可能返回验证错误，不能承诺所有重复 logout 无条件成功。
+access撤销直接用codec，不走在线Verifier、expected audience或Admission；先写jti再撤SID，revokedBy来自claims.Subject。refresh先撤其SID再删该value，revokedBy来自refresh.UserID，gRPC operator不改变它。已成功写marker但SID撤销失败时，这个access被在线拒绝，同SID其他access/refresh不由这笔marker自动全部清掉；refresh删除失败则可能留记录但SID已revoked。
 
-```mermaid
-sequenceDiagram
-    participant I as Identity User Lifecycle
-    participant DB as MySQL
-    participant W as Outbox Worker
-    participant R as SessionRevoker
-    I->>DB: commit User status and revocation task together
-    W->>DB: claim pending task
-    W->>R: RevokeByUser(userID, reason)
-    R-->>W: complete or partial failure
-    W->>DB: complete task or schedule retry
-```
+没有“即使access已过期也保证退出原会话”的合同：真实codec先校验时间，可能在revoker的IsExpired no-op之前报错。缺失refresh可以按删除收敛；同一Session普通Revoke可重复，但两种令牌多步退出并非所有重复请求无条件成功。Token应用包装ErrTokenRevokeFailed，SignOut再次构造该错误会丢弃底层cause；不是Login补偿的errors.Join。整个Logout沿请求ctx，没有自动后台重试。
 
-这条链不反查全部 Token，也不批量写 jti marker。批量撤销中途失败可以已经处理部分 Session，worker 通过重试收敛。管理端按 Session/User/LoginIdentity 撤销的路由和 Resource/Action 见 [Session 管理契约](03-Session-Token与JWKS.md)。
+三条管理入口仍在v2，由路由先在线JWT与Resource/Action检查；缺保护链不注册，应用revoker不再做第二套目标所有权授权：
 
-## 7. Session 状态与索引
+| 请求 | Resource / Action |
+| --- | --- |
+| POST /api/v2/admin/sessions/{sessionId}/revoke | iam:authn:collection:sessions / revoke |
+| POST /api/v2/admin/login-identities/{loginIdentityId}/sessions/revoke | 同Resource / revoke_by_login_identity |
+| POST /api/v2/admin/users/{userId}/sessions/revoke | 同Resource / revoke_by_user |
 
-```mermaid
-stateDiagram-v2
-    [*] --> Active: create and save
-    Active --> Active: extend within absolute limit
-    Active --> Revoked: logout or administrative/event revoke
-    Active --> Expired: expiry reached
-    Revoked --> [*]
-    Expired --> [*]
-```
+拥有相应动作者作用于路径目标，不只当前User。actor记录优先LoginIdentityID，再UserID，最后admin；不按管理员Role名称旁路，也不改变User/LoginIdentity事实或AuthZ Assignment。AuthN登录/令牌路由为v3，不据版本统一猜管理路径。
 
-Session 主对象与 User/LoginIdentity 两个 Redis 索引在同一事务中保存；Revoke/Extend 通过 WATCH 乐观事务维护。Revoke 是终态，Extend 不能恢复已撤销会话或索引。批量撤销会清理索引存在但主对象缺失的陈旧成员。
+## 8. Session状态、索引与User撤销任务
 
-旧数据若存在主对象但缺少索引，当前没有全库扫描修复器；依靠已有到期边界收敛，在线 Admission 继续兜底。不能把默认 `session_max_ttl=24h` 当作所有历史部署的实际最大寿命。存储算法与真实 Redis 验证边界见 [Redis 与缓存一致性](../../03-基础设施/02-Redis与缓存一致性.md)。
+Session主对象与User/入口ZSet在创建TxPipelined中保存，Revoke/Extend通过WATCH重试维护。正常Revoke改status=revoked并移除两份索引，保留主对象至原TTL；已过期则可删除。普通Extend检查active，不能恢复revoked；但底层Save可覆盖同SID，没有NX/终态检查，所以“Revoke终态”须限定正常Revoke/Extend路径，不是所有store写入。
 
-## 8. 密钥生命周期由独立文档负责
+GetActive使用status==active、未过期及LifetimePolicy，不把RevokedAt/Reason另作门禁。Save只检查非nil/正TTL，decode不拒绝任意schema/status组合；异常active+未来期限+非空RevokedAt不能仅据时间戳当作已撤销。这里说明恢复/内部构造的合同边界，不宣称外部用户能写这些记录。
 
-签发使用 active 私钥，验证接受处于有效期的 active/grace 公钥；retired 或超出有效期的密钥不能继续用于在线验签。私钥在受权限保护的 PEM 目录，MySQL 保存 public JWK 和生命周期事实。
+两个索引score为ExpiresAt.Unix，索引自身没有EXPIRE。批量撤销先按当前Unix秒移除到期成员，一次ZRange读取全部SID，再逐个Get/Revoke；没有分页游标/创建截止线/全批事务。移除按秒可能较payload纳秒期限提前不足1秒。主对象缺失只清本次索引的陈旧member，不主动清另一个索引；主对象存在但索引缺失也没有全库修复器。
 
-真实状态为 active/grace/retired；“生成、发布、签名、轮换”是动作，不应另画成持久化状态。创建并激活先提交数据库，再刷新当前进程发布快照，没有等待所有消费者已获取新公钥的全局确认步骤。
+第N个SID失败时前N-1个可已撤销；重跑重新枚举当时索引，有效依赖索引完整和实际重试成功，不是“一次成功即所有并发新增Session都已撤”。后续新SID可出现在下一次重跑，但本次ZRange之后创建的SID不会自动追加。
 
-启动、轮换、强制退役、共享目录要求、备份和管理契约统一见 [JWKS 与本地验签](06-关键链路-JWKS与本地验签.md)。不要在 Token 文档重复维护第二套密钥流程。
+User block/deactivate在MySQL同事务更新状态并写identity_session_revocation_outbox，worker按UserID批量撤Redis Session；不枚举refresh、写每个jti或撤AuthZ岗位。独立在线Admission同时拒绝inactive/blocked User，但多次读取不构成提交屏障。此任务与标准Broker Outbox是不同对象。
 
-## 9. 责任与验证索引
+任务不按创建截止时间/UserVersion筛Session，也不重查当前User状态；Activate不取消旧任务。因此停用任务仍pending→激活并新登录→旧任务执行可撤新Session。反向窗口是Admission早先通过→停用任务枚举完成→在途Login后建SID，当前任务不再回访；User继续inactive时在线检查仍挡住，未来Activate没有认证epoch自动排除该SID。这些是源码时序推论，现无真实交错专项。
 
-以下 domain/application 路径前缀为 `internal/apiserver/`。
+worker失败重试、stale processing恢复属于其持久任务协议，不保证每任务只执行一次；Complete/Fail也没有attempt租约fencing。测试使用SQLite/撤销替身，不证明真实MySQL锁、全部Redis效果或激活后任务竞态。索引与存储细节回链 [Redis](../../03-基础设施/02-Redis与缓存一致性.md)，User协作回链 [AuthZ模块边界](../03-AuthZ/07-模块边界-AuthZ与AuthN-Identity-Suggest.md)。
 
-| 契约 | 负责实现 | 回归证据 |
+## 9. 设计选择与候选：先定义合同，再扩大原子范围
+
+| 当前选择 | 收益与代价 | 候选需要证明什么 |
 | --- | --- | --- |
-| Admission 先于 Session；失败补偿 | [issuer.go](../../../internal/apiserver/application/authn/signin/completion.go) | `grant/issuer_test.go` |
-| 撤销检查先于 service/access 分流 | [verifier.go](../../../internal/apiserver/domain/authn/token/verifier.go) | `token/bearer_revocation_test.go` |
-| 上下文权威与历史 fallback | [refresher.go](../../../internal/apiserver/domain/authn/token/refresher.go) | `token/session_subject_test.go`、`refresher_session_test.go` |
-| 延期、CAS、replay 撤销 | [refresher.go](../../../internal/apiserver/domain/authn/token/refresher.go) | `token/refresher_atomic_test.go` |
-| 滑动与绝对寿命 | [lifetime_policy.go](../../../internal/apiserver/domain/authn/session/lifetime_policy.go) | `session/lifetime_policy_test.go` |
-| bearer marker 与 Session 撤销 | [revoker.go](../../../internal/apiserver/domain/authn/token/revoker.go) | `token/bearer_revocation_test.go` |
-| Redis 原子状态 | [token-store.go](../../../internal/apiserver/infra/cache/redis/token-store.go)、`session_store.go` | 对应 Redis adapter tests |
-| User 状态传播 | [service_lifecycle.go](../../../internal/apiserver/application/identity/user/service_lifecycle.go) | Identity lifecycle / sessionrevocation tests |
+| JWT + 在线Session/Admission | 签名可跨服务验证，状态可在线拒绝；本地/结果缓存并不等价 | 若要求声明与Session逐项绑定，定义需对齐字段、历史记录及变化时机；组织资格仍归业务 |
+| AccessTTL独立，refresh有绝对上限 | 两种寿命各有用途；Session到期可早于access exp，当前policy影响旧Session上限 | 若裁剪access或冻结每Session政策，明确本地撤销预算、签发响应与旧数据迁移 |
+| 先延期后token CAS | 避免新refresh生效后延期报错；仍有写结果不确定、缺主对象、并发撤销窗口 | 单Lua需同时定义SID/owner、状态/寿命、索引、旧ID和新记录；只加末尾重读不能形成持续屏障 |
+| 冲突/识别旧值后撤Session | 安全处理重复凭证；合法重试也可使赢家失效，false不精准说明原因 | typed交换结果可区分miss/ID/TTL；宽限或结果回执须定义重放主体、秘密交付期限与撤销竞态 |
+| 历史恢复仅会话副本，新refresh去冗余 | 正常Session保留权威来源；特殊空上下文可只恢复一轮 | 持久迁移需条件写、缺失字段/业务优先级、Revoke不被覆盖及两轮真实store回归 |
+| 任务按User当前索引批量撤销 | 避免逐次JWT在线清理；无精确截止线，旧任务影响新会话 | epoch/截止线及租约fencing需与登录、激活、索引和部分重试一起定义，不能只取消一条任务 |
+| 宿主显式验证结果缓存 | 能减少在线调用；token-only key和过期/options检查不足 | key纳入策略或强制复核、TTL裁exp、复制结果及ForceRemote路径需独立测试 |
+
+均是候选，未改变当前实现。物理token清理、凭证可用、User准入、资源授权与业务接受仍是不同结果；公钥发布没有全消费者确认屏障，密钥流程由JWKS主文维护，不在这里复制第二套算法。
+
+## 10. 责任与证据：测试证明到具体对象
+
+| 规则 | 事实源 | 现有证明与限制 |
+| --- | --- | --- |
+| 初始mint/save与已知SID补偿 | [initial issuer](../../../internal/apiserver/application/authn/token/initial_issuer.go)、[completion](../../../internal/apiserver/application/authn/signin/completion.go) | completion使用真实issuer与协作者替身；不证明Create未知写结果恢复或跨存储原子提交 |
+| 声明/时钟/类型与受众 | [issuer](../../../internal/apiserver/domain/authn/token/issuer.go)、[claims](../../../internal/apiserver/domain/authn/token/token.go)、[codec](../../../internal/apiserver/infra/token/jwt/signed_jwt_codec.go) | issuance一次时钟、claims不变量、真实RSA签验+KeySource替身；非所有类型只由bearer_revocation测试证明 |
+| 在线状态与公开无效结果 | [verifier](../../../internal/apiserver/domain/authn/token/verifier.go)、[应用](../../../internal/apiserver/application/authn/token/capabilities.go)、[RPC](../../../internal/apiserver/transport/grpc/service/authn/auth_token_service.go) | integration用真实codec/miniredis、内存Session、allow-all Admission，直接调用handler/service；不证真实Login、网络mTLS或MySQL准入 |
+| 刷新期限/上下文 | [lifetime](../../../internal/apiserver/domain/authn/session/lifetime_policy.go)、[refresher](../../../internal/apiserver/domain/authn/token/refresher.go) | 纯策略滑动/上限与单次副本恢复；没有连续两轮真实store或政策切换专项 |
+| CAS/replay | [token store](../../../internal/apiserver/infra/cache/redis/token-store.go)、token/refresher_atomic_test.go | miniredis两写者唯一交换、ID不符不改旧key；领域内存CAS+固定SessionLoader/记录Revoker不实际改变Session状态，不证赢家在线失效 |
+| Session状态/索引 | [store](../../../internal/apiserver/infra/cache/redis/session_store.go) | miniredis正常Save/Revoke、Revoke/Extend竞争与单missing成员；不覆盖Rotate跨操作、丢主对象、批量部分成功或Save覆盖 |
+| User任务 | [lifecycle](../../../internal/apiserver/application/identity/user/service_lifecycle.go)、[worker](../../../internal/apiserver/infra/mysql/sessionrevocation/worker.go) | SQLite事务与失败一次revoker替身后重试；不证MySQL锁、多worker租约或重新激活/在途Login交错 |
+| 公开管理/SDK | [admin routes](../../../internal/apiserver/transport/rest/admin_routes.go)、[SDK verifier](../../../pkg/sdk/auth/verifier/runtime.go)、[缓存](../../../pkg/sdk/auth/verifier/caching_strategy.go) | 路由注册/缺保护、传输替身、本地RSA/远端替身与ForceRemote用例；无真实Logout双SID、Refresh丢响应重放或缓存options命中专项 |
+
+源码案例未由专项验证时按推论记录，不认定生产已经出现问题。没有用文档门禁、测试名称或本地race通过替代真实Redis持久化/故障切换、MySQL、provider、CI、部署与业务接受。
 
 ```bash
-make docs-hygiene docs-facts
-go test ./internal/apiserver/application/authn/signin \
-  ./internal/apiserver/domain/authn/token \
-  ./internal/apiserver/domain/authn/session \
-  ./internal/apiserver/application/authn/token \
-  ./internal/apiserver/infra/cache/redis
+make docs-hygiene docs-facts docs-validation-tests
+go test -race ./internal/apiserver/application/authn/signin \
+  ./internal/apiserver/application/authn/token ./internal/apiserver/application/authn/session \
+  ./internal/apiserver/application/authn/admission \
+  ./internal/apiserver/domain/authn/token ./internal/apiserver/domain/authn/session \
+  ./internal/apiserver/domain/authn/admission ./internal/apiserver/infra/cache/redis \
+  ./internal/apiserver/infra/token/jwt ./internal/apiserver/application/identity/user \
+  ./internal/apiserver/infra/mysql/sessionrevocation \
+  ./internal/apiserver/transport/rest/authn/handler ./internal/apiserver/transport/rest/authn/request \
+  ./internal/apiserver/transport/grpc/service/authn ./internal/pkg/middleware/authn \
+  ./internal/apiserver/transport/rest ./internal/apiserver/container/authn \
+  ./pkg/sdk/auth/verifier ./pkg/sdk/auth/loginv3 ./pkg/sdk ./pkg/sdk/config \
+  ./internal/pkg/grpc ./internal/pkg/architecture
 ```
 
-并发修改需补相应 race/原子契约测试；真实 Redis 持久化、故障切换和多实例 JWKS 传播仍需运行环境证据。文档门禁只能覆盖已编码的事实，不能代替这些验证。
+命令是验证入口，执行环境/结果和图源复核见 [阶段记录](../../_data/reviews/2026-10-06-docs-refactor.md)。本轮只重构文档，不修改业务行为或机器契约。

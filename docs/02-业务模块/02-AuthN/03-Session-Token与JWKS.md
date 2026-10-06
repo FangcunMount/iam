@@ -1,268 +1,249 @@
 # Session、Token 与 JWKS
 
-> 状态：已实现 · 本文解释令牌签发、刷新、撤销和两种验签语义，并标出当前实现的失败窗口。
+> 状态：已实现 · 当前设计与实现。本文定义认证事实、在线状态与签名声明的对象合同，说明构造/恢复、投影、寿命与历史兼容的责任。操作顺序与失败补偿由 [Token 主链路](05-关键链路-Token签发刷新吊销.md)维护；私钥、轮换及消费者缓存由 [JWKS 主链路](06-关键链路-JWKS与本地验签.md)维护。文中的候选约束和源码推演分别标明。
 
-## 1. 当前方案不是“纯 JWT”
+## 1. 结论：认证事实、令牌声明与当前许可分别成立
 
-用户访问采用混合状态模型：
+同一 User 17 可以有密码入口31和微信入口32。两次登录分别建立S1、S2，保存各自的LoginIdentityID、核验方法与时间；只保存UserID会丢失“本次通过哪个入口核验”，无法按入口准入或解释近期认证。Session保存后续续期的上下文，Access JWT保存某次签发的声明，Refresh保存续期凭证与Session关联。它们共同服务登录态，但不共享一个“已认证且一直有效”的标志。
 
-```text
-RS256 Access Token
-  + Redis Session
-  + Redis bearer-token revocation marker
-  + Redis Refresh Token
-  + MySQL/JWKS key lifecycle
-```
-
-JWT 负责可验证声明，Redis 负责在线撤销和续期状态，MySQL 负责签名密钥生命周期的持久事实。Service Token 是独立的短期 bearer token：不创建用户 Session，也没有 Refresh Token，但仍受在线 token-ID 撤销检查约束。
-
-### JOSE/JWT 概念边界
-
-| 概念 | 当前代码中的含义与归属 |
-| --- | --- |
-| JWT Claims Set | `infra/token/jwt.jwtPayloadClaims`，只表示 Payload 的 wire model；不是完整令牌 |
-| JWS | `SignedJWTCodec` 使用 RS256 对 Claims Set 签名，输出 `Header.Payload.Signature` 三段式紧凑序列化 |
-| Signed JWT | 当前 Access/Service bearer token 的实际 wire form：以 JWS 保护的 JWT；不是另一个独立领域实体 |
-| JWE | 当前未实现；JWT Payload 仅 Base64URL 编码、可被读取，不提供机密性 |
-| Signing Key | `domain/authn/signingkey.Key`，表达非敏感身份、算法、状态、有效期和签名/验签资格 |
-| JWK | `infra/token/keyset.PublicJWK`，一把公钥的 JOSE 线格式；不是 Signing Key 领域实体本身 |
-| JWKS | `infra/token/keyset.JWKS` 及 `application/authn/jwks`，发布多把可验签公钥的集合与缓存契约 |
-
-因此代码中的 `AccessTokenEncoder / AccessTokenSignatureVerifier` 是领域端口，`SignedJWTCodec` 是具体 wire adapter；`AccessTokenClaims` 是声明数据模型，构造函数只检查不变量，验证保证由调用流程提供，不能反向当作 JWT Header、原始 Payload 或 Signature。
-
-详细执行顺序、错误分支和补偿由 [Token 生命周期链路](05-关键链路-Token签发刷新吊销.md) 维护；本文负责对象、上下文权威、寿命、兼容门禁和验证语义。
-
-## 2. 登录签发
-
-`grant.Issuer.Issue` 的实际步骤是：
-
-1. 通过 `AdmissionPolicy` 确认 User 与 LoginIdentity 允许建立认证状态；
-2. 用 Principal 创建 Session（业务上下文为空），并校验主体与会话的一致性；
-3. 由 `TokenSetMinter` 在 Session 上 mint `UserTokenSet`；
-4. 把 RefreshToken 保存到 Redis；
-5. 返回 `登录结果 = Principal + TokenPair`。
-
-Access token 由当前 active RS256 key 签名，payload 是类型化投影（含 `user_id`/`login_identity_id`/`sid`/`amr`/`auth_time` 等）。
-JWT 可读但不保证机密；敏感字段默认不进入 access JWT。Refresh token 是不透明随机值，服务端只保存轮换/重放检测与 Session 关联；
-认证上下文与允许续期的投影以 Session 为权威来源。
-
-这里有四个不同对象，不能都叫“JWT Claims”：infra 的 `jwtPayloadClaims` 只负责 Payload 序列化；domain 的
-`AccessTokenClaims` 表达声明事实，类型自身不承诺已经完成验签或在线检查；gRPC/REST Claims 是传输 DTO；SDK `TokenClaims` 是公开兼容投影。
-JWT Header 中的 `kid/alg/typ` 不进入领域 Claims，Signature 也不是 Claims。
-
-### 当前失败窗口
-
-Session 创建成功后，若 mint 返回错误或不完整的 TokenSet，或 `SaveRefreshToken` 失败，SignIn 会以
-`authentication_grant_failed` 为原因撤销该 Session，并返回原始签发错误。撤销使用独立的 5 秒超时，客户端取消请求不会取消补偿。
-即使 RefreshToken 保存结果不确定，Session 撤销成功后它也不能继续在线认证或刷新。
-
-这仍是跨步骤补偿，不是单次原子提交。补偿也失败时，返回错误保留签发与撤销两阶段原因，并记录失败日志；此时孤儿会话仍可能存在，
-需要依靠 TTL 或运维处理。Session 创建本身返回错误时，也不能把跨存储结果宣称为全局回滚。
-
-## 3. Session 生命周期与滑动续期
-
-`LifetimePolicy` 同时限制：
-
-- `refreshTTL`：每次 refresh 后令牌的滑动窗口；
-- `sessionMaxTTL`：从 Session 创建开始计算的绝对上限。
-
-当前 `Session.ExpiresAt` 表示可滑动有效期，绝对上限单独由 `CreatedAt + sessionMaxTTL` 计算。
-新 refresh 的到期时间取 `now + refreshTTL` 与绝对上限中的较早者。这样活跃用户可以续期，但不能无限延长一条已长期存在的登录会话。
-
-缺少创建时间或未配置正数绝对上限时，保守沿用现有过期时间，不为历史会话推断新的生命周期。
-
-Session 在 Redis 中除主记录外，还维护按 User 和 LoginIdentity 的索引，以支持“退出全部设备”、禁用身份和封禁用户后的批量撤销。多键更新使用 WATCH 重试，失败必须显式返回，不能假装部分索引已经一致。
-
-Session 保存强类型 `AuthContext` 与 `BusinessContext`：前者持有 Method/Realm/AMR/AuthenticatedAt，后者持有 OrgID 和 Attributes 业务快照，供初次签发和刷新投影 Claims。BusinessContext 不是 Token 生成结果，不保存 TokenID、签发时间、过期时间或签名。
-
-当前登录没有非空业务上下文来源，`SessionCreator.Create(ctx, principal)` 创建的 BusinessContext 为空。保留该快照用于延续历史会话的组织及附加属性，不代表登录已查询组织或准入策略已生成这些属性；快照也不代表实时业务状态。
-
-Redis `schema_version=2` 继续使用原有 `token_context` JSON 字段映射 BusinessContext，以兼容已存储数据及旧版本读取，不引入存储迁移。新写入不再包含 `AuthMethod/Realm/AMR/SessionClaims` 副本；读取历史 v1 JSON 时由 Redis adapter 映射为新模型，手机号和 provider 标识不会进入新的业务快照。
-
-## 4. Refresh Token Rotation
-
-刷新流程当前按以下顺序执行：
+| 事实 | 当前拥有者 | 使用边界 |
+| --- | --- | --- |
+| 此次身份核验的结果 | Principal中的UserID、LoginIdentityID、AuthContext | SignIn继续检查Admission并建立会话；Principal没有SessionID或权限事实 |
+| 后续续期使用的身份与上下文 | Redis Session主对象 | Refresh从Session重新投影；在线Verify只取其活跃性，不重新对齐所有JWT声明 |
+| 某次访问令牌的签发声明 | 已签名的Access JWT | 在线Verify返回该JWT的Claims；签名不证明签发后的主体/组织仍有效 |
+| 某个续期凭证能否交换 | Redis Refresh主对象、旧值的consumed marker | marker关联SID/UserID，不是完整token-family或实体版本 |
+| 某个kid的签发/验签资格 | Signing Key元数据、PEM及key source | JWKS公开公钥投影，不保存会话，也不作业务授权 |
+| 当前Resource/Action及公司/门店范围 | AuthZ策略事实与Runtime快照 | 不从Session、AMR或JWT角色字段推导 |
 
 ```mermaid
-sequenceDiagram
-    participant C as Client
-    participant T as Token Service
-    participant S as Session Store
-    participant R as Refresh Store
-    C->>T: old refresh token
-    T->>R: load old token
-    T->>S: load active session
-    T->>T: check User/LoginIdentity status
-    T->>T: check refresh expiry
-    T->>T: restore legacy context in Session copy and mint new pair
-    T->>S: extend to new refresh expiry
-    T->>R: CAS rotate old -> new
-    R-->>T: rotated / conflict
-    T-->>C: new pair or failure
+flowchart TB
+  P["Principal<br/>UserID / LoginIdentityID / AuthContext"] --> C["SessionCreator<br/>新SID、寿命、空BusinessContext"]
+  C --> S["Session主对象<br/>身份、认证上下文、业务快照、状态与期限"]
+  S --> R["Redis Session<br/>主对象持久化；索引支持批量定位"]
+  S --> F["Session投影函数 + IssuanceConfig"]
+  F --> A["AccessTokenClaims<br/>身份/上下文 + jti/iss/aud/iat/nbf/exp"]
+  A --> E["AccessTokenEncoder<br/>SignedJWTCodec"]
+  E --> J["RS256 Access JWT<br/>Header.Payload.Signature"]
+  T["Opaque RefreshToken<br/>独立ID/秘密值 + SID/身份/期限"] -. "通过SID关联；新写不复制上下文" .-> S
+  K["Signing Key元数据"] --> E
+  PKEY["私钥PEM<br/>签名材料"] --> E
+  K -->|"仅数据库PublicJWK"| W["JWKS公钥投影<br/>消费方获得验签材料"]
 ```
 
-`RotateRefreshToken(oldValue, expectedOldID, newToken)` 由 Redis Lua 原子完成：只有旧值仍存在且 ID 与预期相符时，才写入新值并删除旧值。
-两个并发 refresh 只有一个能成功，另一个得到“旧 token 已消费”的冲突，而不是同时获得两组有效 refresh token。
+图中的“Session投影函数”是`accessTokenClaimsFromSession`，没有名为AccessTokenProjector的当前端口。AuthN不颁发Service Token；服务身份由mTLS与ACL建立。JWT Claims Set是payload模型，JWS紧凑序列化另含Header和Signature；当前没有JWE，RS256保护完整性，payload仍可被读取。
 
-续期投影优先从 Session 重建；仅当历史 Session 缺少认证上下文时，才回退读取旧 RefreshToken 上的 `AuthMethod/Realm/AMR/SessionClaims`，并计数
-`iam_legacy_refresh_context_fallback_total`（不记录 claims 值）。新签发的 RefreshToken 不再写入这些重复字段。
+## 2. 对象字段与校验责任
 
-历史 access token 缺少顶层 `token_type` 或 `auth_time` 时，验证器会在兼容窗口内分别回退为 access 类型、
-从 `attributes.auth_time` 恢复认证时间，并计数 `iam_jwt_missing_token_type_total` 与
-`iam_jwt_legacy_attribute_auth_time_fallback_total`。
+### 2.1 上下文与标识不能互换
 
-### 兼容分支退役门禁
+`AuthenticationContext`保存Method、Realm、AMR、AuthenticatedAt。Method记录IAM实际执行的核验策略，例如`password`；AMR是核验手段声明，例如`pwd`，两者不是同一枚举。公开AuthMethod、proof.CredentialKind与结果Method也不总同名：微信小程序分别为`wechat_mini`、`oauth_wx_minip`、`wechat_minip`，领域Authenticator按proof kind分派。Realm是provider或入口命名空间，例如微信appid，不是OrgID或AuthZ授权空间。新上下文构造遇零认证时间会填现在；历史Restore保留未知零值，不把读取当成新的核验。
 
-历史 Refresh/JWT fallback 不能按发布日期或主观判断删除。领域策略 `LegacyFallbackRetirementPolicy` 定义：
+`BusinessContext`只有OrgID与Attributes。标准SessionCreator以空业务上下文建会话，登录不查询QS当前组织资格；保留的业务快照主要承接既有数据。它不拥有TokenID、签名、签发时间或期限，也不保存Assignment/PermissionGrant。若旧会话携带Org42，后续投影只能说明“来源会话曾有这份快照”，不能证明User17现在仍属于Org42。
+
+`TokenMetadata`只有ID、IssuedAt和ExpiresAt；AccessToken另有Value、SID、UID、LIID，Subject从UserID派生。RefreshToken也有这些关联，旧AuthMethod/Realm/AMR/SessionClaims只为兼容读取保留。UserTokenSet只是访问/续期对象的组合，不证明保存成功、可在线验证或令牌已经交付。
+
+### 2.2 强类型模型没有统一有效性门禁
+
+| 入口 | 实际执行的约束 | 后续责任 |
+| --- | --- | --- |
+| Principal、AuthContext构造/恢复 | 保存字段、复制非空AMR；New补零时间，Restore保留零时间 | 不校验Method枚举、Realm完整性或时间因果；SignIn另调用Admission |
+| Session.NewWithContexts | 设置active、另读时钟设置CreatedAt、复制上下文 | 没有Validate，不验证SID、非零身份、上下文或期限 |
+| SessionCreator.Create | Principal非nil、初始寿命可计算、调用Save | 不独立证明User/入口active；正常Login上游已经做Admission |
+| Redis SessionStore.Save | 对象非nil、剩余TTL为正、序列化及主对象/索引写入 | 不验证身份不变量、Status枚举或覆盖前的旧主体 |
+| NewAccessTokenClaims | 默认缺类型为access、trim部分字符串、复制集合、UTC化时间并Validate | 只得到满足下列结构条件的可变对象，没有已验签标志 |
+| IssuanceConfig及Verify请求 | 签发issuer/accessTTL/受众配置；接收方期望受众非空且元素非空 | 不从被验证JWT反推合法issuer或接收方 |
+| Codec、在线Verifier、消费方授权 | 密码学/时间、在线状态/准入、业务能力分别检查 | 前一步成功不能代替下一步 |
+
+Claims.Validate要求jti/sub/iss非空、Audience数组非空、iat/nbf/exp非零、exp>nbf、类型为access、SID及两种身份非零、sub等于UserID字符串。它不检查每个aud元素、iat≤exp、当前是否过期、OrgID资格、AMR或AuthenticatedAt。例如在当前10:00构造nbf=08:00、exp=09:00的完整Claims仍可成功，实际验签会拒绝过期；Audience为`[""]`也可通过这一个结构校验，签发配置及Verify请求另有更严格门禁。
+
+这些是内部对象/调用合同的边界。正常公开Login依靠SignIn中的核验和Admission，不能据构造器宽松推导客户端可绕过准入。
+
+### 2.3 复制集合不等于模型不可变
+
+Claims构造会复制Audience、AMR、Attributes；Session投影也复制已有属性与AMR。字段仍公开可写，Session没有Clone或实体Version，AccessTokenClaims没有独立的Validated类型或Clone方法。
+
+BusinessContext.Clone还有一个具体例外：只有Attributes长度大于0时复制map，已经分配的空map仍共享。
+
+```go
+attrs := map[string]string{}
+original := session.BusinessContext{Attributes: attrs}
+copied := original.Clone()
+attrs["x"] = "v"
+// 当前 copied.Attributes["x"] 同样是 "v"。
+```
+
+现有测试覆盖非空map的隔离，没有覆盖空map后新增键。标准新登录的空业务上下文没有分配这类map；上述例子说明内部所有权约束，不是公开输入漏洞的证明。若要承诺不可变快照，候选方案需同时处理空集合复制、私有字段/只读访问、恢复后的校验和既有调用方，单靠Clone命名不足。
+
+## 3. 从Session投影到JWT、传输与请求上下文
+
+### 3.1 一次签发产生新声明，不产生新的身份核验
+
+TokenSetMinter从Session取身份、AuthContext和BusinessContext，再补UUID jti、canonical issuer、配置audience及有效期。一次Mint只捕获一个now；Access的iat/nbf/exp截到秒，领域AccessToken与签发DTO沿用同一jti/时间。Refresh使用同一次now，但IssuedAt和expiry不统一截秒。SessionCreator、Session构造及Mint各自读时钟，整个Login没有一份统一时间快照。
+
+例如09:00核验、09:01建立S1、09:15刷新：新JWT的iat=09:15，auth_time仍为09:00。若历史AuthContext没有认证时间，投影退到CreatedAt=09:01；这是历史近似值，不能当作09:01另做了一次核验。敏感操作的近期认证检查应消费明确的认证时间，不能以刷新后的iat代替。
+
+| 同一事实 | JWT payload | REST Verify Claims | gRPC / SDK投影 |
+| --- | --- | --- | --- |
+| User17 | `sub:"17"`、`user_id:"17"` | `subject:"17"`、`user_id:"17"` | Subject/UserID字符串 |
+| 入口31 | `login_identity_id:"31"` | 同名字符串 | LoginIdentityId/LoginIdentityID |
+| 会话S1 | `sid:"S1"` | `session_id:"S1"` | SessionId/SessionID |
+| 令牌T1 | `jti:"T1"` | `jti:"T1"` | TokenId/TokenID |
+| 原核验时间 | numeric `auth_time`秒 | `authenticated_at`时间字符串 | Timestamp/time.Time |
+| 凭证用途 | `token_type:"access"` | Claims中的access | protobuf ACCESS / SDK access |
+
+REST登录/刷新及gRPC TokenPair响应中的`token_type:"Bearer"`表达HTTP使用方式，与Claims中的access用途不同。middleware再把UserID构造为AuthZ主体`user:17`，不会把JWT的sub改成这一语法。应用token.TokenClaims是领域AccessTokenClaims的type alias；REST/gRPC/SDK模型另做传输投影，不能泛称每层都有独立的领域类型。
+
+Method/Realm不写入固定JWT字段；AMR不是Role，OrgID不是当前公司Scope。既有v2 Attributes从Session经投影和codec复制，签发没有统一allowlist；v1/legacy恢复才使用authnclaims的过滤，当前allowlist只有auth_time。新属性必须追查来源、保留/删除规则和每个消费方，不能只加JSON字段。
+
+### 3.2 wire容错会改变事实表达
+
+AuthenticatedAt非零时，Encode同时写顶层numeric auth_time与Attributes里的RFC3339 auth_time，并以领域时间覆盖旧属性；亚秒精度不会保留。零认证时间不会主动生成该顶层声明或覆盖已有属性。Decode在顶层值>0时优先使用它，但不改写已有非空属性。若已签名输入顶层为10:00、属性为09:00，返回的AuthenticatedAt是10:00，Attributes仍是09:00；读时没有双写一致性修复。顶层≤0且属性可解析时才做历史时间fallback。
+
+服务端wire的顶层auth_time为int64，字符串输入不能正常绑定；SDK local兼容RFC3339字符串。身份ID也有容错差异：codec的数字字符串解析失败返回0，UID/LIID随领域结构校验拒绝，OrgID=0不被拒绝；SDK local保留字符串并另行解析业务OrgID。例如`org_id:" 42 "`服务端解析为0，SDK的业务getter可trim后读42。非标准已签名输入不能假定服务端与SDK全等。
+
+还有未覆盖的边界：数字可被ParseUint解析但超过meta.ID的MaxInt64上限时，codec的FromUint64会panic；不能概括为“任意非法ID均返回验证错误”。以上来自源码，现有一致性测试只证明构造样本，不证明这些边界已由专项保护。
+
+### 3.3 在线验证读取JWT身份，刷新读取Session身份
+
+```mermaid
+flowchart TB
+  J["Access JWT"] --> V["Codec<br/>签名、issuer、时间、Claims结构"]
+  V --> Q["JWT Claims<br/>SID + UID/LIID/OrgID"]
+  Q --> O["在线Verifier<br/>audience + jti撤销检查"]
+  O --> G["GetActive(SID)<br/>只用Session活跃性"]
+  G --> D["Admission<br/>使用JWT的UID/LIID"]
+  D --> X["返回原JWT Claims<br/>不重查业务OrgID"]
+  T["Refresh凭证"] --> S["加载其SID对应的active Session"]
+  S --> A["Admission<br/>使用Session的UID/LIID"]
+  A --> M["从Session或历史副本<br/>重新投影新的Claims"]
+  M --> N["新签名与交换<br/>执行失败窗口见Token主文"]
+```
+
+标准可信mint保证新Claims从Session投影。在线Verify的GetActive只充当活跃门禁，没有把Session返回值用于重新核对或覆盖JWT UID/LIID/OrgID；Refresh则以Session身份准入并投影。假设内部错误写入把S1的UID从17改为42，旧JWT仍声明17，在线验证与Refresh会读取不同身份来源；这是源码推演的责任缺口，不等于客户端能篡改已签名JWT。
+
+middleware依赖验证器返回结果：只要求响应非nil且Valid=true，Claims=nil仍继续；没有第二次Claims.Validate。真实标准验证器提供已校验Claims，这个保证来自依赖。它将完整Claims指针存入Gin上下文，并在非零/非空时分别写UID、LIID、OrgID、jti；SID、AMR、AuthTime需从完整Claims读取，不另造独立键。Go context中的AuthZ management actor从UID派生，仍需后续Resource/Action检查。
+
+SDK local要求可信配置的AllowedIssuer；ExpectedIssuer只加一层约束。标准NewTokenVerifier构造时要求配置issuer/audience，单独strategy也可使用调用级ExpectedAudience；非nil选项会替换配置AllowedAudience，而非取交集或只在配置缺失时补齐。调用方必须提供可信的接收方约束。本地验证不读取Session、撤销或Admission，默认也不强制exp存在；RequireExpirationTime/RequiredClaims只补其各自约束，没有在线Claims的完整身份不变量。远程、cache与fallback的窗口由 [Token验证](05-关键链路-Token签发刷新吊销.md)和[JWKS接入](06-关键链路-JWKS与本地验签.md)维护。
+
+## 4. 三种时间、滑动窗口与当前policy
+
+| 时间 | 意义 | 当前规则 |
+| --- | --- | --- |
+| AuthenticatedAt | 原核验时间；缺失时可能取CreatedAt近似 | Refresh不把它提升到现在；Claims.Validate不检查未来值 |
+| CreatedAt | Session构造时间 | 与核验/Mint时钟不同；绝对上限按当前policy计算 |
+| Access iat/nbf/exp | 某次Access签发、生效、截止 | 秒级，AccessTTL按mint的now独立计算 |
+| Session.ExpiresAt | 此Session的在线有效期限 | 正常Refresh以受限延期更新，Redis主对象TTL随它 |
+| Refresh.ExpiresAt | 此续期秘密可交换的期限 | 受Session寿命限制；历史读取保留存储期限 |
+
+正常续期的候选截止为`min(now + refreshTTL, ExpiryLimit(Session))`。ExpiryLimit分支必须分别理解：
+
+1. sessionMaxTTL>0且CreatedAt非零：使用CreatedAt+`当前装配的`sessionMaxTTL。
+2. 上述信息不可用但已有ExpiresAt非零：保留该期限，历史状态不会由这里获得更长窗口。
+3. Session为nil或没有任何可用期限：返回“没有上限”。纯policy函数仍可能算now+refreshTTL；正常Loader先拒绝缺失/过期Session，不能把该保证归给所有policy调用。
+
+例：Session10:00创建，ExpiresAt18:00，原policy最大8小时；15:00新实例装配4小时policy后，上限变成14:00，Loader会拒绝，即使存储ExpiresAt尚在未来。Loader不把这次绝对上限拒绝写成撤销；原记录仍active时，使用8小时policy的实例又可能允许它。重新放宽也可能恢复这种仅因policy被拒绝的会话，实际ExpiresAt已到期、已撤销或主记录已消失的对象则不能通过标准路径复活。这里是源码推演，当前没有policy热更新或变更专项证据。没有每Session原policy版本或持久化固定绝对截止，Redis Extend另检查当前active。
+
+实体Session.Extend直接替换期限，甚至可将StatusExpired改回active；raw Extender.Extend没有寿命policy。正常Refresh使用ExtendToRefreshExpiry，并由Redis Store的active检查约束，两层责任不同。Session.IsExpired使用now>ExpiresAt，LifetimePolicy在now≥上限时拒绝；实体便利方法不能替代完整边界判定。
+
+模板refreshTTL=168h、sessionMaxTTL=24h，初始期限通常已碰绝对上限，配置了滑动能力也不代表有实际滑动空间。AccessTTL没有裁到Session上限，末期JWT可能晚于Session失效；本地与在线结果因此不同，具体时间案例见 [Token寿命](05-关键链路-Token签发刷新吊销.md#51-寿命实际模板与可滑动能力分开)。
+
+## 5. Redis恢复的是数据，不是重新完成认证
+
+### 5.1 schema_version不是实体Version，也不是解码门禁
+
+新Session JSON写schema_version=2、auth_context及沿用旧名的token_context。领域Session没有Version；decoder不使用SchemaVersion选择版本或拒绝未知值，而按嵌套对象是否非nil选来源。两个上下文各自整块优先，不逐字段补齐。
+
+| 可解码的存储输入 | 当前恢复结果 |
+| --- | --- |
+| schema_version=999且上下文字段可解码 | 仍恢复；未知版本不会单独拒绝 |
+| schema_version=2、只有旧AuthMethod=password | 从旧字段恢复，不因数字2认定迁移完成 |
+| auth_context:{}加旧AuthMethod=password | 空typed对象覆盖旧字段，Method仍为空 |
+| token_context:{}加旧SessionClaims.org_id=42 | typed业务对象优先，OrgID仍为0 |
+| 没有token_context、旧SessionClaims含org_id=42及其他属性 | 提取OrgID，剩余属性按legacy allowlist保留 |
+| 既有v2 token_context.Attributes含其他字段 | 直接复制属性，不套同一legacy过滤 |
+
+Get只读，不回写v2或补索引；后续Save/Extend/Revoke实际写入payload时会重新编码为v2，这是触碰记录后的格式改写，没有全量迁移标志。time.Time旧字段使用omitempty不保证零时间键完全省略，“不填充legacy”不能扩大为所有旧JSON键必定消失。
+
+decoder也没有统一Validate：不知道查询key的SID是否等于payload SID，不校验零身份、未知Status或Method。GetActive只检查活跃性与寿命；例如key对应A、payload SID为B，Get(A)可直接返回B。后续Admission、Claims和调用合同承担各自门禁，恢复成功不能当作登录准入证明。
+
+### 5.2 状态与索引的持久性有限
+
+IsActive只判断Status=active且未过期，不参考RevokedAt；内部脏对象active+RevokedAt非nil仍可判active。Get遇已过期active只修改返回副本为expired，不保存这次状态变化；Redis TTL通常最终删除主对象，不能把expired当永久审计记录。
+
+Session主对象承载在线事实，丢失通常需要重新登录。用户/入口ZSet是批量定位索引；仅索引丢失不妨碍按SID读取，却可能漏掉按User/入口撤销。Get不重建它们。Save是同SID覆盖，没有NX或实体版本CAS；若内部调用方改变UID/LIID，只添加新索引，不移除旧索引，旧主体的批量撤销可能命中新主体。当前正常Creator使用新SID，模型依赖身份不被任意改写；上述覆盖后果是源码推演，尚无专项。
+
+Extend/Revoke的WATCH保护的是Redis主key并发变化，不是SessionVersion，也没有覆盖“Session更新+Refresh交换”的共同事务。索引精度、过期清理及操作窗口见 [Redis](../../03-基础设施/02-Redis与缓存一致性.md)和[Token撤销](05-关键链路-Token签发刷新吊销.md)。
+
+### 5.3 Refresh历史恢复只补副本
+
+新Refresh JSON只写`token_id`、`session_id`、`user_id`、`login_identity_id`、`expires_at`，没有schema_version、IssuedAt、状态或版本；恢复构造的IssuedAt是读取时间，不能当作原签发证据。新写不复制旧认证/业务冗余，marker只记录被消费旧值的SID/UID。
+
+历史Refresh fallback仅在Session的Method、Realm、AMR、AuthenticatedAt全部缺失时执行；任一存在就不读取旧refresh冗余。非空旧SessionClaims还会替换签发副本的BusinessContext；若仍没有AMR则用jwt。恢复不查当前业务组织，也不把副本完整写回Session。
+
+Extender按SID重读原对象并更新expiry；新refresh又不含legacy字段。特殊空上下文第一轮可能从旧refresh恢复，下一轮却丢失这份数据。schema_version=2不证明认证信息完整，一次刷新不证明迁移完成；连续两轮例子由 [Token历史恢复](05-关键链路-Token签发刷新吊销.md#52-历史上下文整块回退只恢复到副本)维护。
+
+## 6. 兼容退役：纯policy需要外部证据
+
+| 当前兼容分支 | 增长时点 | 指标 |
+| --- | --- | --- |
+| Session四项认证上下文全空，进入旧refresh恢复 | 进入副本恢复时，即使旧字段为空或后续刷新失败 | iam_legacy_refresh_context_fallback_total |
+| 已验签且issuer通过，JWT缺token_type，按access处理 | 领域Claims构造及在线检查之前 | iam_jwt_missing_token_type_total |
+| JWT顶层auth_time≤0，属性时间成功解析 | 领域Claims构造及在线检查之前 | iam_jwt_legacy_attribute_auth_time_fallback_total |
+
+counter统计调用分支，不统计唯一对象或成功请求。JWT后续结构/受众/撤销/准入失败也可已计数；完整v1 Session恢复后可能无需refresh fallback，故它们不是v1读取计数。纯SDK local不增加这些服务端counter，重复访问则可多次增加。
+
+当前LegacyFallbackRetirementPolicy只被单测调用，生产没有装配自动退役门禁。它消费三个正TTL和外部声明的两个时间戳，计算：
 
 ```text
-required_zero_window = max(access_token_ttl, refresh_token_ttl, session_max_ttl)
-retirement_start = max(全实例升级完成时间, 三项 fallback 指标最后一次增长时间)
-允许删除 = now - retirement_start >= required_zero_window
+window = max(accessTokenTTL, refreshTokenTTL, sessionMaxTTL)
+start = max(AllInstancesCurrentSince, AllFallbackMetricsZeroSince)
+CanRetireAt = 两个时间戳非零 && now >= start + window
 ```
 
-执行时必须同时满足：
+它不读取Prometheus、验证实例、扫描Redis、跟踪TTL变化或删除分支。Options默认/开发模板输入max(15m,7d,24h)=7d；生产模板AccessTTL为60m，最大值仍是7d。这些只是输入示例，不能据当前配置与七天无增长直接认定历史对象已清空。
 
-1. 所有 IAM 实例都已运行不再产生旧格式的新版本；滚动发布未结束时不开始计时；
-2. `iam_legacy_refresh_context_fallback_total`、`iam_jwt_missing_token_type_total`、
-   `iam_jwt_legacy_attribute_auth_time_fallback_total` 三项 counter 在整个窗口内均无增长；
-3. TTL 取观察期内所有实例实际配置过的最大值；任何指标再次增长或 TTL 上调，都要按新的较晚时间重新计时；
-4. 达到门禁后，在同一发布批次删除 fallback、对应指标和历史字段读取测试；未达到时只允许继续观测。
+例如旧Session没有CreatedAt但已有30天ExpiresAt，ExpiryLimit保留旧截止；旧Refresh也保留存储期限。对象若十天未被访问，不会增加fallback指标。当前TTL=7d不能证明这些对象在七天后失效。需要确认历史writer、滚动实例、恢复/回放输入以及实际寿命覆盖，指标静默只是其中一项证据。
 
-按当前默认配置，窗口是 `max(15m, 7d, 24h) = 7d`。这里的“归零”指 `increase(counter[window]) == 0`，不是要求
-进程生命周期累计 counter 的绝对值回到 0。
+维护方形成退役证据时应登记实例版本、TTL历史/长寿命对象、采集范围、counter重启/缺采样和静默起点；增长或寿命覆盖变化后重新确定窗口。确认全部旧writer退出并覆盖残存寿命后，才计划同批移除fallback、指标及相应历史读取测试。它们是退役维护要求，当前纯policy没有自动执行。没有真实环境证据，本文不宣告已经满足。
 
-### 当前顺序的残余风险
+## 7. 当前取舍与具体演进约束
 
-Session 是先延长，refresh token 后轮换。如果轮换最终冲突或 Redis 报错，请求不会拿到新令牌，但 Session TTL 可能已经被延长。这不直接产生可使用的新凭证，
-却意味着失败请求也可能改变 Session 生存时间。
+| 选择 | 解决的具体问题 | 代价与候选约束 |
+| --- | --- | --- |
+| JWT声明 + 在线Session | 下游可独立验签，IAM入口可感知退出/主体准入 | 依赖Redis；本地结果不含当前状态。消费方要先选择可接受的状态窗口 |
+| 上下文集中在Session，新Refresh只留关联 | 新轮换不复制越来越旧的身份/业务冗余 | Session成为不可随意丢弃的事实；历史恢复需持久化与来源合同，不能只补签发副本 |
+| 单个旧Refresh值的marker与关联Session撤销 | 已消费旧值重放可定位会话并拒绝续期 | 合法重复提交也可能撤销；没有family树或持久结果回执，具体窗口见Token主文 |
+| 构造/恢复与准入分层 | 领域策略可测，兼容数据能逐步恢复 | 调用方必须组合门禁；严格构造器/恢复校验需区分未知历史值与真实非法输入 |
+| 当前policy计算旧Session上限 | 配置收紧能影响既有会话 | 多实例配置差异会造成判定差异；固定绝对截止/policy revision需定义存量兼容及紧急收紧规则 |
 
-更严格的设计可把 Session 延长和 refresh 轮换放进同一 Lua 脚本，或先轮换再以幂等方式延长；前者要求两类键和校验逻辑共享一个原子脚本，后者则要处理“令牌已轮换但 Session 延长失败”的更危险窗口。
-当前顺序优先避免“轮换已成功但延期失败”的窗口，接受失败时 TTL 可能延长；并发 revoke 仍可使会话失效，不能承诺响应返回时会话一直 active。轮换通信错误也可能意味着写入已完成但响应不确定，旧 token 不保证仍可使用。
+若引入Session版本来绑定JWT/Refresh，先定义版本覆盖身份、认证上下文还是撤销，再决定是否每次在线比对、刷新如何CAS、旧JWT/旧JSON怎样过渡；给schema_version改名字不足以提供这些行为。若统一认证时间来源，需记录“原核验”“创建时间近似”“legacy属性恢复”的来源，敏感操作才能决定是否接受近似值。以上是候选设计，当前没有实现。
 
-## 5. 撤销语义
+新增claim应核对Session来源、投影、codec、REST/gRPC、middleware、SDK及目标业务消费方；若校验组织资格，应明确由哪个业务事实源负责，而不是提升Realm/历史OrgID的含义。Unlink后状态、Admission在途窗口和AuthZ公司范围见 [Linking](03-关键链路-Linking登录身份绑定.md)及[跨模块授权边界](../03-AuthZ/07-模块边界-AuthZ与AuthN-Identity-Suggest.md)。
 
-撤销有三层：
+## 8. 事实源、验证与证据缺口
 
-- Access/Service bearer token：按 token ID 写入带 TTL 的 revocation marker；
-- Refresh token：撤销关联 Session，再删除 refresh token；
-- Session：按 session、User 或 LoginIdentity 撤销。
+路径前缀为`internal/apiserver/`，除下表明确列出的共享/SDK路径。修改模型时从函数与字段进入，避免把源注释中的历史名称当现有对象。
 
-撤销 Access Token 时还会撤销其用户 Session；撤销 Service Token 只写 bearer-token marker，不触碰用户 Session。IAM 在线验证会检查两类 marker；仅依赖 JWKS 的 SDK 本地验签无法感知服务端撤销。
+| 合同 | 代码入口 | 当前测试及范围 |
+| --- | --- | --- |
+| Principal/AuthContext/复制 | domain/authn/authentication/principal.go、types.go | auth_context_test：New/Restore时间、非空AMR复制、Realm边界 |
+| Session创建/加载/延期/寿命 | domain/authn/session/{session,creator,loader,extender,lifetime_policy}.go | roles_test、lifetime_policy_test：端口替身、非空map、期限分支 |
+| Claims不变量/投影/单时钟 | domain/authn/token/{token,session_subject,issuer}.go | verified_claims、session_subject、issuance_contract：主体、类型、非空属性和签发样本 |
+| wire兼容与索引 | infra/cache/redis/{session_store,token-store}.go | miniredis正常恢复、索引、WATCH/CAS；不是真实Redis部署 |
+| JWT及传输投影 | infra/token/jwt/signed_jwt_codec.go、transport/{rest,grpc} | 真实RSA、miniredis、内存Session/allow-all Admission、直接handler/service调用 |
+| 请求上下文与本地策略 | internal/pkg/{requestctx,middleware/authn}、pkg/sdk/auth/verifier | getter/setter及applyVerifiedClaims样本、SDK策略；不是完整路由/mTLS验收 |
+| legacy退役 | domain/authn/token/legacy_fallback_retirement.go | 三个纯policy测试：最大TTL、23h/24h边界、无效TTL |
 
-Identity 的 deactivate/block 会在同一 MySQL 事务中写 session-revocation outbox，后台 worker 最终撤销 Redis Session；
-同时在线 Token 验证还会读取当前 User/LoginIdentity 状态，关闭事件消费延迟窗口。详见
-[Identity 与 AuthN 的边界](../01-Identity/04-模块边界-Identity与AuthN-AuthZ-Suggest.md) 与
-[事件和 Transactional Outbox](../../03-基础设施/03-事件与Transactional-Outbox.md)。
-
-管理员 Session 撤销入口需要用户 JWT，并检查 `iam:authn:collection:sessions` 的明确 Action：
-
-| 请求 | Action |
-| --- | --- |
-| `POST /api/v2/admin/sessions/{sessionId}/revoke` | `revoke` |
-| `POST /api/v2/admin/login-identities/{loginIdentityId}/sessions/revoke` | `revoke_by_login_identity` |
-| `POST /api/v2/admin/users/{userId}/sessions/revoke` | `revoke_by_user` |
-
-三条路由都先检查当前授权域，再检查平台域；不按管理员角色名称旁路。它们是管理操作，不改变退出、refresh 撤销与 Identity 状态事件的既有链路。
-
-## 6. 三层验证语义
-
-### Codec（JWT infra）
-
-始终校验：`header.alg == JWK.alg == RS256`、configured canonical issuer、签名、`exp/nbf/iat`，并只解析已登记 `token_type`。
-在线 key source 只接受 active/grace 且满足 `not_before <= now < not_after` 的密钥；retired、尚未生效和已过期密钥均不能验签。
-
-### Application verification policy
-
-入口要求 ExpectedAudience 非空且元素非空，规范化后传给领域在线验证；多个受众任一匹配即可。ExpectedIssuer 是 canonical issuer 之外的可选额外约束；未指定 token type 时默认只接受 `access`，不支持 service token。
-
-### Domain verifier
-
-在密码学验证后先检查预期 audience，再检查 bearer-token revocation marker、active Session 与 Admission。服务身份由 mTLS 建立。
-
-SDK `LocalVerifyStrategy` 只覆盖 codec + 本地 policy（RS256、必填 issuer/audience、clock skew）。它无法仅凭 JWKS 知道：
-
-- token 是否刚刚被主动撤销；
-- Session 是否退出或过期；
-- User 是否刚刚被封禁；
-- LoginIdentity 是否刚刚被禁用。
-
-因此本地验签适合低延迟、可接受 access-token 剩余寿命窗口的服务；需要即时撤销语义时，应使用 IAM 远程验证或在网关集中执行在线检查。缓存与 fallback 不能被描述为等价安全语义。
-
-## 7. JWKS 与密钥轮换
-
-服务端 Token Profile 固定为 `RS256 + kid + JWS Compact`：创建/激活/轮换与 REST 参数只接受 RS256；签发要求 active key 的 `header.alg == JWK.alg == RS256`。
-当前文件适配器把未加密 PKCS#8/PKCS#1 PEM 私钥写入受权限保护的目录（目录 `0700`、文件 `0600`），并不提供应用层 AES-GCM 包装；生产环境应使用加密磁盘或后续 KMS/HSM 适配器。JWKS 只发布 active/grace key 的公钥信息（含 `alg`）。密钥经历 active、grace、retired 状态，
-使旧 access token 在轮换后的有限窗口内仍可验证。
-
-轮换必须协调“新 key 可签名”和“验证方已能看到新公钥”。当前实现以 MySQL keyset 状态、原子 activation、内存发布快照和周期调度器完成生命周期；
-完整实现见 [密码学、密钥与令牌](../../03-基础设施/04-密码学密钥与令牌.md)。
-
-## 8. 备选设计
-
-| 设计 | 优点 | 代价 | 适用判断 |
-| --- | --- | --- | --- |
-| 纯离线短 JWT | 服务无状态、低延迟 | 不能即时撤销 | 可接受短撤销窗口 |
-| opaque token + introspection | 状态统一、即时撤销 | IAM 成为每请求热路径 | 强控制、规模可承受 |
-| 当前混合方案 | 大多数服务可本地验签，关键路径可在线检查 | 两套语义、Redis 依赖、运维复杂 | 当前选择 |
-| consumed marker + Session revoke（当前） | 可识别已消费旧 token 的重放并撤销对应 Session | 合法重复提交也会触发强制重新登录 | 当前安全契约 |
-| refresh token family/reuse detection | 可追踪整条 token family 并执行家族级处置 | 需要 family 状态与事件处理 | 更高风险场景可增强 |
-
-当前 rotation 防止同一 refresh token 并发成功两次，并在成功轮换时原子写入不含令牌明文的 consumed marker。已消费旧 token 再次出现时会撤销对应 Session；
-任意未签发 token 不会触发撤销。当前仍没有完整 token-family 图谱，也不会跨 Session 批量处置其他家族。
-
-## 9. 面试追问
-
-### JWT 被签名后为什么还要查 Redis？
-
-签名只能证明内容由可信签发者产生且未被篡改，不能表达签发后的退出、封禁、身份禁用。Redis 在线状态用于收敛这段时间差。
-
-### Refresh rotation 如何防并发重放？
-
-不能用 Get/Set/Delete 三步；两个请求会同时读到旧值。当前通过“旧值和旧 ID 仍匹配才写新值并删旧值”的 Lua CAS，使消费成为原子操作。
-
-### JWKS 为什么需要 grace key？
-
-轮换前签发的 token 仍由旧私钥签名。如果立刻移除旧公钥，消费者更新 JWKS 后会拒绝相关未过期 token，而保留旧缓存的消费者可能继续接受。grace 窗口应至少覆盖允许验证的旧 token 寿命和缓存传播时间。
-
-## 10. 事实来源与验证
-
-- 认证结果与初始颁发：`internal/apiserver/application/authn/signin`
-- Token 模型、mint、刷新、验证与撤销：`internal/apiserver/domain/authn/token`
-- Token 应用 DTO 与门面：`internal/apiserver/application/authn/token`
-- Session 领域：`internal/apiserver/domain/authn/session`
-- Redis 存储：`internal/apiserver/infra/cache/redis`
-- 签名密钥领域规则：`internal/apiserver/domain/authn/signingkey`
-- 签名密钥管理应用：`internal/apiserver/application/authn/signingkey`
-- JWKS 公钥发布应用：`internal/apiserver/application/authn/jwks`
-- SDK：`pkg/sdk/auth/jwks`、`pkg/sdk/auth/verifier`
-- 重点测试：`token/refresher_atomic_test.go`、`token/session_subject_test.go`、`session/lifetime_policy_test.go`、
-  `pkg/sdk/auth/jwks/jwks_test.go`
+空map共享、未知schema、空typed覆盖legacy、key/payload SID错位、超大ID、auth_time双写冲突、policy变更与存量长寿命对象没有上述专项。现有模型测试通过不证明任意内部构造/历史数据有效，也不证明真实环境已达到退役条件。
 
 ```bash
-go test \
-  ./internal/apiserver/application/authn/signin \
-  ./internal/apiserver/domain/authn/token \
-  ./internal/apiserver/application/authn/token \
-  ./internal/apiserver/domain/authn/session \
-	./internal/apiserver/domain/authn/signingkey \
-	./internal/apiserver/application/authn/signingkey \
-  ./internal/apiserver/application/authn/jwks \
-  ./pkg/sdk/auth/jwks ./pkg/sdk/auth/verifier
+go test -race ./internal/apiserver/domain/authn/authentication \
+  ./internal/apiserver/domain/authn/session ./internal/apiserver/domain/authn/token \
+  ./internal/apiserver/infra/cache/redis ./internal/apiserver/infra/token/jwt \
+  ./internal/apiserver/transport/rest/authn/handler \
+  ./internal/apiserver/transport/grpc/service/authn \
+  ./internal/pkg/authnclaims ./internal/pkg/requestctx ./internal/pkg/middleware/authn \
+  ./pkg/sdk/auth/verifier
 ```
 
-## JWT 重构后的输出与校验契约
-
-`TokenSetMinter` 从 IssuanceConfig 获取 issuer、audience、AccessTTL；每次 mint 只读取一次时钟，JWT 与 AccessToken/DTO 共享同一 ID 和秒级 iat/nbf/exp。RefreshToken 的到期规则仍由 Session LifetimePolicy 决定。
-
-`AccessTokenClaims` 是数据值对象，`NewAccessTokenClaims` 只规范化与校验不变量。`SignedJWTCodec` 实现独立的 AccessTokenEncoder 与 AccessTokenSignatureVerifier，前者只编码并签名，后者负责验签、时间、canonical issuer 和声明不变量。`TokenVerifyResult.Valid=true` 才表示该次在线调用通过受众、撤销、Session 和 Admission 检查；仍不是资源授权结果。
-
-REST/gRPC VerifyToken 及直接应用调用均要求 ExpectedAudience：缺失、空数组或空元素返回参数错误（HTTP 400 / gRPC InvalidArgument），合法但不匹配返回 Valid=false 且不返回 Claims。多个期望受众任一匹配即可。SDK 单独构造的本地/远程策略也必须具备有效 issuer/audience 配置或明确选项，不从 Token 自行推导接收方。
-
-IAM 中间件使用 `auth.resource_audience`（默认 iam-api），启动时要求该值存在于签发列表。默认新令牌包含 iam-api、qs-api、collection-api。按一次切换发布：旧令牌缺少 iam-api 时不能访问 IAM 受保护资源，可用有效 RefreshToken 换取新令牌，否则重新登录；不添加跳过受众校验的开关。
-
-JWT 仅映射身份、会话、OrgID、受众与时间事实。NewRefreshToken 接收明确期限与令牌信息；RestoreRefreshToken 保留仍有用途的旧 Redis 兼容数据，不恢复授权隔离快照。旧存储缺少 issued_at，其读取时间不能作为历史签发时间证据。
-
-PublicJWK.ValidateStructure 与 JWKS.ValidateStructure 检查公开结构，允许空 JWKS；ValidateSigningProfile 要求 IAM 的 RSA/RS256、sig 与 kid。密钥生命周期继续决定可签名、验签和发布状态。JWKSPublisher 负责公开投影与发布缓存，空集合与非空集合统一更新 ETag 和快照，结构有效不代表当前可提供验签密钥。
-
-发布验收应分别记录服务端测试、SDK 本地/远程测试、qs-server 接入契约测试与实际环境验证。`iam_token_audience_failure_total` 使用 missing_or_invalid、mismatch、configuration_error 有界分类，不记录动态 audience 或令牌。出现回归时整体回滚版本与配置，不通过取消 audience 校验回避问题。
+命令是模型验证入口，执行结果与图文核对另记在[本轮复核记录](../../_data/reviews/2026-10-06-docs-refactor.md)。历史TenantID、AuthenticationGrant、Service Token及发布切换材料见[迁移发布](../../05-工程质量与运维/03-迁移发布与数据库运维.md)，不据当前源码推断部署完成。

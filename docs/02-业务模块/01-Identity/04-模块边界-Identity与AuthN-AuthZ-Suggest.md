@@ -116,6 +116,8 @@ AuthN LoginIdentity/Session 保存 UserID；AuthZ Subject 使用 `{Type, ID}` �
 
 ID/reference 可以维持语义和生命周期独立，但消费方需要查询、缓存或派生自己的读模型，并处理主数据不可用或滞后。
 
+<a id="4-authn-signup共享事务的明确例外"></a>
+
 ### 6.2 决策 B：AuthN signup 作为跨模块本地事务的明确例外
 
 > 标签：设计决策 · AuthN UOW、signup steps 和提交历史可证明

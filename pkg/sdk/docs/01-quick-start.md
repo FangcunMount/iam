@@ -178,6 +178,8 @@ cfg := &sdk.Config{
 }
 ```
 
+`NewClient` 默认构造共享连接而不阻塞等待就绪；返回成功不证明 TLS 握手或服务端 ACL 已通过。用带 deadline 的实际 RPC 验证接入。上面的 `Timeout: 30*time.Second` 只是当前配置默认值，默认 RPC 链不会据此设置请求 deadline；`DialTimeout` 也不会传递到后续调用。每次请求须自行设置 `context.WithTimeout`，详情见 [Timeout 与 DialTimeout](./02-configuration.md#timeout)。
+
 ## 基础操作示例
 
 ### 认证服务
@@ -237,23 +239,30 @@ resp, err := client.Profile().CreateProfile(ctx, &identityv2.CreateProfileReques
 ### 授权判定服务
 
 ```go
-// 单次权限判定
-resp, err := client.Authz().Check(ctx, &authzv4.CheckRequest{
-    Subject: "user:user-123",
-    Domain:  "default",
-    Object:  "resource:profile_profile",
-    Action:  "read",
-})
+callCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+defer cancel()
 
-// 便捷判定
+// 单次权限判定：Subject 来自可信身份，ID 为 IAM 数字 ID。
+resp, err := client.Authz().Check(callCtx, &authzv4.CheckRequest{
+    Subject:  "user:42",
+    Resource: "qs:evaluation:collection:assessments",
+    Action:   "retry",
+})
+if err != nil { return err }
+if !resp.Allowed { return fmt.Errorf("permission denied") }
+
+// 便捷判定只提取 Allowed，不返回命中授权与策略版本。
 allowed, err := client.Authz().Allow(
-    ctx,
-    "user:user-123",
-    "default",
-    "resource:profile_profile",
-    "read",
+    callCtx,
+    "user:42",
+    "qs:evaluation:collection:assessments",
+    "retry",
 )
+if err != nil { return err }
+if !allowed { return fmt.Errorf("permission denied") }
 ```
+
+上述只检查动作许可，不证明目标记录处于授权数据范围。需要公司/门店范围时使用 [AuthZ SDK](./06-authz.md) 的 Scope helper，并按 [gRPC 授权与 SDK](../../../docs/02-业务模块/03-AuthZ/06-关键链路-gRPC服务间授权与SDK.md) 执行权限匹配和业务范围规则。
 
 ### 档案关系服务
 

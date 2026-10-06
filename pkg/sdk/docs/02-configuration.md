@@ -94,7 +94,7 @@
 
 - 上面的“配置模板”保留完整 `&sdk.Config{...}` 形态，适合直接照抄起步
 - 下面各小节默认只展示 **`Config` 内部字段片段**
-- 看到 `TLS:`、`Retry:`、`JWKS:` 这类片段时，直接嵌回你的 `&sdk.Config{ ... }` 即可
+- `TLS:`、`Retry:`等片段嵌入Config；JWKS字段只是保存配置，NewClient不自动装配Manager/Verifier，宿主须显式使用
 - 完整可运行示例优先看 [../_examples/mtls/main.go](../_examples/mtls/main.go)
 
 ---
@@ -105,7 +105,7 @@
 type Config struct {
     // 基础配置
     Endpoint        string                // gRPC 服务地址 (必填)
-    Timeout         time.Duration         // 请求超时时间
+    Timeout         time.Duration         // 默认值 30s；当前默认 RPC 链不据此设置 deadline
     DialTimeout     time.Duration         // 连接超时时间
     
     // TLS 配置
@@ -146,15 +146,23 @@ Endpoint: "iam.example.com:8081"
 
 ### Timeout
 
-全局请求超时时间，默认 30 秒。可被方法级超时覆盖。
+`Timeout` 默认填为 30 秒，但当前默认 RPC 调用链没有使用该字段设置请求 deadline。默认 timeout interceptor 是原样转发，内部方法级 timeout 工具也未自动装配；因此设置此字段不能保证请求在 30 秒内结束。调用方应显式设置每个请求的 context deadline。
 
 ```go
-Timeout: 30 * time.Second
+Timeout: 30 * time.Second // 配置字段值；当前不自动应用到 RPC
 ```
+
+```go
+callCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+defer cancel()
+allowed, err := client.Authz().Allow(callCtx, "user:42", "qs:evaluation:collection:assessments", "retry")
+```
+
+示例中的 2 秒是调用方预算。JWKS HTTP `RequestTimeout` 与 keepalive `Timeout` 分别由各自实现使用，不应与上述 Config 字段混淆。
 
 ### DialTimeout
 
-连接超时时间，默认 10 秒。
+`DialTimeout` 默认 10 秒，用于 `DialContext` 的 context，不作用于后续 RPC。默认没有 `WithBlock`，`NewClient` 返回成功不代表已完成连接、TLS 握手、ACL 校验或服务就绪；连接验证需要带 deadline 的实际 RPC。调用方通过公开 `WithDialOptions` 自行选择阻塞 Dial 时，此预算才会约束相应等待。
 
 ```go
 DialTimeout: 10 * time.Second
@@ -268,7 +276,7 @@ Retry: &RetryConfig{
 
 ## JWKS 配置
 
-用于本地 JWT 验证的 JWKS 配置。
+用于宿主显式构造本地JWKSManager/Verifier；NewClient不自动装配或补全JWKS子配置。Env/Viper loader默认RefreshInterval=5分钟、RequestTimeout=5秒，直接URL-only Manager没有后台刷新且HTTP timeout为0。CacheTTL约束上次成功update年龄，不限制静态seed年龄；完整规则见 [JWKS主文](../../../docs/02-业务模块/02-AuthN/06-关键链路-JWKS与本地验签.md)。
 
 ```go
 type JWKSConfig struct {
@@ -300,12 +308,14 @@ JWKS: &JWKSConfig{
 ```go
 JWKS: &JWKSConfig{
     URL:             "https://iam.example.com/.well-known/jwks.json",
-    GRPCEndpoint:    "iam.example.com:8081", // HTTP 失败时使用 gRPC
+    // 标准mTLS接入用WithAuthClient(client.Auth())；独立GRPCEndpoint固定insecure
     RefreshInterval: 5 * time.Minute,
 }
 ```
 
 ## 熔断器配置
+
+JWKS熔断器须显式WithCircuitBreakerConfig启用，作用于整个HTTP/gRPC/seed链；当前HalfOpenRequests未用于JWKS半开并发限制。它与标准RPC拦截器装配是两条路径。
 
 ```go
 type CircuitBreakerConfig struct {
@@ -512,23 +522,21 @@ func main() {
 
 ## 配置验证
 
-SDK 会在创建客户端时自动验证配置：
+`NewClient` 会补齐默认值并调用 `Config.Validate()`；当前该 validator 只检查 endpoint 非空。随后构造 Dial options 可能因 TLS 文件读取、PEM 解析或 key pair 加载失败返回错误。客户端构造与实际握手/服务准入是不同阶段：
 
 ```go
 client, err := sdk.NewClient(ctx, cfg)
 if err != nil {
-    // 配置验证失败
+    // 配置检查或连接配置构造失败
     log.Fatal(err)
 }
 ```
 
-常见验证错误：
+当前检查边界：
 
-- `Endpoint` 为空
-- TLS 证书文件不存在
-- 超时时间为负数
-- 重试次数小于 1
-- 负载均衡策略不是 `round_robin` / `pick_first`
+- 配置验证：`Endpoint` 为空会直接报错；负 timeout、retry 次数或负载均衡名称没有在 `Config.Validate()` 中逐项检查。不能把配置字段存在当作校验已实现。
+- TLS 构造：启用 TLS 且配置 CA 时，读取 CA 文件或解析 PEM 失败会报错；成对配置客户端 cert/key 时才加载 key pair。只提供其中一方不会由当前 validator 拒绝，也不会自动补成 mTLS。
+- 实际连接与 RPC：服务器证书名称/信任链、客户端证书是否被接受、证书服务身份是否符合方法 ACL，需通过握手及真实 RPC 验证。默认非阻塞 Dial 的构造成功不证明这些检查通过。
 
 补充说明：
 
