@@ -174,12 +174,9 @@ docker logs -t iam-apiserver
 
 ### 应用日志
 
-应用日志会输出到挂载的日志目录：
+先核对实际选择的 YAML 与 writer，再找日志文件。生产模板配置基名为 `/var/log/iam/{app,warn,error}.log`，时间轮转实际写 `app.YYYY-MM-DD.log` 等；生产 compose 将目录映射到宿主 `/data/logs/iam`。日期文件在首次写入/换日才打开，初始化成功不保证可写。
 
-```bash
-# 查看应用日志
-tail -f logs/apiserver.log
-```
+开发模板使用相对 `logs/iam-{apiserver,warn,error}.log`，镜像工作目录 `/app`，因而按配置写入 `/app/logs`；开发 compose 挂载的却是 `/var/log/iam`，不能据挂载存在认定文件已持久化。以上是模板/路径源码事实，实际容器需独立核对。Docker stdout/stderr 与文件、外部平台有各自保留范围；完整采样、轮转与信号边界见[观测正文](../../docs/03-基础设施/06-可观测性就绪与关闭.md#8-日志输出分支决定采样和保留)。
 
 ## 数据持久化
 
@@ -323,8 +320,8 @@ docker buildx build \
 
 ## 相关文档
 
-- [部署总览](../../docs/DEPLOYMENT.md) - 所有部署方式说明
-- [Jenkins 部署](../../docs/JENKINS_QUICKSTART.md) - CI/CD 自动化部署
+- [迁移、发布与数据库运维](../../docs/05-工程质量与运维/03-迁移发布与数据库运维.md) - 发布与恢复边界
+- [GitHub Actions 发布流水线](../../.github/workflows/cd.yml) - 构建、镜像推送与部署条件
 - [主 README](../../README.md) - 项目概述
 
 ## 生产环境部署清单
@@ -387,5 +384,5 @@ echo "  - gRPC 服务端证书到 /data/infra/ssl/grpc/server/"
 ## 技术支持
 
 如有问题，请参考：
-- [故障排查指南](../../docs/DEPLOYMENT.md#故障排查)
+- [发布探针与故障定位](../../docs/03-基础设施/06-可观测性就绪与关闭.md#9-发布巡检与关闭回执怎样读)
 - [GitHub Issues](https://github.com/FangcunMount/iam/issues)

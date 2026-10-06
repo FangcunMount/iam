@@ -1,6 +1,6 @@
 # gRPC API 契约
 
-IAM gRPC 面向可信服务间调用。AuthN、Identity、IDP 使用 v2，AuthZ 使用 v3；所有服务由 `iam-apiserver` 同一进程注册，运行时注册在 [internal/apiserver/transport/grpc/registry.go](../../internal/apiserver/transport/grpc/registry.go)。
+IAM gRPC面向可信服务间调用。AuthN使用v3，AuthZ使用v4，Identity/IDP使用v2；四份proto声明13个service、42个Unary RPC。标准进程按模块Available与服务依赖收集注册，声明数量不等于某个实例的实际出口。注册在[Registry](../../internal/apiserver/transport/grpc/registry.go)，生成工具、注册测试和兼容基线的实际边界见[契约治理](../../docs/04-接口与SDK/01-REST-gRPC与契约治理.md)。
 
 ## Proto 布局
 
@@ -30,17 +30,17 @@ api/grpc/iam/
 | [iam/identity/v2/identity.proto](iam/identity/v2/identity.proto) | `ProfileCommand` | CreateProfile |
 | [iam/identity/v2/identity.proto](iam/identity/v2/identity.proto) | `ProfileLinkCommand` | EstablishProfileLink、RevokeProfileLink、BatchRevokeProfileLinks、ImportProfileLinks |
 | [iam/identity/v2/identity.proto](iam/identity/v2/identity.proto) | `IdentityLifecycle` | CreateUser、UpdateUser、DeactivateUser、BlockUser |
-| [iam/idp/v2/idp.proto](iam/idp/v2/idp.proto) | `IDPService` | GetWechatApp |
+| [iam/idp/v2/idp.proto](iam/idp/v2/idp.proto) | `IDPService` | GetWechatApp、GetWechatAccessToken、RefreshWechatAccessToken |
 
 ## 安全与 metadata
 
-- gRPC 配置在 `process` 层装配，使用 mTLS、ACL 和 audit。
-- 服务身份来自经过验证的 mTLS 证书；ACL 校验方法权限，随后进行业务授权。服务调用无需服务 Bearer。
-- 建议所有调用传 `x-request-id`，便于日志和 trace 对齐。
+- gRPC在process层按有效配置装配mTLS、ACL和audit，条件分支及标准启动门禁见[传输安全](../../docs/03-基础设施/05-传输层与服务间安全.md)。
+- 标准mTLS业务链使用经验证证书的服务身份，方法ACL与内容/用户授权分别检查；标准链没有服务Bearer验证器，metadata不能替代证书身份。
+- `x-request-id`等自定义ID只承担关联用途，当前不等于OTel标准传播或幂等合同；SDK传播与双日志上下文见[观测正文](../../docs/03-基础设施/06-可观测性就绪与关闭.md#7-关联id日志和真正的trace分别具备什么)。
 
 ## Identity 关系术语
 
-当前 proto 的关系服务是 `ProfileLinkQuery` 与 `ProfileLinkCommand`。`ProfileCommand.CreateProfile` 是创建 Profile 并建立 User -> ProfileLink 的组合门面，保证 Profile 与 ProfileLink 在同一个应用工作单元中提交。`ProfileLink` 表示用户和 profile 之间的档案关系，可承载自有档案和亲属/监护类关系语义。旧关系名只保留为历史语义，不作为当前合同名。
+当前proto的关系服务是`ProfileLinkQuery`与`ProfileLinkCommand`。CreateProfile组合门面在同一工作单元编排Profile和User→ProfileLink：顶层入口负责提交，Required借用外层事务时由宿主提交，callback返回不等于外层已提交。`ProfileLink`表示用户和档案之间的关系，可承载自有及亲属/监护语义；事务与失败由[创建链路](../../docs/02-业务模块/01-Identity/02-关键链路-创建User与Profile.md)维护。
 
 ## Go 调用示例
 
@@ -52,7 +52,6 @@ ctx = metadata.AppendToOutgoingContext(ctx,
 authzClient := authzv4.NewAuthorizationServiceClient(conn)
 snapshot, err := authzClient.GetAuthorizationSnapshot(ctx, &authzv4.GetAuthorizationSnapshotRequest{
     Subject: "user:1024",
-    Domain:   "default",
     AppName:  "qs",
 })
 
@@ -74,6 +73,6 @@ make proto-gen
 go test ./internal/apiserver/transport/grpc ./pkg/sdk
 ```
 
-proto 与注册关系由 [internal/apiserver/transport/grpc/proto_contract_test.go](../../internal/apiserver/transport/grpc/proto_contract_test.go) 保护。
+现有[proto注册护栏](../../internal/apiserver/transport/grpc/proto_contract_test.go)只搜索service注册字符串；Identity另有实际GetServiceInfo集合断言。生成脚本仅在缺插件时安装固定版本，既有工具未校验；Make包装也有脚本错误被成功输出掩盖的源码窗口。因此需独立确认生成器真实退出、产物差异、方法实现/准入和旧消费者，不据上述两条命令证明完整兼容。
 
 Scope 消费者必须验证 `scope_contract_version=1`，按公司、资源和动作使用 `permissions.scopes`，由业务系统执行数据范围限制。未配置范围不表示全公司。管理调用使用完整 `assignment_scopes` 及 `ReplaceScopedAssignments`，提交 `expected_policy_version`；版本冲突须重新读取，不能盲目重试覆盖。旧 RPC 不能代替公司范围分配接口。

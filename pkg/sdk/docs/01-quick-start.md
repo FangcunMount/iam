@@ -32,17 +32,22 @@
 | **Profile** | 档案命令 | 创建档案并建立关系 |
 | **ProfileLink** | 档案关系 | 用户-档案关系查询与命令 |
 
-### 3 行代码开始
+### 先处理构造与调用结果
 
 ```go
 // 1️⃣ 创建客户端
-client, _ := sdk.NewClient(ctx, &sdk.Config{Endpoint: "localhost:8081"})
+client, err := sdk.NewClient(ctx, &sdk.Config{Endpoint: "localhost:8081"})
+if err != nil { return err }
+defer client.Close()
 
 // 2️⃣ 使用服务
-user, _ := client.Identity().GetUser(ctx, "user-123")
+callCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+defer cancel()
+user, err := client.Identity().GetUser(callCtx, "1001")
+if err != nil { return err }
 
 // 3️⃣ 完成！
-log.Printf("用户: %s", user.GetProfile().GetDisplayName())
+log.Printf("用户: %s", user.GetUser().GetNickname())
 ```
 
 ### 使用流程
@@ -73,18 +78,21 @@ log.Printf("用户: %s", user.GetProfile().GetDisplayName())
 ## 📦 安装
 
 ```bash
-go get github.com/FangcunMount/iam/v5@v3.0.0
+# IAM_SDK_VERSION由宿主填写已核验的v5发布标签
+go get "github.com/FangcunMount/iam/v5@${IAM_SDK_VERSION}"
 ```
+
+当前工作树要求Go 1.25.9；所选发布标签、Scope方法与实际服务端能力需分别核对。此页是短片段，完整可编译的服务端接入骨架见[宿主接入正文](../../../docs/04-接口与SDK/02-Go-SDK与业务系统接入.md)；构造成功不表示所需RPC可接受。
 
 ## 示例约定
 
 - 这篇文档默认省略 `package`、`import` 和 `ctx := context.Background()`。
 - `最简示例` 会完整展示 `client` 的创建方式；后续示例若只强调调用或配置，只展示变化的部分。
-- 需要直接复制运行时，优先看 [../_examples/basic/main.go](../_examples/basic/main.go)。
+- 程序示例须单独编译并配置运行环境，状态见[示例索引](../_examples/README.md)；不是每个例子已通过当前合同。
 
 ## 最简示例
 
-文档里只保留最短用法，完整可运行程序见：
+文档里只保留短片段，待环境核验的程序示例见：
 
 - [../_examples/basic/main.go](../_examples/basic/main.go)
 
@@ -99,7 +107,12 @@ defer client.Close()
 
 result, err := client.Auth().VerifyToken(ctx, &authnv3.VerifyTokenRequest{
     AccessToken: "your-token-here",
+    ExpectedAudience: []string{"qs-api"}, // 从资源服务可信配置取得
 })
+if err != nil { return err }
+if result == nil || !result.GetValid() || result.GetClaims() == nil {
+    return fmt.Errorf("user credential rejected")
+}
 ```
 
 ## 从环境变量加载配置
@@ -180,45 +193,59 @@ cfg := &sdk.Config{
 
 `NewClient` 默认构造共享连接而不阻塞等待就绪；返回成功不证明 TLS 握手或服务端 ACL 已通过。用带 deadline 的实际 RPC 验证接入。上面的 `Timeout: 30*time.Second` 只是当前配置默认值，默认 RPC 链不会据此设置请求 deadline；`DialTimeout` 也不会传递到后续调用。每次请求须自行设置 `context.WithTimeout`，详情见 [Timeout 与 DialTimeout](./02-configuration.md#timeout)。
 
+直接Verify必须提供资源服务可信配置中的ExpectedAudience，同时检查error、Valid和Claims；以下其他短片段也须自行补deadline/结果分支。BatchGetUsers还要处理not_found_ids；ProfileLink批次还要处理failures，nil error不表示全部输入成功。
+
 ## 基础操作示例
 
 ### 认证服务
 
 ```go
 // 验证 Token
-resp, err := client.Auth().VerifyToken(ctx, &authnv3.VerifyTokenRequest{
+verified, err := client.Auth().VerifyToken(ctx, &authnv3.VerifyTokenRequest{
     AccessToken: token,
+    ExpectedAudience: []string{"qs-api"}, // 从资源服务可信配置取得
 })
+if err != nil { return err }
+if verified == nil || !verified.GetValid() || verified.GetClaims() == nil {
+    return fmt.Errorf("user credential rejected")
+}
 
 // 刷新 Token
-resp, err := client.Auth().RefreshToken(ctx, &authnv3.RefreshTokenRequest{
+refreshed, err := client.Auth().RefreshToken(ctx, &authnv3.RefreshTokenRequest{
     RefreshToken: refreshToken,
 })
+if err != nil { return err }
+// 宿主替换整对Token，不保存或混用旧refresh token。
+_ = refreshed.GetTokenPair()
 
 // 撤销 Token
-_, err := client.Auth().RevokeToken(ctx, &authnv3.RevokeTokenRequest{
+_, err = client.Auth().RevokeToken(ctx, &authnv3.RevokeTokenRequest{
     AccessToken: token,
 })
+if err != nil { return err }
 ```
 
 ### 身份服务
 
 ```go
 // 获取用户
-user, err := client.Identity().GetUser(ctx, "user-id-123")
+user, err := client.Identity().GetUser(ctx, "1001")
+if err != nil { return err }
+log.Printf("用户: %s", user.GetUser().GetNickname())
 
 // 创建用户
-user, err := client.Identity().CreateUser(ctx, &identityv2.CreateUserRequest{
-    User: &identityv2.User{
-        Profile: &identityv2.UserProfile{
-            DisplayName: "张三",
-            Email:       "zhangsan@example.com",
-        },
-    },
+created, err := client.Identity().CreateUser(ctx, &identityv2.CreateUserRequest{
+    Nickname: "张三",
+    Email:    "zhangsan@example.com",
 })
+if err != nil { return err }
+_ = created.GetUser()
 
 // 批量获取用户
-users, err := client.Identity().BatchGetUsers(ctx, []string{"user-1", "user-2"})
+users, err := client.Identity().BatchGetUsers(ctx, []string{"1001", "1002"})
+if err != nil { return err }
+_ = users.GetUsers()
+_ = users.GetNotFoundIds() // 须按ID处理缺失项，不视为全部输入存在。
 ```
 
 ### 档案命令服务
@@ -268,10 +295,14 @@ if !allowed { return fmt.Errorf("permission denied") }
 
 ```go
 // 检查档案关系
-linkResp, err := client.ProfileLink().HasProfileLink(ctx, "user-id", "profile-id")
+linkResp, err := client.ProfileLink().HasProfileLink(ctx, "1001", "2001")
+if err != nil { return err }
+_ = linkResp.GetHasProfileLink() // true不保证详情非空。
 
 // 列举关联档案
-profiles, err := client.ProfileLink().GetUserProfiles(ctx, "user-id")
+profiles, err := client.ProfileLink().GetUserProfiles(ctx, "1001")
+if err != nil { return err }
+_ = profiles // 仅默认一页，要全量须显式ListProfiles/page。
 ```
 
 ### 只使用 identity 子包
@@ -297,7 +328,7 @@ profileClient := identity.NewProfileClient(
 下面的示例默认你已经导入了 `pkg/sdk/errors`，并且已经拿到了 `client`。
 
 ```go
-user, err := client.Identity().GetUser(ctx, "user-123")
+user, err := client.Identity().GetUser(ctx, "1001")
 if err != nil {
     switch {
     case errors.IsNotFound(err):
@@ -314,14 +345,14 @@ if err != nil {
     return
 }
 
-log.Printf("用户: %s", user.GetProfile().GetDisplayName())
+log.Printf("用户: %s", user.GetUser().GetNickname())
 ```
 
 ## 下一步
 
-- [../_examples/README.md](../_examples/README.md) - 完整可运行示例索引
+- [../_examples/README.md](../_examples/README.md) - 独立编译与环境核验状态
 - [配置详解](./02-configuration.md) - 了解所有配置选项
 - [Token 生命周期](./03-token-lifecycle.md) - 搞清 SDK 里的校验、刷新、撤销和 JWKS
 - [JWT 验证](./04-jwt-verification.md) - 本地 JWT 验证
-- [服务间认证](./05-service-auth.md) - 自动化服务间 Token 管理
+- [服务间认证](./05-service-auth.md) - mTLS、方法ACL与宿主连接生命周期
 - [授权判定](./06-authz.md) - 单次 PDP 与 `Authz()` 用法

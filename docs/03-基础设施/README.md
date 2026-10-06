@@ -15,7 +15,7 @@ IAM 当前最重要的基础设施问题不是“用了哪些组件”，而是�
 | 数据库意图、发布结算与消费结果怎样交接 | 同事务Stage/identity指纹；lease/CAS；独立FIN/失败审计与版本覆盖 | [事件与 Transactional Outbox](03-事件与Transactional-Outbox.md) |
 | 私钥、应用密钥和 JWT 密钥如何管理 | AES-GCM、Argon2id、PEM 私钥、MySQL 元数据、JWKS 公钥快照 | [密码学、密钥与令牌](04-密码学密钥与令牌.md) |
 | REST/gRPC 的传输和服务身份如何保护 | TLS/mTLS、拦截器链、JWT middleware、ACL | [传输层与服务间安全](05-传输层与服务间安全.md) |
-| 进程如何判断可接流量并安全退出 | liveness/readiness、低基数指标、draining、分阶段关闭 | [可观测性、就绪与关闭](06-可观测性就绪与关闭.md) |
+| 观测信号怎样定位故障、什么时刻仍可信 | 采样时效、标签边界、关联与故障证据；关闭顺序归运行时 | [观测信号、采样时效与故障定位](06-可观测性就绪与关闭.md) |
 
 ## 2. 30 秒结论
 
@@ -87,7 +87,7 @@ Redis 运行时权威状态或派生缓存
 
 ## 6. 当前特别需要记住的边界
 
-- MySQL、Redis与事件/Outbox三篇已完成逐篇深化；密码学、传输安全与可观测性三篇仍待整篇复核。当前仓库迁移脚本的最新版本为40；首次空库31/33/35准备步骤、单次迁移锁、dirty与返回applied分别有边界。默认启动须控制单一迁移owner，不能据advisory lock推导完整fresh链或RunTo在并发下绝不倒退，详见[迁移断点](01-MySQL事务与迁移.md#8-dirty准备失败与返回值是三个问题)。
+- 六篇基础设施正文已完成逐篇深化。观测正文区分端点/采集、指标定义/更新/导出、关联ID/真实Trace、探针/业务接受，具体说明URL标签、旧Gauge、失败早退和发布诊断；完整关闭责任仍归运行时。传输与密码学也分别维护身份/错误、材料/配对/资格边界，不据组件名扩大保证。当前迁移最新版本40；首次空库准备、单次锁、dirty与applied须控制单一owner，不能据advisory lock推导整条fresh链或并发RunTo绝不倒退，详见[迁移断点](01-MySQL事务与迁移.md#8-dirty准备失败与返回值是三个问题)。
 - production/release 模式默认 fail closed；显式允许的 degraded 启动只用于受控场景。
 - 一般领域事件 Outbox 与 Identity Session revocation outbox 是两套存储和 worker，目的不同，不能混称为同一队列。
 - AuthZ在同一事务暂存管理事实、policy version和版本事件；普通顶层提交后本实例尝试reload，借用事务的即时reload不证明宿主已提交，详见[写入边界](../02-业务模块/03-AuthZ/03-关键链路-授权写入与受管Assignment.md)。其他实例通过消息及数据库核对收敛。

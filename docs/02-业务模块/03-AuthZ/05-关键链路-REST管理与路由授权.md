@@ -152,7 +152,7 @@ Role、Grant写入使用RequireOperation复核原始动作，再对目标Role检
 
 当前AuthZ OpenAPI是3.0.3，不是3.1；存在以下已核对偏移：管理操作没有security声明，但路由强制用户认证；Role更新schema未声明display_name必填；Role列表limit声明默认10但运行时省略为0；错误响应及空兼容结构约束也未完整反映代码。机器契约是维护入口，不能在这些已知差异上把它当完整运行事实。
 
-现行check-route-contracts比较Swagger/OAS method/path集合，不直接检查Gin动作绑定或security。check-openapi-contracts对schema名取短名，而AuthZ组件仍使用完整历史标识，当前17个AuthZ DTO比较候选全部被跳过；绿色结果不能证明本模块字段/required已比对。门禁实现和其他模块差异由[契约治理](../../04-接口与SDK/01-REST-gRPC与契约治理.md#2-rest-契约闭环)登记。本轮只校准文档，没有改变DTO、机器契约、默认值或检查脚本。
+现行check-route-contracts比较Swagger/OAS method/path集合，不直接检查Gin动作绑定或security。check-openapi-contracts对schema名取短名，而AuthZ组件仍使用完整历史标识，当前17个AuthZ DTO比较候选全部被跳过；绿色结果不能证明本模块字段/required已比对。门禁实现和其他模块差异由[契约治理](../../04-接口与SDK/01-REST-gRPC与契约治理.md#4-rest门禁为什么会绿色而仍有偏移)登记。本轮只校准文档，没有改变DTO、机器契约、默认值或检查脚本。
 
 ## 6. 错误必须按失败层解释
 

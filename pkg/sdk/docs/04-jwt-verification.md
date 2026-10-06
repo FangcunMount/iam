@@ -150,11 +150,11 @@ if result.Valid && result.Claims != nil {
 
 ### 本地验签的边界
 
-本地 JWKS 验签当前只能保证：
+SDK本地策略成功表示以下步骤通过，范围以所选KeySet和pinned JWX的实际校验为准：
 
-- 签名正确
-- `exp` / `nbf` / `iss` / `aud` 等本地可判定声明正确
-- JWT 内自带 claims 可直接读取，例如 `user_id`、`org_id`（业务组织透传）、`sid`
+- 使用已取得KeySet选出的密钥与算法验证签名；配置和受保护header只允许RS256，所选JWK.alg没有再次与header.alg对齐
+- 固定可信`iss`、非空期望`aud`与支持的access用途约束通过；时间声明按pinned JWX及ClockSkew配置检查
+- 可读取JWT自带claims，例如`user_id`、`org_id`（业务组织透传）、`sid`；读取不等于通过IAM身份不变量或当前业务资格检查
 
 但它**不能保证**这些状态的即时生效：
 
@@ -163,7 +163,9 @@ if result.Valid && result.Claims != nil {
 - 用户被封禁
 - 登录入口被禁用；Credential锁定不属于在线Admission的逐次检查
 
-需要调用时状态检查时，调用在线 `Auth().VerifyToken(...)`；它不终止已经开始的读取。当前本地默认不要求exp存在，需启用RequireExpirationTime/RequiredClaims；RequiredClaims只检查存在，不校验IAM的SID/身份非零/sub=UserID等领域不变量。轮换、seed年龄、获取安全与失败边界由 [JWKS主文](../../../docs/02-业务模块/02-AuthN/06-关键链路-JWKS与本地验签.md) 维护。
+需要调用时状态检查时，调用在线`Auth().VerifyToken(...)`；它不终止已经开始的读取。本地默认不要求exp存在，RequireExpirationTime/RequiredClaims只增加存在检查，不校验IAM的SID/身份非零/sub=UserID等领域不变量。pinned JWX还会跳过Unix值为0的exp/iat/nbf时间检查；已签名`exp:0`可满足存在检查而没有有效截止门禁，属于源码推论，未作专项实验。
+
+SDK没有统一执行IAM公钥profile校验；异常受信KeySet可能让实际验签算法不同于header声明，这也是带输入前提的源码推论，不是生产行为证明。服务端与SDK的完整对照见[密码材料、密钥存储与令牌验签](../../../docs/03-基础设施/04-密码学密钥与令牌.md)；轮换、seed年龄、获取安全与失败边界由[JWKS主文](../../../docs/02-业务模块/02-AuthN/06-关键链路-JWKS与本地验签.md)维护。
 
 ---
 
@@ -186,7 +188,7 @@ JWKSManager (Chain of Responsibility 模式)
 
 ## 快速开始
 
-完整可运行示例见：
+程序示例及独立编译/环境状态见[示例索引](../_examples/README.md)：
 
 - [../_examples/verifier/main.go](../_examples/verifier/main.go)
 
@@ -246,6 +248,7 @@ client, err := sdk.NewClient(ctx, &sdk.Config{
         CACert:  "/etc/iam/certs/ca.crt",
     },
 })
+if err != nil { return err }
 
 jwksManager, err := authjwks.NewJWKSManager(
     &sdk.JWKSConfig{
@@ -434,6 +437,7 @@ jwksManager, err := authjwks.NewJWKSManager(
         OpenDuration:     30 * time.Second,
     }),
 )
+if err != nil { return err }
 defer jwksManager.Stop()
 
 // 手动刷新
@@ -523,7 +527,7 @@ verifier := authverifier.NewTokenVerifierWithStrategy(caching)
 // 启动时预热 JWKS
 err := jwksManager.ForceRefresh(ctx)
 if err != nil {
-    log.Printf("预热失败，将在后台刷新: %v", err)
+    log.Print("JWKS预热失败；后台刷新须RefreshInterval>0且cache存在")
 }
 ```
 
@@ -608,8 +612,10 @@ verifyCounter.WithLabelValues(label).Inc()
 
 ### 启动流程
 
+此处cfg沿用宿主聚合配置约定（含TokenVerify），不是sdk.Config新增字段。成功返回的cleanup由宿主唯一拥有者在停止新Verify后调用一次；它只发Manager停止信号，不join在途刷新、不关闭借用SDK Client。constructor仍用Background首取；总预算与默认链隐藏endpoint连接的关闭缺口见[宿主接入正文](../../../docs/04-接口与SDK/02-Go-SDK与业务系统接入.md#7-http验签与后台资源要分别拥有)。
+
 ```go
-func setupJWTVerifier(ctx context.Context, client *sdk.Client) (*authverifier.TokenVerifier, error) {
+func setupJWTVerifier(ctx context.Context, client *sdk.Client) (*authverifier.TokenVerifier, func(), error) {
     // 1. 创建 JWKS Manager
     jwksManager, err := authjwks.NewJWKSManager(
         cfg.JWKS,
@@ -619,12 +625,12 @@ func setupJWTVerifier(ctx context.Context, client *sdk.Client) (*authverifier.To
         authjwks.WithCircuitBreakerConfig(cfg.CircuitBreaker),
     )
     if err != nil {
-        return nil, err
+        return nil, nil, err
     }
 
     // 2. 预热缓存
     if err := jwksManager.ForceRefresh(ctx); err != nil {
-        log.Printf("JWKS 预热失败，将在后台刷新: %v", err)
+        log.Print("JWKS 预热失败；请核对后台刷新条件")
     }
 
     // 3. 创建 Verifier
@@ -634,10 +640,11 @@ func setupJWTVerifier(ctx context.Context, client *sdk.Client) (*authverifier.To
         client.Auth(),
     )
     if err != nil {
-        return nil, err
+        jwksManager.Stop()
+        return nil, nil, err
     }
 
-    return verifier, nil
+    return verifier, jwksManager.Stop, nil
 }
 ```
 

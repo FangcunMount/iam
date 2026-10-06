@@ -1,16 +1,16 @@
 # REST API 契约
 
-REST 契约使用 OpenAPI 3.1。OpenAPI 文件是字段、路径、认证和错误响应的事实源；运行时注册在 [internal/apiserver/transport/rest](../../internal/apiserver/transport/rest)。
+REST契约中AuthZ使用OpenAPI 3.0.3，其余四份使用3.1.0；规范版本与URL版本分别解释。OpenAPI是发布的机器描述，实际路径、安全与响应还需核对[运行时注册](../../internal/apiserver/transport/rest)。当前偏移和生成/验证责任见[契约治理](../../docs/04-接口与SDK/01-REST-gRPC与契约治理.md)。
 
 ## 契约文件
 
 | 文件 | 说明 |
 | ---- | ---- |
-| [authn.v3.yaml](authn.v3.yaml) | v2 认证、Challenge、LoginIdentity、Token、JWKS 和 signup |
+| [authn.v3.yaml](authn.v3.yaml) | v3认证、Challenge、LoginIdentity、Token、JWKS管理和signup；公开JWKS另有根路径/v2别名 |
 | [authz.v4.yaml](authz.v4.yaml) | PermissionGrant、Role、Assignment、Resource 管理；继承接口退役，属性模式字段仅兼容合法空值；不含 `Check` |
 | [identity.v2.yaml](identity.v2.yaml) | 当前用户、profiles、profile-links 查询；Profile/ProfileLink 创建命令走 gRPC |
 | [idp.v2.yaml](idp.v2.yaml) | IDP 健康检查和微信应用配置 |
-| [suggest.v2.yaml](suggest.v2.yaml) | 儿童档案联想搜索 |
+| [suggest.v2.yaml](suggest.v2.yaml) | 档案联想搜索；查询范围与手机号能力分别授权 |
 
 ## 当前路由口径
 
@@ -24,12 +24,12 @@ REST 契约使用 OpenAPI 3.1。OpenAPI 文件是字段、路径、认证和错�
 | LoginIdentity | `GET /api/v3/authn/login-identities`、`POST /api/v3/authn/login-identities/phone`、`DELETE /api/v3/authn/login-identities/{id}` |
 | Signup | `POST /api/v3/authn/signups/wechat-miniprogram` |
 | AuthZ 管理面 | `GET /api/v4/authz/health`、`/api/v4/authz/{roles,assignments,grants,role-inheritances,resources}` |
-| Identity | `GET /api/v2/identity/me`、`GET /api/v2/identity/me/profiles`、`GET /api/v2/identity/profiles/{id}`、`GET /api/v2/identity/profile-links` |
+| Identity | `GET/PATCH /api/v2/identity/me`、`GET /api/v2/identity/me/profiles`、`GET/PATCH /api/v2/identity/profiles/{id}`、`GET /api/v2/identity/profile-links` |
 | IDP | `/api/v2/idp/health`、`/api/v2/idp/wechat-apps/*` |
 | Suggest | `GET /api/v2/suggest/profile` |
 | Debug | `/debug/routes`、`/debug/modules`、`/debug/cache-governance/*` |
 
-Identity 的当前关系术语是 `ProfileLink`。REST 路由使用 `/profile-links`，不再使用旧关系路由。Profile 与 ProfileLink 的创建/撤销命令由 gRPC `ProfileCommand`、`ProfileLinkCommand` 承接，REST 仅保留查询和当前用户资料更新能力。
+Identity的当前关系术语是`ProfileLink`。REST使用`/profile-links`；Profile与ProfileLink的创建/撤销由gRPC命令承接，REST保留查询、当前用户资料更新和Profile PATCH。修改能力不能从目录或DTO存在推定，实际输入与披露由[Identity模型](../../docs/02-业务模块/01-Identity/01-领域模型-User-Profile-ProfileLink.md)维护。
 
 ## 运行时注册
 
@@ -57,12 +57,13 @@ curl https://iam.example.com/api/v4/authz/roles \
   -H "Authorization: Bearer ${IAM_ACCESS_TOKEN}"
 ```
 
-AuthZ REST v3 只承接管理命令和查询，不存在 REST `Check`。权限判定是可信服务间调用，使用 gRPC v3：
+AuthZ REST v4只承接管理命令和查询，不存在REST `Check`。权限判定使用gRPC v4；下面的示例在仓库根目录读取本地proto，不依赖reflection；需先准备mTLS材料，实际caller还必须满足方法ACL及内容准入：
 
 ```bash
 grpcurl \
-  -H "authorization: Bearer ${IAM_SERVICE_TOKEN}" \
-  -d '{"subject":"user:1024","domain":"default","resource":"qs:answersheet:collection:answersheets","action":"admin_submit"}' \
+  -import-path api/grpc -proto iam/authz/v4/authz.proto \
+  -cacert "$IAM_CA_FILE" -cert "$IAM_CLIENT_CERT_FILE" -key "$IAM_CLIENT_KEY_FILE" \
+  -d '{"subject":"user:1024","resource":"qs:answersheet:collection:answersheets","action":"admin_submit"}' \
   iam.example.com:443 iam.authz.v4.AuthorizationService/Check
 ```
 
@@ -74,4 +75,4 @@ make api-validate
 go test ./internal/apiserver/transport/rest
 ```
 
-`make api-validate` 会比较 `api/rest/*.yaml`、swagger 生成物和实际路由合同；需要 Docker daemon 可用。
+`make docs-swagger`调用PATH中的swag并规范component ID，不自动更新OpenAPI；`make docs-reset`则全量重建paths/schemas，可能丢失operation级手写元数据，应先审阅转换结果。`make api-validate`优先Docker、后备npx运行Spectral，随后比较已提交描述与选中的注册路由；当前匹配/选择缺口见[治理正文](../../docs/04-接口与SDK/01-REST-gRPC与契约治理.md)，不将该命令写成全合同等价证明。
