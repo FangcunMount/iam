@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="4800" height="3300" viewBox="0 0 4800 3300" role="img" aria-labelledby="title desc">
   <title id="title">IAM 核心领域模型 V8｜聚合边界与领域知识</title>
-  <desc id="desc">Identity、AuthN、AuthZ 三个限界上下文的领域模型图。明确 13 个聚合根及聚合边界、值对象、非聚合领域结果、已颁发凭证、稳定 ID 引用和关键领域不变量；不展示领域服务、应用服务、流程编排与基础设施。</desc>
+  <desc id="desc">Identity、AuthN、AuthZ 三个职责模块的领域模型图。明确 12 个聚合根及聚合边界、值对象、非聚合领域结果、已颁发凭证、稳定 ID 引用和关键领域不变量；不展示领域服务、应用服务、流程编排与基础设施。</desc>
 
   <defs>
     <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%">
@@ -191,7 +191,7 @@
   <text x="1330" y="405" class="knowledge-title">领域知识｜认证不是一次布尔判断</text>
   <text x="1330" y="443" class="knowledge-text">• LoginIdentity 是稳定登录入口；Credential 是独立的长期控制材料；二者分别演化</text>
   <text x="1330" y="477" class="knowledge-text">• Challenge 处理一次性证明；Session 与 RefreshToken 处理成功认证后的在线生命周期</text>
-  <text x="1330" y="511" class="knowledge-text">• AuthDecision、Principal、AdmissionDecision 与令牌颁发结果是领域值/结果，不是聚合根</text>
+  <text x="1330" y="511" class="knowledge-text">• AuthDecision、Principal、admission.Decision 与令牌颁发结果是领域值/结果，不是聚合根</text>
 
   <!-- AuthN aggregate 04 LoginIdentity -->
   <rect x="1300" y="610" width="870" height="370" rx="22" class="aggregate-boundary boundary-authn"/>
@@ -229,7 +229,7 @@
   <rect x="2770" y="678" width="320" height="105" rx="13" class="vo"/>
   <text x="2930" y="712" text-anchor="middle" class="vo-title">CredentialType / Status</text>
   <text x="2930" y="743" text-anchor="middle" class="vo-body">&lt;&lt;value object&gt;&gt;</text>
-  <text x="2930" y="770" text-anchor="middle" class="vo-body">password 等 · enabled / disabled</text>
+  <text x="2930" y="770" text-anchor="middle" class="vo-body">password · enabled / disabled</text>
   <rect x="2770" y="808" width="320" height="105" rx="13" class="vo"/>
   <text x="2930" y="842" text-anchor="middle" class="vo-title">LockoutPolicy</text>
   <text x="2930" y="873" text-anchor="middle" class="vo-body">&lt;&lt;value object&gt;&gt;</text>
@@ -293,7 +293,7 @@
   <rect x="1860" y="1498" width="280" height="105" rx="13" class="vo"/>
   <text x="2000" y="1532" text-anchor="middle" class="vo-title">TokenMetadata</text>
   <text x="2000" y="1563" text-anchor="middle" class="vo-body">&lt;&lt;value object&gt;&gt;</text>
-  <text x="2000" y="1590" text-anchor="middle" class="vo-body">ID · Value · IssuedAt · ExpiresAt</text>
+  <text x="2000" y="1590" text-anchor="middle" class="vo-body">ID · IssuedAt · ExpiresAt</text>
   <rect x="1860" y="1628" width="280" height="100" rx="13" class="vo"/>
   <text x="2000" y="1662" text-anchor="middle" class="vo-title">Context ownership</text>
   <text x="2000" y="1693" text-anchor="middle" class="vo-body">认证上下文从 Session 重建</text>
@@ -306,13 +306,13 @@
   <text x="2238" y="1462" class="section-title">认证请求值与判定结果｜非聚合</text>
   <text x="2238" y="1490" class="section-note">只在一次认证/准入判断中传递，不独立维护生命周期</text>
   <rect x="2240" y="1520" width="400" height="105" rx="13" class="vo"/>
-  <text x="2440" y="1554" text-anchor="middle" class="vo-title">AuthCredential｜身份核验证明</text>
-  <text x="2440" y="1585" text-anchor="middle" class="vo-body">&lt;&lt;value object&gt;&gt; 请求携带的 proof</text>
+  <text x="2440" y="1554" text-anchor="middle" class="vo-title">IdentityProof｜身份核验证明</text>
+  <text x="2440" y="1585" text-anchor="middle" class="vo-body">&lt;&lt;proof interface&gt;&gt; CredentialKind()</text>
   <text x="2440" y="1612" text-anchor="middle" class="vo-body">不持久化为长期 Credential</text>
   <rect x="2670" y="1520" width="420" height="105" rx="13" class="domain-result"/>
   <text x="2880" y="1554" text-anchor="middle" class="vo-title">AuthDecision｜身份核验判定</text>
   <text x="2880" y="1585" text-anchor="middle" class="vo-body">&lt;&lt;domain result&gt;&gt; OK · Code</text>
-  <text x="2880" y="1612" text-anchor="middle" class="vo-body">CredentialEffect · Principal</text>
+  <text x="2880" y="1612" text-anchor="middle" class="vo-body">CredentialUpdate · Principal</text>
   <rect x="2240" y="1650" width="400" height="110" rx="13" class="vo"/>
   <text x="2440" y="1684" text-anchor="middle" class="vo-title">Principal｜核验主体</text>
   <text x="2440" y="1715" text-anchor="middle" class="vo-body">&lt;&lt;value object&gt;&gt; UserID · LoginIdentityID</text>
@@ -320,7 +320,7 @@
   <rect x="2670" y="1650" width="420" height="110" rx="13" class="domain-result"/>
   <text x="2880" y="1684" text-anchor="middle" class="vo-title">admission.Decision｜登录准入</text>
   <text x="2880" y="1715" text-anchor="middle" class="vo-body">&lt;&lt;domain result&gt;&gt; Outcome / Reason</text>
-  <text x="2880" y="1742" text-anchor="middle" class="vo-body">UserID · LoginIdentityID</text>
+  <text x="2880" y="1742" text-anchor="middle" class="vo-body">Subject(UserID · LoginIdentityID)</text>
 
   <!-- AuthN issued objects -->
   <rect x="1300" y="1840" width="1820" height="315" rx="22" class="non-aggregate"/>
@@ -352,7 +352,7 @@
   <line x1="2208" y1="2260" x2="2208" y2="2675" stroke="#e3a566"/>
   <text x="1330" y="2284" class="knowledge-text">登录身份与凭据</text>
   <text x="1360" y="2320" class="knowledge-text">• Provider + Realm + Identifier 唯一</text>
-  <text x="1360" y="2354" class="knowledge-text">• GlobalIdentifier 只能归属一个 LoginIdentity</text>
+  <text x="1360" y="2354" class="knowledge-text">• 同 Provider 的非空 GlobalIdentifier 仅由一条规范入口占用</text>
   <text x="1360" y="2388" class="knowledge-text">• 每个 LoginIdentity / CredentialType 最多一份长期凭据</text>
   <text x="1360" y="2422" class="knowledge-text">• 失败计数、锁定与认证记录必须原子更新</text>
   <text x="1330" y="2470" class="knowledge-text">一次性挑战</text>
@@ -361,7 +361,7 @@
   <text x="2250" y="2284" class="knowledge-text">准入与会话</text>
   <text x="2280" y="2320" class="knowledge-text">• UserID 与 LoginIdentity.UserID 必须一致且双方 active</text>
   <text x="2280" y="2354" class="knowledge-text">• 被撤销的 Session 不得继续续期或签发用户令牌</text>
-  <text x="2280" y="2388" class="knowledge-text">• RefreshToken 有效期不得越过 Session 生命周期</text>
+  <text x="2280" y="2388" class="knowledge-text">• Refresh 期限受 Session 寿命策略裁剪</text>
   <text x="2250" y="2436" class="knowledge-text">令牌轮换</text>
   <text x="2280" y="2472" class="knowledge-text">• RefreshToken 单次使用并原子轮换</text>
   <text x="2280" y="2506" class="knowledge-text">• 已消费令牌再次出现视为重放，并撤销关联 Session</text>
@@ -396,7 +396,7 @@
     <text x="3472" y="726" text-anchor="middle" class="root-title">Role｜角色</text>
     <line x1="3270" y1="749" x2="3675" y2="749" class="divider"/>
     <text x="3295" y="785" class="field">ID · Name · DisplayName</text>
-    <text x="3295" y="819" class="field">Description · IsSystem</text>
+    <text x="3295" y="819" class="field" style="font-size:17px">Description · ManagementProtection</text>
     <text x="3295" y="851" class="small">本身不内嵌权限集合</text>
   </g>
   <rect x="3700" y="653" width="220" height="95" rx="13" class="vo"/>
@@ -415,7 +415,7 @@
     <text x="4222" y="726" text-anchor="middle" class="root-title">Resource｜资源目录</text>
     <line x1="4020" y1="749" x2="4425" y2="749" class="divider"/>
     <text x="4045" y="785" class="field">ID · Key · Actions</text>
-    <text x="4045" y="819" class="field">App · Domain · Type</text>
+    <text x="4045" y="819" class="field">AppName · Domain · Type</text>
     <text x="4045" y="851" class="field">DisplayName · Description</text>
   </g>
   <rect x="4450" y="653" width="220" height="95" rx="13" class="vo"/>
@@ -435,15 +435,15 @@
     <text x="3472" y="1121" text-anchor="middle" class="root-title">Assignment｜角色分配</text>
     <line x1="3270" y1="1144" x2="3675" y2="1144" class="divider"/>
     <text x="3295" y="1180" class="field">ID · SubjectType · SubjectID</text>
-    <text x="3295" y="1214" class="field">RoleID · GrantedBy</text>
+    <text x="3295" y="1214" class="field">RoleID · GrantedBy · Scope</text>
     <text x="3295" y="1246" class="small">DirectRoles 来自直接分配事实</text>
   </g>
   <rect x="3700" y="1048" width="220" height="95" rx="13" class="vo"/>
   <text x="3810" y="1081" text-anchor="middle" class="vo-title">Subject.Ref</text>
   <text x="3810" y="1112" text-anchor="middle" class="vo-body">&lt;&lt;value object&gt;&gt;</text>
   <rect x="3700" y="1168" width="220" height="95" rx="13" class="vo"/>
-  <text x="3810" y="1201" text-anchor="middle" class="vo-title">AssignmentID</text>
-  <text x="3810" y="1232" text-anchor="middle" class="vo-body">&lt;&lt;value object&gt;&gt;</text>
+  <text x="3810" y="1201" text-anchor="middle" class="vo-title">Scope</text>
+  <text x="3810" y="1232" text-anchor="middle" class="vo-body">company / stores · value object</text>
   <path d="M3472 1046 V937" class="reference"/>
   <text x="3492" y="965" class="small">RoleID → Role.ID</text>
 
@@ -468,9 +468,10 @@
   <text x="4500" y="1477" text-anchor="middle" class="vo-title">Action</text>
   <text x="4500" y="1508" text-anchor="middle" class="vo-body">&lt;&lt;value object&gt;&gt; 动作匹配</text>
   <text x="4500" y="1536" text-anchor="middle" class="vo-body">托管授权必须是目录动作</text>
-  <path d="M3597 1441 V1360 H3472 V1332" class="reference"/>
+  <path d="M3270 1498 H3150 V819 H3270" class="reference"/>
   <path d="M3927 1478 H3970 V955 H4222 V937" class="reference"/>
-  <text x="3865" y="1352" class="small">RoleID / ResourceID 稳定引用</text>
+  <text x="3158" y="1370" class="small">RoleID 引用</text>
+  <text x="4030" y="1352" class="small">ResourceID → Resource.ID（目录 Grant）</text>
 
   <!-- AuthZ request/result values -->
   <rect x="3240" y="1825" width="1460" height="360" rx="22" class="non-aggregate"/>
@@ -493,13 +494,13 @@
   <text x="3270" y="2270" class="knowledge-title">领域不变量｜授权事实必须可解释、可约束、可拒绝</text>
   <text x="3270" y="2314" class="knowledge-text">角色与赋权</text>
   <text x="3300" y="2350" class="knowledge-text">• Role.Name 全局唯一；活跃 Assignment 业务键唯一</text>
-  <text x="3300" y="2384" class="knowledge-text">• Role 删除前不得仍被赋权或权限授予引用</text>
+  <text x="3300" y="2384" class="knowledge-text">• Role 删除检查 Assignment 引用与活跃 Grant</text>
   <text x="3270" y="2432" class="knowledge-text">直接角色</text>
   <text x="3300" y="2468" class="knowledge-text">• 角色通过直接分配组合职责；保留敏感授权保护</text>
   <text x="3270" y="2516" class="knowledge-text">资源与权限授予</text>
-  <text x="3300" y="2552" class="knowledge-text">• PermissionGrant 必须通过 Resource 的动作校验</text>
+  <text x="3300" y="2552" class="knowledge-text">• 目录 Grant 须通过对应 Resource 的动作校验</text>
   <text x="3300" y="2586" class="knowledge-text">• 多角色权限取并集；活跃 GrantKey 唯一</text>
-  <text x="3300" y="2620" class="knowledge-text">• Resource 更新不得使现有活跃 PermissionGrant 失效</text>
+  <text x="3300" y="2620" class="knowledge-text">• Resource 更新不得破坏关联的活跃目录 Grant</text>
   <line x1="3270" y1="2650" x2="4670" y2="2650" stroke="#e3a566"/>
   <text x="3970" y="2688" text-anchor="middle" class="knowledge-title">判定原则：默认拒绝；资源或动作不匹配时拒绝。</text>
 
@@ -507,7 +508,7 @@
   <path d="M1330 795 H1235 Q1200 795 1200 818 H630" class="reference"/>
   <rect x="900" y="760" width="390" height="35" rx="17" fill="#ffffff"/>
   <text x="1095" y="785" text-anchor="middle" class="relation">LoginIdentity.UserID → Identity.User.ID</text>
-  <path d="M3700 1095 H3180 V2860 H1240 V2940 H35 V818 H128" class="reference"/>
+  <path d="M3700 1095 H3688 V1025 H3180 V2860 H1240 V2940 H35 V818 H128" class="reference"/>
   <rect x="2400" y="2825" width="640" height="36" rx="18" fill="#ffffff"/>
   <text x="2720" y="2850" text-anchor="middle" class="relation">Subject.Ref(user).ID → Identity.User.ID｜跨上下文稳定 ID 引用</text>
 

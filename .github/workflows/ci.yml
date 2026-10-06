@@ -33,6 +33,9 @@ jobs:
       - name: Verify documentation facts
         run: make docs-facts
 
+      - name: Verify documentation history classification
+        run: python3 scripts/test-docs-release-validation.py
+
       - name: Validate OpenAPI contracts
         run: make api-validate
 

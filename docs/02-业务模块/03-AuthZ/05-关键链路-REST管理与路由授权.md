@@ -1,211 +1,214 @@
 # 关键链路：REST 管理与路由授权
 
-> 状态：已实现 · 本文以当前 Gin router、AuthN/AuthZ middleware、permission catalog 与 OpenAPI 为依据。
+> 状态：已实现 · 2026-10-06 对照组合根、Gin路由、身份映射、管理应用与机器契约深化；源码推论和实际测试分开取证。
 
-## 结论
+## 1. 先明确管理请求在判定谁
 
-REST v3 只承担 AuthZ 管理；外部服务的授权判定由 gRPC v3 `Check` 提供。IAM 自身的管理路由先由 AuthN middleware 建立 Principal，
-再由 AuthZ middleware 使用明确的 Resource/Action 施权；服务间写入使用可信服务身份与 Assignment 约束。
+用户17携带AccessToken，要求把Role9分配给用户42。路由检查的是**用户17能否执行assignments/grant**；用户42是被管理主体，不是本次操作者。body即使填写`granted_by:"999"`，handler仍以认证UserID的十进制字符串`"17"`记录授予人。
 
-## REST v3：管理接口
+REST v4管理入口位于`/api/v4/authz`，提供Role、Assignment、PermissionGrant和Resource操作，没有`/api/v4/authz/check`。服务间动作判断和范围投影使用[gRPC与SDK](06-关键链路-gRPC服务间授权与SDK.md)，不能用管理列表手工拼权限而绕过Runtime证明预算。
 
-REST 路由统一挂在 `/api/v4/authz`：
+一次管理请求要区分三种约束：路由动作能力、目标Role的管理保护、领域事实的引用/范围/事务规则。管理写入会在应用再次检查动作，但查询应用主要检查对象可见性，不能概括成所有入口都执行同样的第二次鉴权。
 
-| 资源 | 主要路径 | 用途 |
+## 2. 从Token到两份可信上下文
+
+[JWT middleware](../../../internal/pkg/middleware/authn/jwt_middleware.go)只接受用户AccessToken，并传入当前资源audience。当前在线Verifier依次检查签名/issuer/时效、token类型与audience、撤销标记、active Session和User/LoginIdentity准入；这条链不等于下游仅用JWKS做本地验签。
+
+验证通过后，applyVerifiedClaims同时建立：
+
+| 输入到输出 | 使用者 | 当前责任 |
 | --- | --- | --- |
-| Role | `/api/v4/authz/roles` | 创建、查询、更新、删除角色 |
-| Assignment | `/api/v4/authz/assignments` | 增量授予、撤销与查询直接关系 |
-| PermissionGrant | `/api/v4/authz/grants` | 管理角色能力 |
-| RoleInheritance（已退役） | `/api/v4/authz/role-inheritances` | 旧路径固定返回 `410 Gone`，无数据库依赖 |
-| Resource | `/api/v4/authz/resources` | 管理资源与动作；弃用 attribute_schema 仅接受合法空值 |
+| Claims.UserID → Gin/requestctx UserID | RequirePermission及REST handler | 构造路由Subject、审计字符串及Resource命令Actor |
+| Claims.UserID → 标准context的management actor | Role/Assignment/Grant Guard | 以可信用户身份复核操作及受保护Role |
+| LoginIdentityID、OrgID、TokenID | 相应用例/审计上下文 | 不自动成为AuthZ路由的公司范围或角色 |
 
-完整 method/path 以 `api/rest/authz.v4.yaml` 为准。REST 不提供 `/api/v4/authz/check`；需要判定的可信服务调用 gRPC。
+RequirePermission从可信UserID形成`user:17`，资源和动作由服务端路由注册提供；Request没有把OrgID、URL中的RoleID或body中的Subject带入操作者身份。业务OrgID不在这里建立租户授权分区，用户17也不因body目标在另一个Org就被自动拒绝。
 
-REST 是控制面，不是请求期权限决策面。若业务服务为了判定而调用 Role/Grant 列表并在本地重新实现 matcher，就会绕过快照与 Decision 语义。
-服务间正确路径见 [gRPC 服务间授权与 SDK](06-关键链路-gRPC服务间授权与SDK.md)。
+认证器的任何调用错误，以及无效/缺失Token，都会被REST middleware折叠为`ErrTokenInvalid=102002`、HTTP401。在线数据库或撤销存储故障也可能形成401；不能仅凭响应断言客户端Token确实失效。认证实现及准入规则由[AuthN](../02-AuthN/03-Session-Token与JWKS.md)拥有。
 
-## AuthZ REST 路由与 Permission 矩阵
+当前兼容取Token顺序为非空Authorization header、query的token、cookie的access_token。header支持Bearer形式或直接Token，非空但格式错误时不会回退其他来源。这是现行输入行为，管理调用应显式使用Authorization header；本文未做这些来源组合的完整HTTP验收。
 
-| Method + Path | Resource | Action | 业务语义 |
-| --- | --- | --- | --- |
-| `POST /api/v4/authz/roles` | `iam:authz:collection:roles` | `create` | 创建 Role |
-| `GET /api/v4/authz/roles` | 同上 | `list` | 列出 Role |
-| `GET /api/v4/authz/roles/:id` | 同上 | `read` | 读取可见的 Role |
-| `PUT /api/v4/authz/roles/:id` | 同上 | `update` | 更新 Role |
-| `DELETE /api/v4/authz/roles/:id` | 同上 | `delete` | 删除未被引用 Role |
-| `GET /api/v4/authz/roles/:id/assignments` | `iam:authz:collection:assignments` | `list` | 按 Role 列直接 Assignment |
-| `POST /api/v4/authz/assignments/grant` | 同上 | `grant` | 增量授予 Assignment |
-| `POST /api/v4/authz/assignments/revoke` | 同上 | `revoke` | 按 Subject+Role 撤销 |
-| `DELETE /api/v4/authz/assignments/:id` | 同上 | `revoke` | 按 Assignment ID 撤销 |
-| `GET /api/v4/authz/assignments/subject` | 同上 | `list` | 按 Subject 列直接 Assignment |
-| `POST /api/v4/authz/grants` | `iam:authz:collection:permission_grants` | `create` | 创建 managed PermissionGrant |
-| `DELETE /api/v4/authz/grants/:id` | 同上 | `revoke` | 撤销 Grant |
-| `GET /api/v4/authz/roles/:id/grants` | 同上 | `list` | 列角色的 Grant |
-| `POST /api/v4/authz/role-inheritances` | （无） | （无） | 已退役，返回 410 |
-| `GET /api/v4/authz/role-inheritances` | （无） | （无） | 已退役，返回 410 |
-| `DELETE /api/v4/authz/role-inheritances/:id` | （无） | （无） | 已退役，返回 410 |
-| `POST /api/v4/authz/resources` | `iam:authz:collection:resources` | `create` | 注册 Resource catalog |
-| `GET /api/v4/authz/resources` | 同上 | `list` | 列 Resource |
-| `GET /api/v4/authz/resources/:id` | 同上 | `read` | 按 ID 读 Resource |
-| `GET /api/v4/authz/resources/key/:key` | 同上 | `read` | 按 key 读 Resource |
-| `PUT /api/v4/authz/resources/:id` | 同上 | `update` | 更新 action/schema |
-| `DELETE /api/v4/authz/resources/:id` | 同上 | `delete` | 删除未被引用 Resource |
-| `POST /api/v4/authz/resources/validate-action` | 同上 | `validate_action` | 验证 catalog 是否登记 Action |
+### 2.1 一个Assignment授予请求的责任链
 
-`GET /api/v4/authz/health` 是例外：它在受保护路由组之前注册，只返回 `status=ok,module=authz`。它不证明 runtime snapshot、MySQL、
-policy subscriber 或全局 readiness 正常。
+下图是普通顶层请求的成功路径。实际Role保护、主体存在性、重复关系或授权失败会在相应边界停止；图不表示所有步骤共享同一权限版本。
 
-## 路由注册的 fail-closed 边界
+```mermaid
+sequenceDiagram
+    participant U as 用户17
+    participant N as AuthN中间件
+    participant Z as 路由授权
+    participant H as REST handler
+    participant A as 分配应用
+    participant R as Runtime
+    participant DB as MySQL
+    U->>N: Token，目标42/Role9
+    N->>N: 在线验证，映射actor17
+    N->>Z: 可信上下文
+    Z->>R: user17的grant动作
+    R-->>Z: ALLOW
+    Z->>H: 进入handler
+    H->>A: 分配42/Role9，actor17
+    A->>DB: 开始事务，验主体/锁Role9
+    A->>R: 复核grant与Role保护
+    R-->>A: 允许管理
+    A->>DB: 保存分配、增版本、Stage
+    DB-->>A: 提交成功
+    A->>R: 尝试本实例重载
+    A-->>H: 返回Assignment
+    H-->>U: HTTP200/code200，无提交版本字段
+```
 
-AuthZ router 先注册模块局部 health，然后要求 Role handler、JWT `AuthRequired` 和 `PermissionOrGlobal` 都存在才继续注册受保护组。可选 handler 不存在时，
-对应子路由不注册，而不是以无中间件方式暴露。
+handler只信任认证结果映射的actor。公开Assignment DTO里的granted_by被忽略，不代表该字段会被拒绝；AuthZ DTO没有user_id替代身份字段，当前外层JSON也未统一开启未知字段拒绝。退役的constraint_set/attribute_schema则由专用解码器验证，仅接受空兼容值，不能把“忽略无关字段”和“拒绝非空退役字段”混为一谈。
 
-组合根还会检查 AuthZ module status、路由依赖和 JWT middleware。如果模块可用但授权中间件不可用，受保护路由应该整组不注册，不应退化为只验 JWT。
+## 3. 路由如何绑定动作
 
-## 身份与信任边界
+下表列出现行管理路由，冒号参数表示实际Gin路径。路径与资源/动作绑定来自[router](../../../internal/apiserver/transport/rest/authz/router.go)及[常量](../../../internal/apiserver/application/authz/authorization/route_permissions.go)，不能只按HTTP verb猜权限。
 
-| 调用面 | 可信身份 | 额外限制 |
+| Method + Path（共同前缀/api/v4/authz） | Resource | Action/用途 |
 | --- | --- | --- |
-| IAM REST 管理路由 | AuthN 用户 JWT | `RequirePermission(Resource, Action)` |
-| 调试/运维路由 | AuthN 用户 JWT | 明确的运维 Resource/Action |
+| POST /roles | iam:authz:collection:roles | create |
+| GET /roles | 同上 | list |
+| GET /roles/:id | 同上 | read |
+| PUT /roles/:id | 同上 | update |
+| DELETE /roles/:id | 同上 | delete |
+| GET /roles/:id/assignments | iam:authz:collection:assignments | list |
+| POST /assignments/grant | 同上 | grant，无Scope分配 |
+| POST /assignments/revoke | 同上 | revoke，按Subject+Role覆盖全部公司 |
+| DELETE /assignments/:id | 同上 | revoke，定位单条Assignment |
+| GET /assignments/subject | 同上 | list，目标来自query |
+| POST /grants | iam:authz:collection:permission_grants | create，精确目录资源/动作 |
+| DELETE /grants/:id | 同上 | revoke |
+| GET /roles/:id/grants | 同上 | list |
+| POST /resources | iam:authz:collection:resources | create |
+| GET /resources | 同上 | list |
+| GET /resources/:id | 同上 | read |
+| GET /resources/key/:key | 同上 | read |
+| PUT /resources/:id | 同上 | update |
+| DELETE /resources/:id | 同上 | delete |
+| POST /resources/validate-action | 同上 | validate_action，仅检查目录支持 |
+| GET/POST /role-inheritances | 无路由AuthN/AuthZ | 固定410墓碑 |
+| DELETE /role-inheritances/:id | 无路由AuthN/AuthZ | 固定410墓碑 |
+| GET /health | 无路由AuthN/AuthZ | status=ok,module=authz |
 
-请求体中的 Subject、角色名或 actor 字符串不能替代传输层认证结果。AuthN middleware 只负责认证并写入可信请求上下文，不持有 Resource/Action，也不执行授权判定。
+Grant在这里有两个不同用法：Assignment的grant动作给主体分配Role；PermissionGrant/create给Role增加资源动作能力。REST按数据库ID定位它们，服务间Assignment可按稳定role_name定位，最终进入同一应用事实规则。REST没有完整受管集合或公司Scope替换入口，Assignment输出也不带Scope和策略版本；具体撤销及替换边界由[授权写入](03-关键链路-授权写入与受管Assignment.md)拥有。
 
-REST 路由上的 Principal 来自 AuthN token verifier 返回的已验证 claims。JWT middleware 将 UserID、LoginIdentityID、OrgID 和 TokenID 写入 request context。AuthZ `RouteDecisionService` 只使用其中 UserID 构造 `subject.Ref`，
-把路由能力转换为领域 `Request`。
+validate-action请求例如目录中的assessments/retry，仅回答该目录是否登记retry；即使valid=true，也不证明当前用户可retry、某业务对象可重试或此次调用已经授予能力。
 
-这意味着：
+### 3.1 组合根与局部注册是两个条件
 
-- URL/query/body 中的 `user_id` 是被管理对象，不是当前操作者身份。
-- 操作者只能来自认证上下文，不能从请求参数推导。
-- handler 内使用的 changed-by 应从 request context 中的已验证 UserID 派生，而不是接受任意 body actor。
-- 路由授权在 handler 之前完成，handler 的领域校验仍然必须保留，两者分别保护“能否做”与“事实是否合法”。
+局部AuthZ.Register只要engine存在，就先注册health与三条继承墓碑；随后要求RoleHandler、认证函数和Permission函数都存在，才注册受保护组。Assignment/Grant/Resource handler缺失时，对应子路由不注册。RoleHandler是整个保护组的前提，不能推断其他handler单独存在便能管理其子资源。
 
-## `RequirePermission`
+实际组合根先检查模块available、至少一个AuthZ handler、JWT middleware与AuthZ middleware，再调用局部Register。缺少JWT时，连AuthZ局部health也可能不注册；不是必然留下一个200探针。checker由依赖装配构成；运行期RequirePermission遇到缺失checker则500并停止handler。
 
-所有管理路由统一检查 Resource/Action。允许则进入 handler；拒绝返回 403；运行时不可用返回 503，其他内部错误返回 500。每次请求只进行一个授权空间内的判断。
+“无路由AuthN/AuthZ”不等于绕过全部HTTP处理：全局安全、日志、追踪等middleware仍可执行；CORS预检OPTIONS可提前返回200。继承墓碑不访问业务数据库，局部health也不探测快照、订阅、MySQL或整实例readiness。静态契约、当前实例注册表及生产Ingress可达性仍分别取证。
 
-角色、Grant 和 Assignment 的应用服务还校验原始操作权限与管理保护。受保护角色需要额外的 `roles/manage_protected`，普通角色也不能承载敏感能力。用户权限通过当前策略判断；服务身份只能来自可信传输上下文，受管 Assignment 还按部署配置重新检查管理集合。
+## 4. 管理保护的边界：能力、对象与委派
 
-Resource 目录写入只接受具备对应操作权限的 actor。角色名和 `IsSystem` 不构成放行依据。普通管理保留 read/list/validate_action。
+### 4.1 原始动作与manage_protected是两道不同检查
 
-## AuthZ 管理路由
+REST用户修改受保护Role，须持有roles/update，且须持有roles/manage_protected。仅有后者不允许任意创建、更新、删除或分配；普通Role命名为admin也没有豁免。Guard内可信service=admin是内部服务通道的例外，REST用户不会因角色名或提交字符串而成为这个服务身份。
 
-Role、Assignment、Grant 和 Resource 路由分别绑定各自 Resource/Action；继承路由已退役为 410。新增 handler 时必须同时更新：
+Role、Grant写入使用RequireOperation复核原始动作，再对目标Role检查管理保护；Assignment使用RequireAssignment，REST用户仍按grant/revoke动作检查。ResourceCatalog则以命令的Actor再次检查resources对应写动作。该Actor由REST可信UserID构造，应用只检查非零并交给authorizer，不独立认证Actor或和私有context actor比较；受信适配器的身份映射是合同的一部分。
 
-- route registry；
-- permission catalog；
-- bootstrap/迁移所需 Grant；
-- OpenAPI；
-- route-contract 和 docs-facts 门禁。
+目录写入还检查事实依赖：有效Grant仍使用的动作不能被目录更新删去，仍有有效Grant引用的Resource不能删除；Role删除也检查Assignment及有效Grant。锁和事务保证这些被管理事实的完整性，不等于把操作者的权限快照一起锁定。
 
-不能用“已经登录”替代管理权限，也不能通过角色名称直接绕过 Grant。
+路由、原始动作、受保护能力是多次独立Runtime读取，可能看到不同版本。路由v41允许后，应用复核看到撤权v42可以拒绝；应用复核也通过后才发布撤权，写入仍可能提交。当前没有将判定版本绑定到提交的协议，不能把双重检查称为原子撤权屏障。传播预算见[多实例收敛](04-关键链路-多实例策略收敛.md)。
 
-REST handler 主要做四件事：绑定 DTO，从 URL/query/context 获取 ID 与 Tenant，构造 application command/query，将领域错误映射为 HTTP 响应。
-它不应在 handler 内手工复制 Grant schema 或事务版本校验。
+### 4.2 Grant创建权是策略配置权
 
-用户端 REST 使用数据库 ID 定位 Role/Resource/Grant/Inheritance；服务间 Assignment gRPC 为降低对 IAM 内部 ID 的耦合使用 stable role name。
-两条传输路径最终仍必须进入同一 application/domain/UoW 不变量。
+用户U已持有普通Role R，同时有permission_grants/create。若目录登记了assessments/retry，当前Create会锁Role与Resource、验证目录动作及Role保护，但**不检查U是否原先能retry**；U可以向R增加这条能力，随后U及R的其他持有人随快照收敛获得它。无需另创建Assignment，因此这次操作不检查assignments/grant。
 
-## 跨模块路由如何复用 AuthZ
+这个情境是完整应用检查顺序的代码推论，尚无普通用户贯穿REST的专项验收。当前也没有在这里禁止自授、限制与操作者同Org、或按操作者已有能力计算可授予子集。permission_grants/create应按被信任的策略管理权配置，不能解释为有限委托。
 
-AuthZ route authorizer 不只保护 `/api/v4/authz` 路由：
+敏感能力承载是另一个约束：[Role保护规则](../../../internal/apiserver/domain/authz/role/protection.go)只将roles/manage_protected、Resource目录create/update/delete及Profile全量list/search两项列为必须由protected Role承载的能力，并检查通配覆盖。permission_grants/create和assignments/grant自身不在该敏感集合。它不是自动识别所有高风险权限的分类器；保护类别也不会给Role自动添加任何能力。
 
-| 模块/路由类型 | Resource | Action 特征 | 授权方式 |
-| --- | --- | --- | --- |
-| AuthN JWKS 管理 | `iam:authn:collection:jwks` | rotate/retire 等明确动作 | `RequirePermission` |
-| AuthN Session 撤销 | `iam:authn:collection:sessions` | `revoke`、`revoke_by_login_identity`、`revoke_by_user` | `RequirePermission` |
-| IDP WeChat App 管理 | `iam:idp:collection:wechat_apps` | CRUD/list | `RequirePermission` |
-| Suggest 搜索入口 | `iam:identity:collection:profiles` | `search` | 当前 Tenant `RequirePermission` |
-| Cache governance debug | `iam:ops:collection:cache_governance` | `read` | 生产必须 `RequirePermission` |
+创建Role可声明standard/protected，创建protected还须相应管理能力；现行Role更新DTO不修改Name或ManagementProtection。Grant不可原地编辑：变更能力使用创建/撤销事实，已撤销Grant的重复撤销不推进版本，但仍须通过原始动作和Role保护。
 
-这意味着 permission catalog 已是跨模块的路由合同。改 AuthN 管理 URL 时，不能只更新 AuthN 文档；还必须确认 Resource/Action、
-bootstrap Grant 与 route contract 仍对齐。
+### 4.3 查询可见性不是通用数据范围
 
-## AuthN 管理路由
-
-AuthN 的公开 JWKS 与受保护管理接口要区分：
-
-- 公共 JWKS 只用于验签公钥发布；
-- 管理 JWKS 与 Session 撤销路由使用用户 JWT；
-- 路由分别检查 `jwks` 或 `sessions` Resource 下的明确 Action；
-- 统一检查所需 Resource/Action 权限。
-
-具体路径与动作见 [AuthN：JWKS 与本地验签](../02-AuthN/06-关键链路-JWKS与本地验签.md)和
-[Session、Token 与 JWKS](../02-AuthN/03-Session-Token与JWKS.md)。
-
-## Suggest 接入
-
-Suggest 不再根据旧的超级管理员布尔标志或角色名决定搜索范围。当前规则是：
-
-- 平台域命中 `iam:identity:collection:profiles/list`，得到 AllProfile capability；
-- 手机号搜索还需要 `iam:identity:collection:profiles/search_by_mobile`；
-- 业务组织范围与最终查询仍由 Suggest/Identity 的业务链路处理。
-
-授权请求不携带分区字段。
-
-Suggest 外层路由要求 `profiles/search`；provider 根据 `profiles/list_all` 决定是否产生全量范围，全量手机号检索另行检查 `profiles/search_by_mobile_all`。普通范围保留 OrgID、操作人和关联档案约束。
-
-## OpenAPI、Router 与 README 的责任
-
-| 事实 | 首要真相源 |
-| --- | --- |
-| 运行时是否注册 method/path | Gin router |
-| 对外 request/response schema | `api/rest/authz.v4.yaml` |
-| 路由需要的 Resource/Action | router middleware 绑定 + permission catalog |
-| 读者导航与边界 | `api/rest/README.md` 与本文 |
-
-理想状态下四者一致，但它们不是同一层证据。OpenAPI 有路径不能证明当前组合根已注册；router 有路径也不能证明 README 中的 curl URL 没有遗留旧前缀。
-
-docs-facts 现在会抽取 README 中带 HTTP method 的 URL，并与 OpenAPI 及少量明确的 runtime-only 路由对齐。这是反漂移检查，不是 OpenAPI 完整性或生产可达性验收。
-
-## 失败语义
-
-| 失败 | 预期类型 | 不应做的降级 |
+| 应用读取 | 当前检查 | REST之外调用的前提 |
 | --- | --- | --- |
-| token 缺失/无效 | 401/认证错误 | 进入授权或 handler |
-| 已认证但权限检查 deny | 403 | 根据 role name 放行 |
-| routeAuth 未配置 | 500 | 只做 JWT 后放行 |
-| authorization runtime 错误 | 500 | 转成 403 隐藏故障 |
-| handler DTO/领域输入错误 | 4xx | 跳过 command constructor |
-| 引用冲突/已存在 | 冲突类业务错误 | 伪装成成功并静默忽略 |
-| DB/UoW 失败 | 5xx | 留下部分版本/事件 |
+| Role详情/列表 | protected Role需manage_protected；standard直接可见 | 未统一重查read/list动作 |
+| Assignment按Role/Subject列表 | 按关联Role的管理可见性过滤；按Role查询先核对可见性 | 不按本人、公司或Assignment Scope限制目标集合 |
+| Role的Grant列表 | 核对Role可见性，只取有效Grant | 不重新检查permission_grants/list |
+| Resource读取/列表/validate-action | 直接读目录Repository | 原动作由REST路由等适配器承担 |
 
-## 测试与门禁
+无资格读取受保护Role详情，或以其ID查询相关分配/Grant时返回404；有能力调用list并不等于有能力看protected对象。Role列表先取全量、过滤可见对象，再分页，total只计算可见集合。它避免隐藏对象占据页位或混入总数，代价是全量读取与逐对象检查；不能据此承诺大目录固定耗时。
 
-- `router_permissions_test.go` 锁定 AuthZ 子路由的 Resource/Action 绑定。
-- `router_matrix_test.go` 锁定路由注册矩阵与模块局部 health。
-- AuthN middleware 测试锁定 token 验证与 Principal 上下文；AuthZ middleware 测试锁定 单次权限判断、allow/deny/error 组合。
-- `check-route-contracts.py` 比对实际路由与 permission catalog/contract。
-- `check-openapi-contracts.py` 比对 OpenAPI 关键契约。
-- `check-docs-facts.py` 锁定 REST 管理与 gRPC Check 分工，并校验 README 请求 URL。
+例如两个Role，一个standard、一个protected，用户有roles/list但没有manage_protected。请求limit=1可返回普通Role、total=1，不把数据库原始总数2暴露为列表总数。这是算法推演，尚未找到过滤分页total的专项测试。可见性检查也可能多次读取不同策略，不保证列表筛选与路由判定同一版本；404只描述这些读取入口，不是消除全部管理接口存在性线索的承诺。
 
-一项门禁通过只能证明它编码的事实。例如 router matrix 通过不证明生产 ingress 已暴露路由，docs URL 通过也不证明 request schema 每个字段都已验收。
+管理读取不用于QS业务对象的数据Scope准入。相关动作与业务范围配对算法归[领域模型](01-领域模型设计.md)；同一应用能力被内部调用时，需要明确其可信调用者与动作授权责任。
 
-## 接入变更清单
+## 5. DTO行为、成功响应与机器契约缺口
 
-新增 Resource/Action 或调用方时，至少检查：
+| 请求或输出 | 当前实现 | 使用时的具体后果 |
+| --- | --- | --- |
+| Role PUT | display_name/description是普通string，handler总传指针 | 省略display_name或仅改description会400；提供名称但省略description会清空描述 |
+| Resource PUT | 名称/描述是指针，省略或null不更新 | 显式空名称、空actions拒绝；不据HTTP PUT推断与Role相同的部分更新合同 |
+| Role GET列表省略limit | Gin绑定为0，应用裁剪到0条 | 可能有非零可见total却返回空data；客户端应显式提供limit |
+| 创建、删除、撤销成功 | HTTP200，AuthZ DTO的code=200 | 删除不是204；不能套用其他模块通用code=0 |
+| 写入返回的Role/Assignment/Grant/Resource | 不含committed PolicyVersion | 200不是加载水位或所有实例生效回执 |
+| 空退役兼容字段 | 专用解码校验，输出固定空结构 | 非空条件/属性、未知内层键被拒，不能恢复旧能力 |
 
-1. Resource 注册和 attribute schema；
-2. PermissionGrant 数据与角色管理保护边界；
-3. route registry 与中间件；
-4. gRPC 服务 ACL 和 Assignment constraints；
-5. OpenAPI/proto/SDK；
-6. bootstrap、维护校验与多实例 reload；
-7. 拒绝路径、非空条件兼容拒绝与多角色并集测试；旧继承路径返回 410。
+当前AuthZ OpenAPI是3.0.3，不是3.1；存在以下已核对偏移：管理操作没有security声明，但路由强制用户认证；Role更新schema未声明display_name必填；Role列表limit声明默认10但运行时省略为0；错误响应及空兼容结构约束也未完整反映代码。机器契约是维护入口，不能在这些已知差异上把它当完整运行事实。
 
-8. README 中带 HTTP method 的请求 URL，以及退役的 v2 AuthZ 前缀或 REST `check` 引用。
+现行check-route-contracts比较Swagger/OAS method/path集合，不直接检查Gin动作绑定或security。check-openapi-contracts对schema名取短名，而AuthZ组件仍使用完整历史标识，当前17个AuthZ DTO比较候选全部被跳过；绿色结果不能证明本模块字段/required已比对。门禁实现和其他模块差异由[契约治理](../../04-接口与SDK/01-REST-gRPC与契约治理.md#2-rest-契约闭环)登记。本轮只校准文档，没有改变DTO、机器契约、默认值或检查脚本。
 
-## 路由设计评审问题
+## 6. 错误必须按失败层解释
 
-1. 这个端点是管理授权事实，还是判定业务对象？后者应优先 gRPC Check。
-2. Resource/Action 是真正的业务能力，还是为了迎合 HTTP verb 随意命名？
-3. 这个动作是否涉及受保护角色或敏感能力？
-4. 路由缺少 AuthZ 依赖时是不注册/返错，还是会意外放行？
-5. OpenAPI、router、permission catalog、bootstrap 和 README 的 method/path 是否一致？
+| 失败层 | 当前响应 | 不能反推什么 |
+| --- | --- | --- |
+| Token缺失/拒绝、在线验证调用失败 | 401/102002 | 不能仅凭401区分错误凭证与认证依赖故障 |
+| 无可信UserID | 401 | body目标身份不能补足操作者 |
+| 路由或应用动作DENY、protected写入无资格 | 403/103001 | 角色名称不能替代Grant |
+| Runtime无有效新鲜度证明 | 503/103002 | 不应转成普通DENY或默认ALLOW；并非一条同步错误就立即触发 |
+| 缺checker/其他路由授权内部错误 | 500 | 不以403隐藏授权故障 |
+| JSON绑定或输入非法 | 400 | 兼容空字段与未知普通字段处理不同 |
+| 受保护Role不可见/已不存在的读取对象 | 相应404 | 不声明所有非法引用都404 |
+| Role/Resource仍被事实引用、重复有效授权 | 相应409 | 不自动删除依赖或静默当成功 |
+| DB/UoW失败 | 依返回错误映射，通常5xx | 不能从任意5xx确认所有写入均未提交 |
+| 已退役继承路由被注册并命中 | 410、字符串code | 不用通用数字成功/错误包体解析墓碑 |
 
-## 角色详情与不可用错误
+普通顶层REST请求新开事务时，callback/Stage失败并确定回滚，事实、版本、Outbox一起回滚。Required借用事务的宿主回滚责任、commit结果不确定和请求重放另作处理；请求取消也不是所有内存判定已停止的独立保证。当前普通命令忽略本地reload最终错误，数据库提交后仍可能200。具体持久边界由[授权写入](03-关键链路-授权写入与受管Assignment.md)拥有。
 
-Handler 从认证上下文提取操作者，应用查询按 RoleID 加载角色并检查可见性。无 manage_protected 时受保护角色返回 404；关联 Assignment 与 Grant 同样过滤。
+## 7. 跨模块动作的实际例子
 
-任一首次检查返回 `ErrAuthorizationPolicyUnavailable` 时，中间件立即保留错误并返回 503。它不作为普通 DENY，也不继续寻找平台授权旁路。新鲜度合同见 [多实例策略收敛](04-关键链路-多实例策略收敛.md)。
+| 模块入口 | 当前路由能力 | 边界 |
+| --- | --- | --- |
+| AuthN JWKS管理 | jwks的create/list/read/retire/force_retire/cleanup/list_publishable | 没有HTTP rotate动作；公开JWKS另走公开读取 |
+| AuthN Session撤销 | sessions的明确撤销动作 | 用户认证与动作判断；不按管理角色名放行 |
+| IDP WeChat App管理 | wechat_apps的创建/读取/更新、启停、两类密钥轮换、Token读取/刷新 | 当前没有DELETE；不能概括为完整CRUD |
+| Suggest搜索 | AuthZ可用且checker装配时检查profiles/search | 缺AuthZ时允许仅JWT的降级入口，普通可见性与全量能力仍由查询协作决定 |
+| Cache governance debug | cache_governance/read | 生产要求运维认证/动作；开发诊断装配另有分支 |
+
+这里的简称对应`route_permissions.go`等服务端常量及各模块router；当前没有一个名为permission catalog的独立代码组件。路由键、动作目录和初始/维护Grant需要一起核对，但目录登记动作本身不会授予任何用户。
+
+Suggest的降级是该模块的明确分支，不能套用于AuthZ管理；缺checker时全量/手机号能力关闭，普通owner/OrgID/显式ProfileID可见性按[Suggest查询](../05-Suggest/03-关键链路-SuggestProfile查询.md)执行。本页不复制其对象规则。
+
+## 8. 为什么保留路由与应用两层检查
+
+| 方案 | 收益 | 当前选择与代价 |
+| --- | --- | --- |
+| 所有检查只放路由 | HTTP责任集中，容易绑定每个路径 | 内部写入容易绕过；当前写应用仍复核，读应用却没有统一同等动作门禁 |
+| 原操作写入复核＋目标Role保护 | 限制可信传输或内部调用对保护事实的修改 | 多次快照读取，不提供提交时撤权屏障；读应用负责管理可见性，适配器承担原始read/list动作 |
+| 管理者可授予的能力限制为其已有子集（候选） | 给委托设上界 | 策略管理员未必被允许执行所有业务动作；还要处理通配覆盖、动态变化及已有Role持有人，当前未实现 |
+| 按操作者/服务配置可授予能力白名单（候选） | 可使策略治理与业务执行权分开 | 需要独立的委派事实、维护与审计规则；当前Assignment服务白名单并不约束PermissionGrant创建 |
+
+不能仅把“二次鉴权”和“最小权限”写为口号。当前明确选择了受信策略配置权和固定敏感承载保护；如果将接口交给公司管理员或有限委托者，应先设计管理范围与可授予集合，再调整合同和证据，而不是从业务OrgID或Role名字推导现有能力。
+
+## 9. 验证与变更入口
+
+| 关注点 | 已有测试入口 | 实际覆盖 |
+| --- | --- | --- |
+| 用户Claims映射 | [AuthN middleware测试](../../../internal/pkg/middleware/authn/jwt_middleware_test.go) | 断言Gin的UserID/LoginIdentityID/TokenID；未断言标准context的management actor/OrgID或完整Token/依赖故障HTTP链 |
+| ALLOW/DENY/401/500/503及路由输入转换 | [AuthZ middleware测试](../../../internal/pkg/middleware/authz/middleware_test.go)、[路由Decision测试](../../../internal/apiserver/application/authz/authorization/route_decision_service_test.go) | middleware的checker替身忽略入参；Decision测试用人工Subject验证标准Request，不证明Token到可信Subject的完整来源链 |
+| 注册时部分能力绑定、局部410墓碑 | [AuthZ路由测试](../../../internal/apiserver/transport/rest/authz/router_permissions_test.go) | 捕获Grant/Assignment六种能力对，不逐路径请求验证Role/Resource全部动作 |
+| 组合根注册与局部health | [Router测试](../../../internal/apiserver/transport/rest/router_test.go)、[矩阵测试](../../../internal/apiserver/transport/rest/router_matrix_test.go) | Gin注册表/替身，未证明生产Ingress |
+| protected详情隐藏 | [Role handler测试](../../../internal/apiserver/transport/rest/authz/handler/role_isolation_test.go) | 直接handler、SQLite查询，绕过路由认证/授权 |
+| manage_protected不替代原动作 | [Guard测试](../../../internal/apiserver/application/authz/management/protection_test.go)、[敏感承载测试](../../../internal/apiserver/domain/authz/role/protection_test.go) | 替身判定及领域保护 |
+| Resource省略、空名称与空actions | [Resource handler测试](../../../internal/apiserver/transport/rest/authz/handler/resource_test.go) | JSON→命令，未含null用例或完整目录写入验收 |
+| 依赖冲突及重复Grant撤销 | [Role应用测试](../../../internal/apiserver/application/authz/role/command_service_integration_test.go)、[目录应用测试](../../../internal/apiserver/application/authz/resource/command_service_integration_test.go)、[Grant应用测试](../../../internal/apiserver/application/authz/permissiongrant/service_integration_test.go) | SQLite/授权与事件替身，不等于真实MySQL普通用户HTTP端到端 |
+
+伪造granted_by的完整HTTP链、策略配置权扩展目标能力、过滤后分页total、多次鉴权跨版本，以及Role PUT/默认limit完整handler行为，均有当前源码依据，尚未找到覆盖完整情境的专项测试。现有MySQL写竞争测试使用可信admin或放行目录作者，证明的是事实锁与依赖约束，不能扩大为REST用户管理边界验收。
+
+新增或修改端点时，同步实际router、资源/动作常量、目录与初始/维护Grant、DTO映射、OpenAPI、消费者及正反用例；检查执行数量/覆盖范围也要核对，不能只保存绿色结论。请求输入、受信操作者、事实提交、实例加载、生产路径和业务正反结果分别记录。

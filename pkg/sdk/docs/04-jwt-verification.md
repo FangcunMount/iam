@@ -32,14 +32,14 @@
 │                                                       │
 │  ┌────────────┐  ┌────────────┐  ┌────────────┐    │
 │  │Local验证    │  │Remote验证   │  │Caching验证 │    │
-│  │<1ms        │  │~50ms       │  │<1ms (缓存) │    │
+│  │签名/声明    │  │在线状态    │  │宿主显式装配│    │
 │  └────────────┘  └────────────┘  └────────────┘    │
 └──────────────────────────────────────────────────────┘
                         ↓
 ┌──────────────────────────────────────────────────────┐
 │ JWKSManager (Chain of Responsibility 职责链)          │
 │                                                       │
-│  Cache → CircuitBreaker → HTTP → gRPC → Seed        │
+│  Cache → 可选 CircuitBreaker → HTTP → gRPC → Seed  │
 │  ↓        ↓                ↓      ↓      ↓          │
 │  快速     保护             主要   降级    兜底         │
 └──────────────────────────────────────────────────────┘
@@ -57,10 +57,10 @@
    └─ JWKS 基础设施失败? → Remote fallback
           ↓
 3️⃣ JWKS Manager 获取密钥
-   ┌─ Cache 命中? → 直接返回 (0.1ms)
-   ├─ HTTP 成功? → 返回并缓存 (10ms)
-   ├─ gRPC 成功? → 降级返回 (20ms)
-   └─ Seed 存在? → 兜底返回 (0.5ms)
+   ┌─ Fresh Cache 命中? → 返回当前缓存集合
+   ├─ HTTP 成功? → 替换集合并重设缓存时间
+   ├─ gRPC 成功? → 替换集合并重设缓存时间
+   └─ Seed 成功? → 同样重设缓存时间，不证明源端最新
           ↓
 4️⃣ 验证 JWT
    ✓ 算法 allowlist
@@ -71,19 +71,21 @@
           ↓
 5️⃣ 返回结果
    Valid: true
-   UserID: "user-123"
+   UserID: "123"
    SessionID: "sid-123"
-   Roles: ["admin", "user"]
+   AMR: ["pwd"]
 ```
 
-### 性能对比
+### 验证合同对比
 
-| 验证方式 | 延迟 | 可靠性 | 适用场景 |
-| --------- | ------ | ------- | --------- |
-| 🚀 **本地+缓存** | <1ms | ⭐⭐⭐⭐⭐ | 高频、可接受最终一致撤销语义的 API |
-| ⚡ **本地验证** | 1-5ms | ⭐⭐⭐⭐ | 常规高频 API |
-| 🌐 **远程验证** | 20-50ms | ⭐⭐⭐ | 需要权威判断 revoke / session / subject state 的操作 |
-| 🔄 **Fallback** | 自适应 | ⭐⭐⭐⭐⭐ | 仅在 JWKS 获取故障时远程求证；Token 语义失败直接拒绝 |
+| 验证方式 | 可取得的事实 | 接入责任 |
+| --- | --- | --- |
+| 本地验签/公钥缓存 | 签名、配置约束与本地声明 | 明确密钥更新和在线状态窗口 |
+| 远程验证 | IAM调用时密钥/登录态/准入 | 设置deadline；不形成在途请求撤销屏障 |
+| Fallback | 本地先验，仅获取失败或空集合可远端求证 | 未知kid/签名/claims失败直接拒绝 |
+| 显式验证结果缓存 | 复用宿主缓存的结果 | token-only key等限制另见下文，默认未装配 |
+
+本仓库没有这些路径的延迟benchmark或生产性能证据，不给毫秒或可靠性星级承诺。
 
 ### 降级链路
 
@@ -98,24 +100,36 @@ Token 验证: Remote fallback
   → 直接拒绝，不做 Remote fallback
 ```
 
-### 3 行代码开始
+### 最小构造与验证
 
 ```go
 // 1️⃣ 创建 JWKS 管理器和验证器
-jwksManager, _ := authjwks.NewJWKSManager(
-    &sdk.JWKSConfig{URL: "https://iam.example.com/.well-known/jwks.json"},
+jwksManager, err := authjwks.NewJWKSManager(
+    &sdk.JWKSConfig{
+        URL: "https://iam.example.com/.well-known/jwks.json",
+        RefreshInterval: 5 * time.Minute,
+        RequestTimeout: 5 * time.Second,
+    },
 )
-verifier, _ := authverifier.NewTokenVerifier(
-    &sdk.TokenVerifyConfig{AllowedAudience: []string{"my-app"}},
+if err != nil { return err }
+defer jwksManager.Stop()
+verifier, err := authverifier.NewTokenVerifier(
+    &sdk.TokenVerifyConfig{
+        AllowedAudience: []string{"my-app"},
+        AllowedIssuer: "https://iam.example.com",
+        RequireExpirationTime: true,
+    },
     jwksManager,
     nil,
 )
+if err != nil { return err }
 
 // 2️⃣ 验证 Token
-result, _ := verifier.Verify(ctx, token, nil)
+result, err := verifier.Verify(ctx, token, nil)
+if err != nil { return err }
 
 // 3️⃣ 使用结果
-if result.Valid {
+if result.Valid && result.Claims != nil {
 	log.Printf("用户: %s, 认证手段: %v", result.Claims.UserID, result.Claims.AMR)
     log.Printf("会话: %s", result.Claims.SessionID)
 }
@@ -129,8 +143,8 @@ if result.Valid {
 
 | 对比项 | 远程验证 | 本地验证 |
 | ------- | --------- | --------- |
-| 性能 | ❌ 50ms+ | ✅ <1ms |
-| 可靠性 | ❌ 依赖 IAM 服务 | ✅ 本地独立 |
+| 调用成本 | 每次RPC及在线存储读取 | 本地密码学计算与按需获取公钥 |
+| 状态来源 | IAM当前读取 | 已取得公钥及JWT声明 |
 | 网络开销 | ❌ 每次请求 | ✅ 定期刷新 |
 | 适合场景 | 需要权威状态判断 | 高频 API |
 
@@ -147,9 +161,9 @@ if result.Valid {
 - `revoked_access_token`
 - `session(sid)` 已被 revoke
 - 用户被封禁
-- 账号被禁用或锁定
+- 登录入口被禁用；Credential锁定不属于在线Admission的逐次检查
 
-如果你的业务要求这些状态即时生效，就不要只做本地验签，而应调用在线 `Auth().VerifyToken(...)`。
+需要调用时状态检查时，调用在线 `Auth().VerifyToken(...)`；它不终止已经开始的读取。当前本地默认不要求exp存在，需启用RequireExpirationTime/RequiredClaims；RequiredClaims只检查存在，不校验IAM的SID/身份非零/sub=UserID等领域不变量。轮换、seed年龄、获取安全与失败边界由 [JWKS主文](../../../docs/02-业务模块/02-AuthN/06-关键链路-JWKS与本地验签.md) 维护。
 
 ---
 
@@ -164,9 +178,9 @@ TokenVerifier (Strategy 模式)
 
 JWKSManager (Chain of Responsibility 模式)
 ├── CacheFetcher           ← 内存缓存
-├── CircuitBreakerFetcher  ← 熔断保护
+├── CircuitBreakerFetcher  ← 显式启用，包住获取链
 ├── HTTPFetcher            ← HTTP 获取
-├── GRPCEndpointFetcher    ← gRPC 降级
+├── GRPCFetcher/Endpoint   ← 已有AuthClient优先，独立endpoint固定insecure
 └── SeedFetcher            ← 本地种子备份
 ```
 
@@ -265,7 +279,7 @@ type TokenVerifyConfig struct {
     // AllowedIssuer 允许的 issuer
     AllowedIssuer string
     
-    // ClockSkew 时钟偏差容忍度（默认 1 分钟）
+    // ClockSkew 时钟偏差容忍度（零值为0，不自动补1分钟）
     ClockSkew time.Duration
     
     // RequireExpirationTime 是否要求 exp 声明
@@ -279,7 +293,7 @@ type TokenVerifyConfig struct {
     RequiredClaims []string
     
     // Algorithms 允许的签名算法列表
-    // 支持: RS256, RS384, RS512, ES256, ES384, ES512, PS256, PS384, PS512, EdDSA
+    // 当前只接受RS256；其他值会拒绝配置
     // 如果为空，默认只允许 RS256
     Algorithms []string
 }
@@ -295,11 +309,13 @@ type TokenVerifyConfig struct {
     RequireExpirationTime:   true,
     ForceRemoteVerification: false,
     RequiredClaims:          []string{"sub", "user_id"},  // 必须包含这些声明
-    Algorithms:              []string{"RS256", "ES256"},  // 只允许这些算法
+    Algorithms:              []string{"RS256"},
 }
 ```
 
 ## JWKSConfig 配置
+
+NewClient只保存该配置，不装配Manager/Verifier或填JWKS默认值。Env/Viper loader才默认RefreshInterval=5分钟/RequestTimeout=5秒；直接URL-only Manager没有后台刷新且HTTP timeout为0。ForceRefresh绕cache但仍经过熔断/seed，成功未必拿到源端最新集合；seed成功重新计缓存年龄，不能用CacheTTL约束seed公钥年龄。独立endpoint/Stop/畸形seed与并发刷新限制见 [JWKS主文](../../../docs/02-业务模块/02-AuthN/06-关键链路-JWKS与本地验签.md)。
 
 ```go
 type JWKSConfig struct {
@@ -334,7 +350,7 @@ type JWKSConfig struct {
 ```go
 &JWKSConfig{
     URL:             "https://iam.example.com/.well-known/jwks.json",
-    GRPCEndpoint:    "iam.example.com:8081", // HTTP 失败时降级到 gRPC
+    // 生产mTLS接入通过WithAuthClient复用已配置Client，独立GRPCEndpoint为明文路径
     RefreshInterval: 5 * time.Minute,
     RequestTimeout:  10 * time.Second,
     CacheTTL:        1 * time.Hour,
@@ -459,9 +475,9 @@ _, _, _ = localVerifier, remoteVerifier, fallbackVerifier
 JWKS Manager 使用职责链模式，按顺序尝试：
 
 1. **CacheFetcher** - 内存缓存（最快）
-2. **CircuitBreakerFetcher** - 熔断保护
+2. **CircuitBreakerFetcher** - 显式启用；包住整条HTTP/gRPC/seed链
 3. **HTTPFetcher** - HTTP 获取（主要方式）
-4. **GRPCEndpointFetcher** - gRPC 降级（HTTP 失败时）
+4. **GRPCFetcher / GRPCEndpointFetcher** - 已提供AuthClient优先，否则独立endpoint（后者固定insecure）
 5. **SeedFetcher** - 本地种子备份（兜底）
 
 ### 配置职责链
@@ -498,6 +514,8 @@ jwksManager, err := authjwks.NewJWKSManager(cfg,
 caching := authverifier.NewCachingVerifyStrategy(delegate, cache, 5*time.Minute)
 verifier := authverifier.NewTokenVerifierWithStrategy(caching)
 ```
+
+该wrapper以token-only key命中，不重新检查exp/aud/issuer/options或裁TTL；显式strategy构造器没有remoteStrategy，ForceRemote不会旁路它。默认Verifier没有装配结果缓存，具体约束与例子见 [Token主文](../../../docs/02-业务模块/02-AuthN/05-关键链路-Token签发刷新吊销.md)。
 
 ### 3. 预热缓存
 
@@ -580,7 +598,7 @@ verifyCounter.WithLabelValues(label).Inc()
 
 &JWKSConfig{
     URL:             "https://iam.example.com/.well-known/jwks.json",
-    GRPCEndpoint:    "iam.example.com:8081",     // gRPC 降级
+    // 使用WithAuthClient(client.Auth())复用mTLS连接，独立endpoint不继承TLS
     RefreshInterval: 5 * time.Minute,            // 每 5 分钟刷新
     RequestTimeout:  10 * time.Second,           // HTTP 超时 10 秒
     CacheTTL:        1 * time.Hour,              // 缓存 1 小时
@@ -591,7 +609,7 @@ verifyCounter.WithLabelValues(label).Inc()
 ### 启动流程
 
 ```go
-func setupJWTVerifier(ctx context.Context, client *sdk.Client) (*auth.TokenVerifier, error) {
+func setupJWTVerifier(ctx context.Context, client *sdk.Client) (*authverifier.TokenVerifier, error) {
     // 1. 创建 JWKS Manager
     jwksManager, err := authjwks.NewJWKSManager(
         cfg.JWKS,
@@ -627,7 +645,7 @@ func setupJWTVerifier(ctx context.Context, client *sdk.Client) (*auth.TokenVerif
 
 ### Q: 如何处理 JWKS 密钥轮换？
 
-A: SDK 会自动刷新 JWKS。配置合理的 `RefreshInterval`（如 5 分钟）即可。
+A: Manager识别到cache且RefreshInterval>0才启动后台刷新；未知kid不自动刷新，刷新也可能只拿到旧seed。宿主须显式构造Manager/Verifier、核对新kid接受结果；完整轮换边界见 [JWKS主文](../../../docs/02-业务模块/02-AuthN/06-关键链路-JWKS与本地验签.md)。
 
 ### Q: 本地验证失败会怎样？
 
@@ -644,7 +662,7 @@ authjwks.WithSeedData(seedJWKSJSON)
 
 ### Q: Token 验证性能如何？
 
-A: 本地验证通常在 1ms 以内。若需要缓存验证结果，需要自行装配 `CachingVerifyStrategy`。
+A: 本仓库没有可支持固定延迟的benchmark，需在实际算法、硬件和流量下测量。结果缓存由宿主显式装配，并承担前述调用参数/过期限制。
 
 ## 下一步
 

@@ -15,8 +15,9 @@ import yaml
 
 ROOT = Path(__file__).resolve().parent.parent
 ACTIVE_STATUS_PATTERN = re.compile(
-    r"^> 状态：(已实现|规划改造)(?: · .+)?$", re.MULTILINE
+    r"^> 状态：(已实现|规划改造|历史记录)(?: · .+)?$", re.MULTILINE
 )
+HISTORICAL_DOCS = ("docs/_data/reviews/2026-10-06-docs-refactor.md",)
 PERSONAL_GO_PATH_PATTERN = re.compile(
     r"/Users/[^/\s]+/\.gvm/gos/[^/\s]+/bin/go"
 )
@@ -261,10 +262,10 @@ def check_generated_document_facts() -> None:
             "LoginIdentity",
             "Credential",
             "Challenge",
-            "AuthCredential",
+            "IdentityProof",
             "AuthDecision",
             "Principal",
-            "AdmissionDecision",
+            "admission.Decision",
             "AccessTokenClaims",
             "Session",
             "UserTokenSet",
@@ -468,7 +469,7 @@ def check_generated_document_facts() -> None:
             f"configs/apiserver.dev.yaml: documented={quick_start_ports} actual={dev_port}"
         )
 
-    status_counts = {"已实现": 0, "规划改造": 0}
+    status_counts = {"已实现": 0, "规划改造": 0, "历史记录": 0}
     active_docs = active_markdown_files()
     for path in active_docs:
         text = path.read_text(encoding="utf-8")
@@ -482,19 +483,11 @@ def check_generated_document_facts() -> None:
             )
         if "提示词" in path.name:
             fail(f"historical prompt remains in active docs: {path.relative_to(ROOT)}")
-    status_summary = (
-        f"Active docs 状态计数：总计 `{len(active_docs)}` 篇，"
-        f"`已实现` `{status_counts['已实现']}` 篇，"
-        f"`规划改造` `{status_counts['规划改造']}` 篇。"
-    )
-    acceptance = (
-        ROOT / "docs/01-运行时/08-IAM重构最终验收记录.md"
-    ).read_text(encoding="utf-8")
-    if status_summary not in acceptance:
-        fail(
-            "final acceptance record has a stale active-doc status count; "
-            f"expected: {status_summary}"
-        )
+    # Dated acceptance counts remain historical evidence; print today's
+    # inventory rather than requiring a rewrite of the old record.
+    print("Current documentation inventory: " + ", ".join(
+        f"{key}={value}" for key, value in status_counts.items()
+    ))
     archived_prompt = (
         ROOT / "docs/_archive/2026-08-18-遗留资产安全退役目标提示词.md"
     )
@@ -1042,18 +1035,31 @@ def check_compatibility_retirement_evidence() -> None:
         fail("Batch C owner waiver is missing its grant date")
 
 
+def validate_documentation_status(path: Path, text: str) -> str:
+    relative = path.relative_to(ROOT).as_posix()
+    statuses = ACTIVE_STATUS_PATTERN.findall(text)
+    if len(statuses) != 1:
+        fail(f"{relative} must contain exactly one active status (已实现, 规划改造 or 历史记录)")
+    status = statuses[0]
+    if relative in HISTORICAL_DOCS:
+        if status != "历史记录":
+            fail(f"dated execution evidence must be classified as historical: {relative}")
+        if not re.search(r"20\d{2}-\d{2}-\d{2}", text):
+            fail(f"historical record has no date: {relative}")
+    elif status == "历史记录":
+        fail(f"historical record is not registered: {relative}")
+    return status
+
+
 def check_active_docs() -> None:
     planning_docs: list[Path] = []
     for path in active_markdown_files():
         text = path.read_text(encoding="utf-8")
-        statuses = ACTIVE_STATUS_PATTERN.findall(text)
-        if len(statuses) != 1:
-            fail(
-                f"{path.relative_to(ROOT)} must contain exactly one active status "
-                "(已实现 or 规划改造)"
-            )
-        if statuses[0] == "规划改造":
+        status = validate_documentation_status(path, text)
+        if status == "规划改造":
             planning_docs.append(path)
+        if status == "历史记录":
+            continue
         if path.name != "CONTRIBUTING-DOCS.md":
             for forbidden in (
                 "待补证据",
