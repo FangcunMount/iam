@@ -20,8 +20,8 @@ AuthN 维护 LoginIdentity 与 Credential，核验请求者对登录入口的控
 | Session/Token对象校验、存储恢复、声明投影、寿命与兼容证据 | [Session、Token 与 JWKS](03-Session-Token与JWKS.md) |
 | 初始颁发、Verify结果、Refresh寿命/回退/轮换、Logout与任务撤销的失败窗口 | [Token 主链路](05-关键链路-Token签发刷新吊销.md) |
 | 密钥/PEM激活失败窗口、发布/缓存、未知kid、seed年龄、轮换/退役与恢复验收 | [JWKS 主链路](06-关键链路-JWKS与本地验签.md) |
-| 跨模块传递什么、事务与同步/异步协作如何选择 | [模块边界](07-模块边界-AuthN与Identity-IDP-AuthZ.md) |
-| 找代码、评估改动面、选择验证入口 | [分层与代码索引](08-分层架构与代码索引.md) |
+| User状态与任务去重/在途窗口、外部解析与映射差异、服务Actor与Subject、Suggest同组织范围 | [模块边界](07-模块边界-AuthN与Identity-IDP-AuthZ.md) |
+| 真实调用/装配、方法与SDK分派、端口/事务位置、启动副作用和验证范围 | [分层与代码索引](08-分层架构与代码索引.md) |
 
 第一次阅读按总览 → 领域模型 → 目标用例进入；排查刷新、撤销或密钥问题直接进入相应链路。保留既有文件名及两个 `03`，以标题定位主题。
 

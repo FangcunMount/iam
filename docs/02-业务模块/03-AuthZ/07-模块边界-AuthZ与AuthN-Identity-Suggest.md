@@ -93,13 +93,15 @@ sequenceDiagram
     Note over A,B: 业务调用必须遵守认证与业务准入拒绝
 ```
 
-Deactivate/Block同事务保存User状态与Session revoke_all任务；Worker另行调用AuthN Revoker。它们不调用AuthZ、不删Assignment、不推进PolicyVersion。在线Verify的UserStatus检查可以覆盖Worker延迟，但受信服务直接调用AuthZ不会补这次状态检查。
+Deactivate/Block在状态改变时同事务保存User并尝试Stage Session revoke_all意图；Stage成功也可能命中已有任务而不新增pending。Worker另行调用AuthN Revoker。它们不调用AuthZ、不删Assignment、不推进PolicyVersion。在线Verify的UserStatus检查可以覆盖Worker延迟，但受信服务直接调用AuthZ不会补这次状态检查。
 
 因此默认60秒授权证明预算不是停用传播SLA：User停用根本没有成为AuthZ投影事实，版本核对可继续保持该授权快照fresh。消费者若只做本地JWT验签再Check，也不能靠AuthZ预算获得在线封禁语义。已通过认证的在途请求还存在之后状态变化的窗口。
 
 重新Activate同样不重新授予角色；只要原分配未撤销，它们仍参与求值。保留岗位与停止账户使用是当前两个操作，业务若要求离职同时清空岗位，需要明确的撤权流程、受管边界及失败恢复，而不是假定Deactivate已经做完。
 
 会话还有独立窗口：Activate不取消旧撤销任务，Worker也不按Task.UserVersion或当前User状态跳过；RevokeByUser按执行时的用户索引列举Session。停用→激活→新登录后，旧任务若此时列举，会撤销新Session；列举后才加入的SID不在本轮集合内，失败重试则可能重新列举。这是当前源码的时序推论，未做竞争运行验证，不能承诺Activate会恢复旧Session或保护新Session免受旧任务影响。
+
+还有重复停用的独立限制：当前标准User更新路径不推进users.version，Stage按user/version/action去重，旧completed行保留时可使后续意图不再排队。Activate只有application能力，没有公开激活协议。限定条件、迁移唯一键测试及代次候选由[AuthN模块边界](../02-AuthN/07-模块边界-AuthN与Identity-IDP-AuthZ.md#3-停用用户状态判断与会话清理互补任务成功不是并发屏障)维护，不以源码推论认定实际环境已发生问题。
 
 ### 4.3 更强停用语义的候选取舍
 

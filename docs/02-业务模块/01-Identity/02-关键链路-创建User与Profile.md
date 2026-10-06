@@ -1,436 +1,288 @@
 # 关键链路：创建 User 与 Profile
 
-> 状态：已实现 · 已核对 Identity gRPC、AuthN signup、application、UnitOfWork、repository、migration 和测试。
+> 状态：已实现 · 本文维护创建入口、输入投影、事务与失败语义。候选改进尚未实施；测试与真实环境证据分开记录。
 
-## 1. 本文回答
+## 1. 三个创建用例，分别完成什么
 
-- User 当前会从哪些入口被创建？
-- 为什么 Identity 不提供“同时创建 User + Profile”的通用命令？
-- 为什么 `CreateProfile` 必须同时创建 ProfileLink？
-- Identity 创建 User 与 AuthN signup 创建 User 有什么不同？
-- 哪些校验在 transport、domain、application 或 database 中完成？
-- 两条创建链路的事务、并发和失败边界是什么？
+当前没有通用的“创建 User 并自动建本人档案”命令。注册主体、开通登录和业务建档分别由以下用例负责：
 
-## 2. 30 秒结论
-
-当前没有一个通用的“同时创建 User + Profile” Identity 用例。真实创建语义是：
-
-```text
-Identity CreateUser
-  -> 只创建 User
-
-Identity CreateProfile
-  -> 为已存在 User 创建 Profile
-  -> 同事务创建 ProfileLink
-
-AuthN SignUp
-  -> 解析或创建 User
-  -> 同事务创建/复用 LoginIdentity
-  -> 按需创建 Credential
-  -> 不创建 Profile
-```
-
-对外协议上：
-
-- Identity 自身的 `CreateUser` 和 `CreateProfile` 只通过 gRPC 暴露；
-- Identity REST 没有 User、Profile 或 ProfileLink 创建路由；
-- AuthN REST/gRPC signup 是另一条会产生 User 记录的跨模块链路，不能被忽略。
-
-最重要的一致性差异是：Identity `CreateUser` 会对非空 Phone 执行唯一性预检查；AuthN signup 会根据 LoginIdentity 复用 User，不按 Phone 复用，也不调用该 checker。
-数据库又没有 Phone 唯一键，所以“非空 Phone 全局唯一”并不是当前系统级保证。
-
-## 3. 问题背景
-
-### 3.1 注册主体、开通登录和业务建档是三件事
-
-User、LoginIdentity 和 Profile 的生命周期不同：
-
-- User 是 IAM 内部稳定主体；
-- LoginIdentity 表达 username、phone、wechat 等可用于登录的 provider key；
-- Profile 表达业务服务对象的档案事实。
-
-将它们绑成一个固定创建流程会引入错误假设：
-
-- 创建 User 必然已获得完整档案资料；
-- 一个 User 必然要为本人建档；
-- 创建 User 必然已经选定登录 provider；
-- 注册失败、建档失败和登录开通失败必须共享一个补偿模型。
-
-因此当前系统保留了不同的创建边界，并只在必须原子成功的地方组合对象。
-
-### 3.2 Profile 可以独立建模，但当前创建用例不允许孤立落库
-
-Profile 不是 User 的内嵌子对象，但当前的业务命令是“为某个 User 建档”。这意味着：
-
-```text
-模型可独立 != 当前公开用例允许独立创建
-```
-
-如果先保存 Profile，再由调用方建立 ProfileLink，第二步失败就会留下孤立 Profile。当前 `MyProfiles.Create` 因此将两次写入收敛到同一 Identity UnitOfWork。
-
-## 4. 设计目标与约束
-
-| 目标或约束 | 对创建链路的影响 |
-| --- | --- |
-| User 可在未建档时存在 | `CreateUser` 不隐式创建 Profile |
-| Profile 创建后必须有明确关系 | `CreateProfile` 同事务创建 ProfileLink |
-| User 不一定为本人建档 | relation 由创建命令显式提供 |
-| AuthN signup 不能留下孤立 User 或 LoginIdentity | AuthN UOW 同事务使用 User、LoginIdentity、Credential repository ports |
-| 对终端用户收窄身份写入面 | Identity 创建命令仅暴露 gRPC，REST 仅自助查改 |
-| 唯一性预检查无法抵御并发 | IDCard 有 DB 唯一键兜底；Phone 当前存在缺口 |
-| 契约字段不能超前于实现 | operator、contacts、external identities 等未消费字段单独标记为缺口 |
-
-## 5. 当前创建入口总图
-
-```mermaid
-flowchart LR
-    Internal["internal caller"] --> IL["IdentityLifecycle.CreateUser"]
-    IL --> IC["identity/user.Creator"]
-    IC --> IUOW["Identity UOW"]
-    IUOW --> USER[(users)]
-
-    Internal --> PC["ProfileCommand.CreateProfile"]
-    PC --> MP["identity/profile.MyProfiles"]
-    MP --> IUOW
-    IUOW --> PROFILE[(profiles)]
-    IUOW --> LINK[(profile_links)]
-
-    Client["signup caller"] --> SIGNUP["AuthN SignUp"]
-    SIGNUP --> AUOW["AuthN UOW"]
-    AUOW --> USER
-    AUOW --> LOGIN[(auth_login_identities)]
-    AUOW --> CRED[(auth_credentials)]
-```
-
-| 创建场景 | 对外入口 | 事务中的主要写入 | 是否建 Profile |
+| 用例 | 入口与编排者 | 本次写入 | 成功不表示 |
 | --- | --- | --- | --- |
-| Identity User 生命周期 | gRPC `IdentityLifecycle.CreateUser` | User | 否 |
-| 为已存在 User 建档 | gRPC `ProfileCommand.CreateProfile` | Profile + ProfileLink | 是 |
-| AuthN 登录身份开通 | AuthN REST/gRPC signup | User + LoginIdentity + 可选 Credential | 否 |
+| 创建主体 | Identity gRPC `IdentityLifecycle.CreateUser` → `user.Creator` | 一个 active User | 已有登录入口、Session、Profile 或权限 |
+| 为已有主体建档 | Identity gRPC `ProfileCommand.CreateProfile` → `profile.MyProfiles.Create` | 新 Profile + 新 ProfileLink | 已证明本人/亲属关系，或已有 AuthZ 动作能力 |
+| 开通登录身份 | AuthN REST/gRPC SignUp → signup steps | 解析/创建 User，确保 LoginIdentity、可选 Credential | 已登录或已建 Profile |
 
-## 6. 核心设计决策
+例如，先创建 U17，再为其创建本人 P42 和父母 P43，需要分别执行一次 CreateUser、两次 CreateProfile。第二次建档失败不会撤销此前创建的 U17/P42。三个 RPC 不组成一个数据库事务。
 
-### 6.1 决策 A：User 创建不隐式创建 Profile
+这个拆分允许先注册后建档，也允许 User 为别人建档。当前建档用例已经知道 User 与 relation，因而将 Profile 和 Link 两次写入放进一个同库事务，避免正常顶层调用产生“档案写入成功，关系创建失败”的半完成结果。模型与关系基数由[领域模型](01-领域模型-User-Profile-ProfileLink.md)维护；创建时组合两个对象不改变对象所有权。
 
-> 标签：设计决策 · 提交 `0d62d27d` 和当前测试可证明
+Identity REST 当前只有自助查改，没有 User/Profile/ProfileLink 创建路由；gRPC 是内部写入口。能调用内部服务与能代表某个终端用户创建档案，仍是两个需要区分的授权判断。
 
-#### 解决的问题
+## 2. 谁在调用，谁是目标，审计写的是谁
 
-允许“已有 IAM User，尚未建档”，并让建档流程区分本人和关系人。
+CreateProfile 的 `user_id` 是请求给出的目标 UserID。handler 解析它后直接传给 MyProfiles；应用检查 User 存在，不检查其 active 状态，也不校验目标 UserID 属于服务调用者或最终用户。CreateUser 同样没有在本 handler 中验证最终用户 JWT。
 
-#### 选择
+标准 gRPC 组合链可装配 mTLS、凭证验证、服务 ACL、调用审计。这些服务准入不自动形成用户委派。仓库生产配置模板启用 mTLS/ACL/audit，关闭应用层凭证认证；这描述模板，不能证明当前部署使用了同一配置。
 
-`user.Creator.Create` 只构造和保存 User。Profile 必须由后续明确用例创建。
-
-#### 替代方案
-
-1. User 创建时自动创建空 self Profile；
-2. 将 User 资料直接当成 Profile；
-3. 对外只暴露固定的 User + self Profile 组合命令。
-
-#### 未采用原因
-
-这些方案都默认注册信息足以建档，且首次 Profile 必然是 self，不符合当前允许关系人建档的模型。
-
-#### 代价与后果
-
-调用方必须显式处理“无 self Profile”，也不能将 User 创建成功当成建档成功。
-
-### 6.2 决策 B：Profile 和 ProfileLink 是一个组合建档用例
-
-> 标签：设计决策 · 提交 `5dd54232`、`MyProfiles.Create` 和 Identity UOW 可证明
-
-#### 解决的问题
-
-防止 Profile 成功落库、ProfileLink 创建失败后留下孤立档案。
-
-#### 选择
-
-`MyProfiles.Create` 使用同一个 Identity UnitOfWork 完成 Profile 和 ProfileLink 写入，并同时返回两个结果。
-
-#### 替代方案
-
-1. 暴露 standalone `CreateProfile` 和 `EstablishProfileLink`，由调用方编排；
-2. 先建 Profile，链接失败后删除或异步补偿；
-3. 允许孤立 Profile，由后续归属任务处理。
-
-#### 未采用原因
-
-当前建档语义已经知道 User 和 relation，没有必要为一个本地 MySQL 可原子完成的写入引入孤立状态和补偿机制。
-
-#### 代价与后果
-
-如果未来出现“先批量导入档案，之后再建立归属”的需求，应新增专门用例和孤立数据治理，而不是把当前组合用例拆散。
-
-### 6.3 决策 C：Identity 创建命令只暴露 gRPC
-
-> 标签：设计决策 · 提交 `5dd54232`、当前 router 和 proto 可证明
-
-#### 解决的问题
-
-区分面向当前登录用户的自助查改，与受信内部服务的身份创建和编排。
-
-#### 选择
-
-Identity REST 仅保留 `/identity/me`、Profile 和 ProfileLink 查改；Identity 创建 User/Profile 只位于 gRPC `IdentityLifecycle` 和
-`ProfileCommand`。
-
-#### 替代方案
-
-- REST 和 gRPC 暴露完全对称的写入能力；
-- 客户端直接调用 application；
-- 所有写入都收敛到 AuthN signup。
-
-#### 代价与后果
-
-能力不对称降低了外部写入面，但接入方和文档必须明确区分 Identity API 与 AuthN signup，不能从 application 已有类型推导 REST 也有同名路由。
-
-### 6.4 决策 D：AuthN signup 用一个跨模型 MySQL 事务开通登录身份
-
-> 标签：设计决策 · AuthN UOW、signup steps 和契约测试可证明
-
-#### 解决的问题
-
-避免创建 User 后 LoginIdentity/Credential 失败，或 LoginIdentity 成功后 User 不存在的半完成账号。
-
-#### 选择
-
-AuthN `SignUp` 的 UOW 在同一 MySQL 事务中提供 Identity User、AuthN LoginIdentity 和 Credential repository ports。
-signup 先按 LoginIdentity provider key 解析 User，未命中时创建 User，再确保 LoginIdentity/Credential。
-
-#### 替代方案
-
-1. AuthN 先调用 Identity gRPC，再开始 AuthN 本地事务；
-2. 通过事件异步创建 User 或 LoginIdentity；
-3. 允许部分成功并建立补偿工作流。
-
-#### 未采用原因
-
-当前三类记录使用同一 MySQL 事务基础，可直接获得原子性；分布式调用或异步补偿会增加中间状态和运维成本。
-
-#### 边界代价
-
-AuthN application/UOW 显式依赖 Identity `user.Repository` port，而不是 Identity application `Creator`。这是为了事务原子性接受的跨模块结构耦合，
-不应扩展成 AuthN 可以任意编辑 User/Profile/ProfileLink。
-
-### 6.5 决策 E：唯一性使用“业务预检查 + DB 兜底”
-
-> 标签：当前实现
-
-application checker 能返回稳定的业务错误，数据库唯一键在并发下做最终裁决：
-
-| 字段 | Identity application 预检查 | DB 唯一键 | 其他写入链路 |
-| --- | --- | --- | --- |
-| Profile IDCard | 非空时检查 | `profiles.uk_id_card` | 当前 Profile 公开创建收敛到组合用例 |
-| User Phone | Identity Create/Patch 非空时检查 | `users.uk_users_active_phone`（生成列，仅活跃非空手机号） | AuthN signup 不按 Phone 自动合并 User；数据库仍统一裁决冲突 |
-
-因此 IDCard 与活跃 User Phone 都具备数据库并发兜底；User 软删除后手机号可复用。
-
-## 7. Identity `CreateUser` 当前实现
-
-### 7.1 协议输入语义
-
-gRPC `CreateUserRequest` 中当前真正被 handler 消费的是：
-
-| proto 字段 | application 映射 | 当前语义 |
+| 标识 | 当前用途 | 不能据此推出 |
 | --- | --- | --- |
-| `nickname` | `CreateUserDTO.Name` | 必填；实际写入 User.Name，不是 User.Nickname |
-| `phone` | `CreateUserDTO.Phone` | 可选；非空时解析并查重 |
-| `email` | `CreateUserDTO.Email` | 可选；非空时解析 |
-| `avatar_url` | 无 | 当前忽略 |
-| `contacts` | 无 | 当前忽略 |
-| `external_identities` | 无 | 当前忽略 |
-| `operator` | 无 | 当前未校验、未传递 |
+| mTLS 服务身份 | 识别调用服务，供服务 ACL/调用日志使用 | 此次操作代表哪一个人 |
+| CreateProfile.user_id | 要关联新档案的目标 User | 数据库 created_by 就是这个 User |
+| proto OperatorContext | 注释要求写接口提供，但两个创建 handler 均未读取、未强制、未传递 | 填入 operator_id/operator_name 后已经验证或完成操作者审计 |
+| context 的 `requestctx.KeyUserID` | PO BeforeCreate 读取，填 CreatedBy/UpdatedBy；缺失或无效取 0 | 它会由 operator、目标 UserID 或证书服务名自动生成 |
+| RequestID | 调用追踪关联 | 创建去重或第一次结果的恢复键 |
 
-`nickname -> Name` 是当前契约与模型的语义不对称，不应根据字段名误以为它会写入 User.Nickname。
+当前标准 gRPC 链没有把 OperatorContext 或服务身份映射为上述 context UserID。调用审计启用时仍可记录服务身份、凭证、方法与状态；因此“数据库创建人缺失”和“完全没有调用日志”不能混为一谈。
 
-### 7.2 调用链
+假设服务为 U17 建 P42，但 context 没有 UserID：Link.User=U17，Profile/Link 的 CreatedBy=0。Suggest 按 created_by 形成的 owner 投影不能因此把 U17 当作创建人。关系资格与 owner 可见性是不同的消费事实，详见[模型中的消费边界](01-领域模型-User-Profile-ProfileLink.md#7-有效删除可访问必须按消费位置解释)。
+
+## 3. CreateUser：先解析联系字段，再创建主体
+
+### 3.1 输入与结果投影
+
+| 输入 | handler 与应用当前行为 |
+| --- | --- |
+| nickname | handler 拒绝去空白后为空，但把原字符串作为 DTO.Name 传入；领域构造再处理 Name。实际创建 User.Name，不设置 User.Nickname |
+| phone | 可省略；原始空字符串跳过解析/查重。非空交给 meta.Phone 规范化，只有空白的字符串会解析失败 |
+| email | 可省略；非空解析后 ChangeEmail；不执行 Email 唯一性检查 |
+| avatar_url / contacts / external_identities | 当前未消费，不建立外部登录入口或联系验证事实 |
+| operator | 当前未消费，审计语义见第 2 节 |
+| 指定 UserID | 仅内部 CreateUserDTO.ID 支持非零 ID；公开 CreateUserRequest 没有该字段 |
+
+Repository 保存成功后只把 ID 同步回领域对象。结果由 Creator 从内存 User 组装，并非数据库整行回读。proto nickname 可回退到 Name；contacts 没有控制证明时间，avatar/external identities 和审计时间字段也未完整填充。完整字段语义由[模型](01-领域模型-User-Profile-ProfileLink.md)拥有，不按 proto 字段名推断实名、验证或审计能力。
+
+### 3.2 实际顺序与职责
+
+图展开通过各步骤后的成功主路径；任一步返回 error 都终止 callback，不沿后续写入箭头继续。回滚与借用事务的差别见第 5 节。
 
 ```mermaid
 sequenceDiagram
-    participant G as IdentityLifecycle gRPC
+    participant G as CreateUser gRPC
     participant A as user.Creator
-    participant U as Identity UOW
-    participant C as User UniquenessChecker
-    participant D as user.NewUser
+    participant U as Identity UoW
     participant R as UserRepository
 
-    G->>A: Create(Name=nickname, Phone, Email)
-    A->>U: WithinTx
-    U->>C: CheckPhoneUnique
-    C-->>U: empty skips / non-empty queries
-    U->>D: NewUser
-    U->>R: Create
-    R-->>G: UserResult
-```
-
-事务内依次完成：
-
-1. 空 Phone 解析为空值；非空 Phone 解析为 `meta.Phone`；
-2. 对 Phone 调用 `UniquenessChecker.CheckPhoneUnique`；
-3. `user.NewUser` 校验 Name，Status 默认 active；
-4. 按需解析 Email；
-5. 保存 User 并返回结果。
-
-### 7.3 失败边界
-
-| 失败点 | 结果 |
-| --- | --- |
-| nickname 空白 | transport 返回 gRPC `InvalidArgument` |
-| Phone/Email 格式无效 | application 返回编码错误，transport 映射 gRPC status |
-| Phone 预检查冲突 | 事务不写入 User |
-| repository 写入失败 | 事务回滚 |
-| 并发写入同 Phone | `uk_users_active_phone` 只允许一个活跃 User 成功；冲突映射为现有 `ErrUserAlreadyExists` |
-
-Identity `CreateUser` 当前没有请求幂等键。重试是否会创建新 User，取决于 Phone 是否非空且预检查能否命中，不应宣称为幂等接口。
-
-## 8. AuthN `SignUp` 中的 User 创建
-
-### 8.1 调用链
-
-```mermaid
-sequenceDiagram
-    participant T as AuthN REST/gRPC
-    participant S as signup.SignUp
-    participant U as AuthN UOW
-    participant LI as LoginIdentityRepository
-    participant UR as UserRepository port
-    participant CR as CredentialRepository
-
-    T->>S: SignupRequest
-    S->>S: Prepare provider key / user values
-    S->>U: WithinTx
-    U->>LI: find by provider key / global identifier
-    alt existing LoginIdentity
-        U->>UR: load or repair referenced User
-    else no LoginIdentity
-        U->>UR: create User
+    G->>G: 拒绝空白 nickname，映射 Name/Phone/Email
+    G->>A: Create(ctx, DTO)
+    A->>U: WithinTx(callback)
+    U->>A: 以 txCtx 与同一事务仓储执行 callback
+    A->>A: optionalPhone，CheckPhoneUnique
+    opt Phone 非空
+        A->>R: FindByPhone
+        R-->>A: 已有 User / 未找到 / 查询错误
     end
-    U->>LI: ensure LoginIdentity
-    U->>CR: ensure optional Credential
-    U-->>T: SignupResult
+    A->>A: NewUser，默认 active；按需解析并设置 Email
+    A->>R: Create(txCtx, User)
+    R-->>A: error 或成功同步 ID
+    A->>A: toUserResult，callback 返回 nil
+    A-->>U: callback 结果
+    U-->>A: 顶层提交结果，或借用回调结果
+    A-->>G: result, error
+    Note over G,A: handler 优先处理 error；内部 result 不代表已提交
 ```
 
-### 8.2 User 解析语义
+Phone 预检查发生在 NewUser/Email 解析之前。因此同一请求同时存在已占用 Phone 和非法 Email 时，当前首先报告 Phone 冲突，不会穷举所有输入错误。指定非零 DTO.ID 会保留该 ID，但重复创建同 ID 仍撞主键，不会读取并返回旧结果。
 
-`resolveUserStep` 的顺序是：
+### 3.3 当前错误分类
 
-1. 按 LoginIdentity provider key 查询；
-2. 未命中时，如果有 global identifier 则再查询；
-3. 命中 LoginIdentity 时加载其 UserID；允许 repair 的 provider 可在 User 缺失时按原 ID 重建；
-4. 没有命中 LoginIdentity 时创建新 User；
-5. 不会仅因 Phone 相同就复用旧 User。
+下表根据 handler、应用、错误注册和 ToStatusError 联合推导；不是完整网络故障专项结果。
 
-测试 `TestUserResolverDoesNotReuseUserByPhoneWithoutLoginIdentity` 明确保护第 5 条。这避免了只凭联系字段将新 LoginIdentity 绑到旧 User，
-但也意味着 Phone 在这条链路中不是用户合并键。
-
-### 8.3 当前一致性边界
-
-AuthN signup 直接调用 `user.NewUser` 和 `user.Repository.Create`，没有复用 Identity `user.Creator` 的友好预检查；
-最终并发一致性由 `users.active_phone` 生成列和 `uk_users_active_phone` 唯一索引保证。同 Phone 不能经由不同 LoginIdentity 创建多个活跃 User，
-数据库冲突统一映射为现有 `ErrUserAlreadyExists`。
-
-Phone 仍不是账号自动合并键：signup 不会仅凭 Phone 把新 LoginIdentity 绑定到旧 User；唯一索引只负责拒绝重复活跃手机号，不执行隐式账号合并。软删除 User 后，该手机号可被重新使用。
-
-## 9. Identity `CreateProfile` 当前实现
-
-### 9.1 协议输入语义
-
-| proto 字段 | 当前语义 |
-| --- | --- |
-| `user_id` | 必填且必须指向已存在 User |
-| `legal_name` | 必填；transport TrimSpace 后传入 application |
-| `gender` | 可选；male/female 映射 1/2，other/unspecified 映射 0 |
-| `dob` | 可选；非空时检查日期值 |
-| `id_card_number` | 可选；非空时用 Name + Number 构造 IDCard |
-| `relation` | unspecified 映射 `other`；运行时不拒绝 |
-| `operator` | 当前未校验、未传递 |
-
-### 9.2 组合事务
-
-```mermaid
-sequenceDiagram
-    participant G as ProfileCommand gRPC
-    participant A as profile.MyProfiles
-    participant U as Identity UOW
-    participant P as ProfileRepository
-    participant Guard as SelfProfileGuard
-    participant L as ProfileLinker
-    participant R as ProfileLinkRepository
-
-    G->>A: Create(userID, profile fields, relation)
-    A->>U: WithinTx
-    U->>U: build and validate profile info
-    U->>P: check non-empty IDCard unique
-    U->>U: ensure User exists
-    opt relation = self
-        U->>Guard: EnsureCanCreateSelf
-    end
-    U->>P: Create Profile
-    U->>L: Link(userID, profileID, relation)
-    U->>R: Create ProfileLink
-    U-->>G: Profile + ProfileLink
-```
-
-任意一步返回错误都使整个事务回滚，包括 Profile repository 已经执行 insert、但 Link 检查或保存失败的情况。
-
-### 9.3 失败边界
-
-| 失败点 | 结果 |
-| --- | --- |
-| `user_id`/`legal_name` 缺失 | transport 返回 `InvalidArgument` |
-| User 不存在 | application 拒绝，不创建 Profile |
-| Gender/Birthday/IDCard 无效 | application 拒绝 |
-| IDCard 已存在 | application 预检查拒绝；并发冲突由 DB 唯一键兜底 |
-| User 已有 active self | `SelfProfileGuard` 拒绝；DB self key 兜底并发 |
-| ProfileLink 保存失败 | Profile insert 一起回滚 |
-
-### 9.4 不存在 standalone production creator
-
-production container 只装配 `profile.NewMyProfiles(uow)` 作为创建能力。测试的 `ProfileFixture` 可直接建 Profile 来准备数据，但它不是运行时应用用例。
-
-## 10. 事务、并发与幂等矩阵
-
-| 链路 | 事务边界 | 并发兜底 | 幂等语义 |
-| --- | --- | --- | --- |
-| Identity CreateUser | 单个 Identity MySQL 事务 | application 友好预检查 + `uk_users_active_phone` 最终兜底 | 无请求幂等键 |
-| AuthN SignUp | User + LoginIdentity + Credential 同一 AuthN MySQL 事务 | LoginIdentity repository 唯一约束；Phone 非合并键 | 按 provider key 复用 LoginIdentity/User，不是通用请求幂等 |
-| Identity CreateProfile | Profile + ProfileLink 同一 Identity MySQL 事务 | IDCard 唯一键、active self 唯一键、ProfileLink 组合唯一键 | 无请求幂等键 |
-
-## 11. 已知缺口与复议条件
-
-| 项目 | 当前状态 | 需要决策或修复 |
+| 失败点 | 应用/仓储行为 | 公开 gRPC status |
 | --- | --- | --- |
-| Phone 唯一性 | 所有写入链路受 `uk_users_active_phone` 约束；Identity 保留友好预检查，AuthN signup 依赖数据库最终兜底 | 保持 duplicate-key 错误映射和 MySQL 8 迁移/并发测试 |
-| CreateUser `nickname` | 实际写入 User.Name | 契约重命名或修正 mapper，并制定兼容政策 |
-| User 扩展字段 | avatar、contacts、external identities 当前忽略 | 删除超前契约，或完成模型/映射/存储 |
-| OperatorContext | Identity 写 handler 不强制也不传递 | 确认审计主体模型后端到端落地 |
-| CreateProfile relation | unspecified 降级 `other` | 确认宽容兼容还是强制显式语义 |
-| 孤立 Profile 导入 | 当前无 production 用例 | 只在出现真实导入/预建档需求时复议组合事务 |
-| User + Profile 一次建立 | 当前无通用组合用例 | 需求确立时明确原子性、relation、幂等与失败补偿 |
+| nickname 空白 | handler 直接拒绝 | InvalidArgument |
+| 直接应用调用的 Name 去空白后为空 | NewUser 返回 ErrUserBasicInfoInvalid | 同类编码错误转换为 InvalidArgument；公开 handler 会更早拒绝 |
+| Phone 或 Email 格式无效 | Creator 原样返回 meta 的普通 Go error | Internal，普通错误消息为 `internal server error` |
+| Phone 预检查已存在 | ErrUserAlreadyExists | InvalidArgument |
+| Phone 查询故障 | checker 包装 ErrDatabase 并保留 cause | 普通数据库故障为 Internal；保留的取消/超时按转换器处理 |
+| INSERT 检测到重复键 | User repository 转 ErrUserAlreadyExists | InvalidArgument |
+| INSERT 其他普通存储错误 | 仓储原样返回，再由 transport 转换 | 普通错误为 Internal；取消/超时等按转换器处理 |
 
-## 12. 事实源与 Verify
+ErrUserAlreadyExists 注册为 HTTP 400，因此不是 gRPC AlreadyExists。重复识别没有按约束名区分：指定 ID 的主键冲突也可得到同一错误，不能从该码精确诊断“手机号重复”。识别器还包含唯一冲突文本兜底，不只识别 MySQL 1062。
 
-| 内容 | 路径 |
+## 4. CreateProfile：新档案与新关系一起创建
+
+### 4.1 公开输入与应用输入并非同一校验面
+
+| 输入 | 当前公开 gRPC 行为 |
 | --- | --- |
-| Identity User gRPC | `api/grpc/iam/identity/v2/identity.proto`、`internal/apiserver/transport/grpc/service/identity/identity_lifecycle.go` |
-| Identity User 创建 | `internal/apiserver/application/identity/user/service_create.go` |
-| Profile 组合建档 | `internal/apiserver/application/identity/profile/service_my_profiles.go`、`profile_creation.go` |
-| Identity 事务 | `internal/apiserver/application/identity/uow/uow.go`、`internal/apiserver/infra/mysql/uow/identity/uow.go` |
-| AuthN signup | `internal/apiserver/application/authn/signup/service.go`、`step_resolve_user.go` |
-| AuthN 跨模型事务 | `internal/apiserver/application/authn/uow/uow.go`、`internal/apiserver/infra/mysql/uow/authn/uow.go` |
-| 唯一性和表结构 | `internal/pkg/migration/migrations` |
+| user_id | 拒绝缺失，解析十进制 ID 与范围；字符串 `0` 能通过数值解析，后续仍须通过 User 存在性检查 |
+| legal_name | TrimSpace 后拒绝空值，再传 DTO.Name |
+| gender | male/female → 1/2；other、unspecified 及未知枚举值 → 0 |
+| dob | TrimSpace；非空按日期格式校验，不证明真实出生日期 |
+| id_card_number | TrimSpace；可为空。非空使用姓名与号码构造 IDCard，不进行实名、亲属关系或三字段一致性核验 |
+| relation | self/parent/grandparent 映射相应关系，unspecified/未知值降级 other；当前不强制调用方显式选关系 |
+| operator | 当前未消费 |
 
-```bash
-go test ./internal/apiserver/application/identity/user
-go test ./internal/apiserver/application/identity/profile
-go test ./internal/apiserver/application/authn/signup
-go test ./internal/apiserver/transport/grpc/service/identity
-go test ./internal/apiserver/infra/mysql/user ./internal/apiserver/infra/mysql/profile ./internal/apiserver/infra/mysql/profilelink
+直接调用应用比这个 handler 更宽：Name 只检查是否等于空字符串，Relation 空白会拒绝、未知非空值可降级 other。例如直接传空白 Name 与合法号码，IDCard 内部姓名被去空白后为空，组合值 IsValid=false；后续可能跳过查重及 WithIDCard，保存空白姓名和 NULL 证件。此为源码推演；公开 gRPC 会在此前拒绝空白姓名，不能将其写成已经复现的公开入口行为。
+
+### 4.2 执行顺序
+
+图展开成功主路径；构造、查询或写入失败立即终止 callback。Profile INSERT 之后的失败需要结合第 5 节的事务归属判断。
+
+```mermaid
+sequenceDiagram
+    participant G as CreateProfile gRPC
+    participant A as MyProfiles.Create
+    participant U as Identity UoW
+    participant P as ProfileRepository
+    participant R as UserRepository
+    participant L as ProfileLinkRepository
+
+    G->>G: 解析目标 UserID，规范化档案字段与枚举
+    G->>A: Create(ctx, UserID, DTO)
+    A->>U: WithinTx(callback)
+    U->>A: 以 txCtx 与同一事务仓储执行 callback
+    A->>A: 构造信息，检查 Name/Gender/Birthday
+    opt IDCard 组合值有效
+        A->>P: CheckIDCardUnique 内查询
+        P-->>A: 未占用 / 已存在 / 查询错误
+    end
+    A->>R: FindByID，确保 User 存在
+    R-->>A: User 或 error
+    A->>A: 解析 Relation
+    opt Relation 为 self
+        A->>L: SelfProfileGuard 查询 active self
+        L-->>A: 允许 / 冲突 / 查询错误
+    end
+    A->>P: Create 新 Profile
+    P-->>A: 同步新 ProfileID
+    A->>L: Linker 检查 User 与新 ProfileID 的 active pair
+    L-->>A: 未关联 / 已关联 / 查询错误
+    A->>L: Create 新 ProfileLink
+    A->>A: 组装 Profile + Link，callback 返回 nil
+    A-->>U: callback 结果
+    U-->>A: 顶层提交结果，或借用回调结果
+    A-->>G: 成功结果；任何 WithinTx error 返回 nil,error
+    Note over A,L: Link 检查/写入在 Profile INSERT 之后；借用失败须宿主传播
 ```
 
-## 13. 继续阅读
+这条命令使用新 ProfileID，随后创建新 Link，不走旧关系 Restore。为已有 Profile 建立或恢复关系是另一个[ProfileLink 用例](03-关键链路-建立与撤销ProfileLink.md)。当前没有生产 standalone Profile creator；测试 Fixture 直接保存 Profile 只用于准备数据。
 
-- 为什么拆分 User/Profile/ProfileLink：[01-领域模型](01-领域模型-User-Profile-ProfileLink.md)
-- ProfileLink 的建立、撤销、查询和批处理：[03-建立与撤销 ProfileLink](03-关键链路-建立与撤销ProfileLink.md)
-- AuthN/Identity 的跨模块事务边界：[04-模块边界](04-模块边界-Identity与AuthN-AuthZ-Suggest.md)
+User 存在性与 self 预检查是普通查询，不锁定 User 生命周期；在检查与后续写入之间，其他调用可能更新 User。这里没有“存在且 active 始终成立”的事务承诺。
+
+### 4.3 各阶段失败并不返回同一类错误
+
+| 失败点 | 当前应用错误 | gRPC status |
+| --- | --- | --- |
+| Name/Gender/Birthday/IDCard 格式不接受 | ErrInvalidArgument | InvalidArgument |
+| IDCard 查重已存在 | 创建用例把 checker 错误重写为 ErrInvalidArgument | InvalidArgument |
+| IDCard 查重数据库故障 | 同样重写为 ErrInvalidArgument，内部说明“身份证信息已存在”，原分类丢失 | InvalidArgument |
+| 标准 User repository 找不到目标 | ErrUserNotFound 被 ensureUserExists 外层包装 ErrDatabase | Internal |
+| User repository 返回 nil,nil 的替身分支 | ErrUserInvalid | InvalidArgument |
+| 已有 active self，或 Link INSERT duplicate | ErrIdentityProfileLinkExists | InvalidArgument |
+| self Guard 普通查询故障 | ErrDatabase | Internal；保留的取消/超时 cause 按转换器处理 |
+| Profile INSERT duplicate | ErrIdentityProfileExists | InvalidArgument |
+| Link 写入的其他错误 | 由仓储及通用转换器决定 | 普通存储错误为 Internal |
+
+错误转换取外层已注册 coder，故“不存在 User 必然返回 NotFound”不符合当前创建路径。IDCard 预检查的数据库故障也不能被调用方可靠区分为可重试基础设施失败。这些是当前分类偏差，不是已经修复的契约。
+
+Profile 结果也是内存投影。空证件由 mapper 写 SQL NULL，返回空字符串；未提供 Birthday 时 PO 是空字符串路径，不能因列 DEFAULT NULL 或 meta.Birthday.Value 的逻辑就宣称这里写 NULL。创建时 IDCard 保留内部姓名，数据库回读 Scan 不恢复该姓名；返回值与回读组合有效性可能不同，细节见模型正文。
+
+## 5. 事务成功、唯一性和创建结果分别保证什么
+
+### 5.1 UnitOfWork 负责句柄与顶层提交，应用负责步骤
+
+Identity UoW 为 User/Profile/Link repository 装配同一个事务句柄。共享 Required 实现发现 context 已有事务时，只执行 callback；没有内层 savepoint、局部回滚或自动 rollback-only 标记。
+
+| 调用与失败位置 | 当前边界 |
+| --- | --- |
+| 无外层事务，callback 写入前拒绝 | 本命令没有新增记录 |
+| 无外层事务，Profile 已 INSERT，Link 检查/保存失败 | callback error 使顶层事务回滚，Profile 写入一起撤销 |
+| 借用事务，Profile 已 INSERT，Link 失败 | 返回 error；宿主须继续传播错误并决定外层回滚 |
+| 借用事务，宿主吞掉内层 error 后提交 | 内层没有自动撤销此前 Profile INSERT；可能留下半完成记录 |
+| 顶层提交报错，或提交后响应未收到 | 调用方不能只凭 error 判断数据库最终状态；须独立确认结果 |
+| 借用事务，Create 返回成功 | 只说明回调成功，外层可能还未提交、仍可能回滚 |
+
+提交与交付失败需要区分“服务器确认回滚”与“调用方不知道提交结果”。普通 callback error 导致本地事务回滚的测试，不覆盖提交通信异常或响应丢失。
+
+Creator 在 callback 内填结果，最终可返回非空 result 与 commit error；MyProfiles.Create 遇到 WithinTx error 则返回 nil,error。两个 gRPC handler 都优先返回 error，不交付这个内部结果。任何内部对象或 ID 已生成都不是提交凭证。
+
+### 5.2 预检查给出早期判断，索引只裁决各自的键
+
+| 约束 | 预检查 | 数据库裁决与限制 |
+| --- | --- | --- |
+| User 非空 Phone | Identity Creator 的 FindByPhone；AuthN 不复用该 checker | active_phone 生成列与唯一键覆盖未软删除行。Identity 查询没有相同删除过滤，可能仍拒绝旧删除行 |
+| Profile 证件 | 有效 IDCard 组合值查重 | 非空号码唯一；空证件 NULL 可出现多条，不把所有人自动去重 |
+| 一个 User 的 active self | SelfProfileGuard | self_key 唯一约束按 User 限制；不是一个 Profile 只能有一个 self User |
+| 相同 User/Profile/Type | Linker 检查 active pair | 组合键裁决该 pair/type；新 ProfileID 不会与上次建档 pair 相同 |
+
+两个并发请求都通过预检查，不代表都能写入；最终可能在不同 INSERT 阶段失败。反过来，某个唯一键挡住第二次请求，也不表示系统记住并能重放第一次请求的结果。跨 Type 和恢复周期的不变量归属由模型正文维护。
+
+## 6. 重试与 AuthN 协作：具体后果
+
+### 6.1 创建命令没有请求结果幂等
+
+标准 `sdk.NewClient` 填入的默认 Retry 启用、最多 3 次尝试，状态为 UNAVAILABLE/RESOURCE_EXHAUSTED/ABORTED；ServiceConfig 匹配所有 RPC，没有排除这两个创建方法。按方法重试工具虽另有定义，未自动代替标准连接策略。
+
+是否实际重发还取决于 gRPC 已接收响应的阶段、状态及宿主连接配置。不能说每次响应丢失都必然自动重试；调用方手动重试同样需要处理提交结果未知。
+
+以下均假设第一次已经提交、调用方未拿到结果，再次执行相同业务请求，是源码推论，尚无完整断链专项：
+
+| 再次请求 | 可能结果 | 为何不是第一次结果重放 |
+| --- | --- | --- |
+| CreateUser，Phone 空 | 新 UserID，重复主体 | 没有请求键，手机号约束不参与 |
+| CreateUser，Phone 非空 | 顺序重试通常 Phone 冲突 | 不返回原 UserID；不能仅凭联系号码证明归属并自动合并 |
+| 内部 DTO 指定同 UserID | 主键冲突 | 不读取原结果，公开 RPC 也没有此输入 |
+| CreateProfile，无证件且 relation=parent/other | 新 Profile + 新 Link | 两次 ProfileID 不同，pair/type 唯一键不冲突 |
+| CreateProfile，证件非空 | 通常证件已存在而拒绝 | 不返回第一次 Profile/Link |
+| CreateProfile，relation=self | 通常 active self 已占而拒绝 | self Guard 不承担请求结果恢复 |
+
+调用方已持久保存并能确认的 UserID/ProfileID 可用于后续操作，但当前没有按请求键查询创建回执的 API。没有收到 ID 时，不应把“按 Phone/姓名找到类似记录”升级为自动认领、合并或重试成功。
+
+### 6.2 AuthN 与 Identity 共享 User 存储，不共享完整创建语义
+
+AuthN SignUp 使用自己的 UoW 和步骤，直接依赖 Identity User domain/repository port，组合 User/LoginIdentity/可选 Credential。它不调用 Creator，不按 users.phone 归并主体；provider/global identifier 的匹配、缺失 User repair、入口与密码 ensure 由[注册登录与身份绑定](../02-AuthN/02-注册登录与身份绑定.md)独占维护。
+
+| 对比 | Identity CreateUser | AuthN 新主体注册分支 |
+| --- | --- | --- |
+| User 复用依据 | 不复用，创建新主体 | 先匹配 LoginIdentity；未匹配才创建 |
+| Phone 预检查 | 有 | 没有 Creator 的预检查 |
+| 数据库重复 | repository ErrUserAlreadyExists 保留 | 创建步骤改写成 ErrDatabase，不能声称公开错误相同 |
+| 后续组合 | 不开通登录、不建档 | 确保登录入口及可选密码；不建 Session/Profile |
+
+同一个 active_phone 索引只能说明两条链路受同一存储约束，不能说明它们返回同一错误。repair 分支对重复错误按原 ID 回读，也不等于按 Phone 找另一主体。
+
+当前同库组合减少 User 已创建但登录身份失败的窗口，代价是 AuthN 显式依赖 Identity User port。若改为先调 Identity gRPC 再开 AuthN 本地事务，原子性会丢失；新增事件补偿或拆库前必须重新定义中间状态、恢复与幂等合同。原子性依赖实际仓储使用同一事务，不能按 port 名称推断任意替身或未来 adapter 都有此保证。
+
+## 7. 候选设计与需要先决定的合同
+
+本节是改进方案，不是已实现能力；文档校准不顺带修改业务行为。
+
+| 触发需求 | 具体候选 | 取舍与先决条件 |
+| --- | --- | --- |
+| 内部服务代表终端用户写入且需追责 | 分别携带服务 caller、可验证委派 actor、目标 User；校验后将审计 actor 写入 context，同时记录调用服务 | 不能直接信任裸 operator.operator_id，也不能把目标 User 当操作者；先决定系统导入/无人操作用哪个审计身份 |
+| 调用方要区分错误并选择重试 | 将格式失败编码为参数错误；查重数据库故障保留故障类别；目标缺失与重复在各入口统一明确 | 修改现有 status 会影响客户端重试/错误分支；先列入口和兼容期，不只按 Err 名字改 HTTP 注册 |
+| 创建可重试并恢复原结果 | 以 caller + 用例 + 显式请求键记录输入指纹和结果 ID，回执与业务写入同事务；同键同输入重放，同键不同输入拒绝 | 定义保留期限、敏感字段保护、请求键并发争抢和回执查询授权；Phone/IDCard 是业务唯一键，不替代请求键 |
+| 业务确需一次注册并建档或预导入孤立 Profile | 新增明确组合/导入用例，规定 relation、资料完整性、幂等与恢复，再选择同库顶层事务或可治理中间状态 | 当前 Creator/MyProfiles 可以借用事务，但宿主必须传播错误；串联远程 RPC 不自动得到同库原子性 |
+
+在实现前至少增加三类专项：提交后响应丢失与重试恢复、Profile INSERT 后 Link 失败的顶层/借用事务、operator—准入—context—PO—查询投影贯通。业务需要决定的是“哪些人可以代表谁建档”和“如何恢复同一次创建”，并非只增加一个字段或唯一索引。
+
+## 8. 事实源与验证边界
+
+| 主题 | 当前事实源 |
+| --- | --- |
+| RPC 字段与投影 | `api/grpc/iam/identity/v2/identity.proto`；`internal/apiserver/transport/grpc/service/identity/{identity_lifecycle,profile_command,user_mapper,profile_mapper,profile_link_mapper}.go` |
+| User 创建顺序/结果 | `internal/apiserver/application/identity/user/{service_create,contact_value,mapper}.go` |
+| Profile 组合/错误 | `internal/apiserver/application/identity/profile/{service_my_profiles,profile_creation,mapper}.go` |
+| 唯一性与保存投影 | `internal/apiserver/domain/identity/{user,profile,profilelink}`；`internal/apiserver/infra/mysql/{user,profile,profilelink}`；迁移 000001（初始表/索引）、000007（既有表 self_key 补齐）、000017（active_phone） |
+| Required 与事务归属 | `internal/apiserver/infra/mysql/uow/identity/uow.go`；`pkg/uow/gorm/uow.go` |
+| 错误映射 | `internal/pkg/code/identity.go`；`internal/pkg/grpc/error_mapper.go`；pinned component-base errors.ParseCoder |
+| 审计 context / 服务准入 | `internal/pkg/database/mysql/audit.go`；`internal/pkg/grpc/server.go`；生产配置/ACL 模板 |
+| 默认 SDK 创建/重试 | `pkg/sdk/{client.go,config/defaults.go,internal/transport/service_config.go,internal/transport/dial_options.go,identity/write.go,identity/profile_command.go}` |
+| AuthN User 创建 | `internal/apiserver/application/authn/signup/step_resolve_user.go`；AuthN UoW |
+
+现有测试证明不同层面的有限行为：
+
+| 现有用例 | 实际证明与限制 |
+| --- | --- |
+| Identity User/Profile 应用测试 | SQLite 下成功、可选字段、顺序重复/格式拒绝和组合结果；多数失败只断 error/nil，不证明本篇全部 wire status |
+| User 测试名为 Transaction_Rollback 的顺序重复用例 | 第二次在 Phone 预检查就失败，核对第一条仍存在；不证明 INSERT 后故障回滚 |
+| CreateProfile handler + stub，User/Profile mapper 测试 | 直接调用的输入/输出映射，不启动 mTLS/ACL，不证明数据库或用户委派；没有 CreateUser handler 专项 |
+| Profile 并发 repository 测试 | SQLite 下一个成功且至少一个 duplicate 映射；不要求所有失败都为 duplicate，也不证明组合建档 self 竞争 |
+| Shared UoW 与 AuthN UoW 测试 | 一般提交/回滚、Required 复用；SQLite 注册可持久化入口/密码。没有吞错 rollback-only、提交异常或创建断链专项 |
+| 通用 gRPC mapper、SDK transport 测试 | 已注册 HTTP 分类映射、普通错误 Internal；重试配置可被 grpc.NewClient 接受。没有真实创建请求的提交后重发验收 |
+| MySQL 迁移专项 | 存在 active_phone/soft-delete 等直接 SQL 用例；需另行配置执行，不能并入 SQLite 回归结论 |
+
+可按上述事实源选择本地包运行验证；本轮具体执行、复用证据和图源校验见[重构复核记录](../../_data/reviews/2026-10-06-docs-refactor.md)。文档门禁证明链接、状态和已编码规则，不证明所有叙述、真实 MySQL 竞争或部署/业务验收。
+
+下一篇[建立与撤销 ProfileLink](03-关键链路-建立与撤销ProfileLink.md)维护已有档案的关联、恢复和批处理；[模块边界](04-模块边界-Identity与AuthN-AuthZ-Suggest.md)维护生命周期与消费协作。创建错误、结果和请求重试以本文为事实源。
