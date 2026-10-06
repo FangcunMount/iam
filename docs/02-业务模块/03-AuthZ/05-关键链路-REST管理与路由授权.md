@@ -143,12 +143,14 @@ Role、Grant写入使用RequireOperation复核原始动作，再对目标Role检
 
 | 请求或输出 | 当前实现 | 使用时的具体后果 |
 | --- | --- | --- |
-| Role PUT | display_name/description是普通string，handler总传指针 | 省略display_name或仅改description会400；提供名称但省略description会清空描述 |
+| Role PUT | display_name/description是普通string，handler总传指针 | 省略display_name或仅改description会400；提供名称但省略description会把应用对象/当前响应置空，标准仓储却跳过此零值，数据库旧描述可保留 |
 | Resource PUT | 名称/描述是指针，省略或null不更新 | 显式空名称、空actions拒绝；不据HTTP PUT推断与Role相同的部分更新合同 |
 | Role GET列表省略limit | Gin绑定为0，应用裁剪到0条 | 可能有非零可见total却返回空data；客户端应显式提供limit |
 | 创建、删除、撤销成功 | HTTP200，AuthZ DTO的code=200 | 删除不是204；不能套用其他模块通用code=0 |
 | 写入返回的Role/Assignment/Grant/Resource | 不含committed PolicyVersion | 200不是加载水位或所有实例生效回执 |
 | 空退役兼容字段 | 专用解码校验，输出固定空结构 | 非空条件/属性、未知内层键被拒，不能恢复旧能力 |
+
+Role的描述赋值不是数据库清空回执：`application/authz/role/command_service.go`返回已置空的对象，`infra/mysql/role/repo.go`经`internal/pkg/database/mysql/base.go`调用GORM `Updates(struct)`，锁定v1.30.0跳过未显式选择的零值字段；RolePO的hook只更新审计字段。因此已有非空描述可能仍在数据库，后续GET可与本次响应不同。前两个简写路径均位于`internal/apiserver`下；这是源码核对，不是本轮真实数据库复现。完整省略/显式空值合同需要应用与持久化一起决定。
 
 当前AuthZ OpenAPI是3.0.3，不是3.1；存在以下已核对偏移：管理操作没有security声明，但路由强制用户认证；Role更新schema未声明display_name必填；Role列表limit声明默认10但运行时省略为0；错误响应及空兼容结构约束也未完整反映代码。机器契约是维护入口，不能在这些已知差异上把它当完整运行事实。
 

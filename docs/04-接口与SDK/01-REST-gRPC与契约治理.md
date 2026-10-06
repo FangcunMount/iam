@@ -149,7 +149,7 @@ SDK gRPC Wrap的IAMError.Code默认是InvalidArgument等状态名，Cause保留�
 | 偏移组 | 具体边界与风险 | 选择/owner及完整依据 |
 | --- | --- | --- |
 | REST安全 | 公开AuthN继承bearer，AuthZ/IDP管理缺security；最近认证、权限及caller内容不由锁图标表达 | transport/API owner对照实际middleware与方法准入；[SignUp](../02-业务模块/02-AuthN/02-注册登录与身份绑定.md)、[REST授权](../02-业务模块/03-AuthZ/05-关键链路-REST管理与路由授权.md) |
-| Role更新/分页 | display_name在schema可省略，handler却总传指针导致空名400；description省略清空；limit声明10、实际0裁空，与Resource指针省略不同 | Role owner选择更新/默认语义，补输入与行为fixture；[REST管理](../02-业务模块/03-AuthZ/05-关键链路-REST管理与路由授权.md) |
+| Role更新/分页 | display_name在schema可省略，handler却总传指针导致空名400；description省略使应用响应置空，标准struct更新却跳过该零值，旧数据库描述可保留；limit声明10、实际0裁空，与Resource指针省略不同 | Role owner选择更新/默认及响应/持久化语义，补输入与读取fixture；[REST管理](../02-业务模块/03-AuthZ/05-关键链路-REST管理与路由授权.md) |
 | 空兼容shape | Constraints/Schema未表达空数组上限和禁止额外键，解码器却拒绝非空、未知/重复键及尾随JSON | 兼容协议/API owner表达确切可接受集合；[退役维护](../02-业务模块/03-AuthZ/08-条件授权退役维护手册.md) |
 | AuthN响应/输入 | Login成功裸TokenPair描述缺envelope；wechat_mini服务端接受而REST SDK拒绝；device_id未进入登录命令；Logout未表达至少一种令牌，独立Revoke handler未注册REST | AuthN/API/SDK owner逐用例选择，不能用字段存在承诺采用；[Login](../02-业务模块/02-AuthN/04-关键链路-Login登录认证.md)、[Token](../02-业务模块/02-AuthN/05-关键链路-Token签发刷新吊销.md) |
 | JWKS | 未完整列根地址/304、管理封装和错误面；force-retire“任何状态”超过拒绝active；gRPC仅GetJWKS且忽略标签，无管理/HTTP304能力 | JWKS/API owner分别表达HTTP缓存和管理合同；[JWKS](../02-业务模块/02-AuthN/06-关键链路-JWKS与本地验签.md) |
