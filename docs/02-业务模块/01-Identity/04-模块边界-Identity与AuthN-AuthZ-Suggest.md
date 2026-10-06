@@ -1,391 +1,245 @@
-# 模块边界：Identity 与 AuthN / AuthZ / IDP / Suggest
+# Identity 与 AuthN / AuthZ / IDP / Suggest 的边界
 
-> 状态：已实现 · 已核对跨模块事务、container 装配、REST/gRPC、IDP provider 链路、Suggest Loader/Scope 和架构护栏。
+> 状态：已实现 · 本文维护事实所有权、共享提交、状态撤销任务与展示失败窗口。并发情境按源码推论标记，候选合同尚未实施。
 
 ## 1. 本文回答
 
-- Identity 在 IAM 中拥有哪些事实，不拥有哪些事实？
-- Identity 与 AuthN、AuthZ、IDP、Suggest 今天通过什么方式协作？
-- AuthN signup 为什么可以在自己的事务中创建 Identity User？
-- 为什么 Identity Block/Deactivate 通过本地安全 Outbox 最终调用 AuthN SessionRevoker，却不直接管理 Session？
-- Identity REST 读取角色名称是否意味着 Identity 拥有 AuthZ？
-- IDP 是否已经产出通用 `ExternalIdentity`？
-- Suggest 是事件驱动读模型，还是直接读取 Identity 数据表？
-- 哪些跨模块依赖是当前有意识的取舍，哪些是已知缺口？
+Identity 保存 User、Profile、ProfileLink，但“User 存在”“允许继续认证”“某动作允许”“某档案可搜索”是四种不同判断。本篇回答它们怎样连接、何时会不同，以及哪个模块应承担后果。
 
-## 2. 30 秒结论
+模型不变量由[领域模型](01-领域模型-User-Profile-ProfileLink.md)维护；创建步骤归[创建链路](02-关键链路-创建User与Profile.md)，关系命令与查询归[ProfileLink链路](03-关键链路-建立与撤销ProfileLink.md)。本文不复制这些用例。
 
-Identity 是 User、Profile、ProfileLink 的主事实边界，但不是完全不与其他模块交互的孤岛。当前存在四类不同的协作：
+## 2. 关键结论与协作图
 
-| 协作方 | Identity 与它的真实关系 | 一致性/失败语义 |
+| 具体情境 | 当前协作 | 成功不能推出什么 |
 | --- | --- | --- |
-| AuthN | LoginIdentity/Session 以 UserID 引用 User；AuthN signup 在自己 UOW 中使用 Identity User repository port；Identity 状态变更写本地安全 Outbox | signup 与 User 同 MySQL 事务；状态与任务同事务，Redis Session 最终幂等撤销 |
-| AuthZ | Identity REST `/me` 用 `EffectiveRoleReader` 补充角色名；Profile REST 的 ProfileLink 前置是局部访问规则 | 角色读取失败时返回无 roles 的 User；不执行通用 AuthZ Check |
-| IDP | IDP 管理 WechatApp/Credential/AppAccessToken，并产出请求内 `ExternalIdentity`；AuthN 只消费 Resolver | `ExternalIdentity` 不传给 Identity；AuthN 映射为 LoginIdentity ProviderKey/User 关联 |
-| Suggest | Suggest infra 直接从 Identity MySQL 表 Full/Delta 派生索引，再结合 AuthZ runtime 与可见 ProfileID 生成 scope | 最终一致；默认 Loader 统一过滤 deleted/revoked Profile、ProfileLink 和 User，并用 tombstone 删除失效项 |
-
-边界的核心不是“不许任何依赖”，而是：
-
-```text
-事实归属不混淆；
-依赖方向和一致性代价可见；
-跨模块协作通过窄端口、事务 port 或派生读模型完成；
-一个模块不借协作之名修改另一个模块的任意事实。
-```
-
-## 3. 问题背景
-
-### 3.1 同一个 UserID 会出现在多个上下文，但它们回答的问题不同
-
-```text
-Identity.User       -> 这个稳定主体是谁，状态如何？
-AuthN.Principal     -> 本次请求通过什么证据认证了谁？
-AuthZ.Subject       -> 本次授权决策的主体引用是谁？
-IDP.ExternalIdentity -> 本次 provider proof 验证了哪个 realm 下的外部标识？
-Suggest principal   -> 联想查询的操作者和数据范围是什么？
-```
-
-如果把它们都放进 User，User 就会被认证方式、Token、Permission、外部 provider 和搜索索引同时污染。如果又绝对禁止跨模块协作，则 signup、Block 和派生搜索等必要用例无法完成。
-
-### 3.2 模块边界同时是一致性边界
-
-不同协作的事务条件不同：
-
-- User、LoginIdentity、Credential 今天位于同一 MySQL 基础，AuthN signup 可以使用一个本地事务；
-- User status 在 MySQL，Session 存储不在同一事务中，Block 无法用普通 DB transaction 实现原子性；
-- Suggest 索引是派生数据，可以最终一致，但不能反向写主事实；
-- 角色名是 `/me` 展示增强，不应在读取失败时使 User 基础资料不可用。
-
-## 4. 设计目标与约束
-
-| 目标或约束 | 边界策略 |
-| --- | --- |
-| Identity 事实只有一个主模型 | User/Profile/ProfileLink 只在 Identity domain 定义 |
-| 认证和授权可独立演进 | User 不存 LoginIdentity/Session/Permission；只共享 ID/reference |
-| signup 不留半完成账号 | AuthN UOW 显式使用 User repository port 参与本地事务 |
-| 封禁/停用后应尽快失效 Session | Identity application 同事务写本地任务，Worker 调用窄 `SessionRevoker` port |
-| 展示信息不得倒置主从关系 | `/me` 角色读取失败时降级为无 roles |
-| 身份关系不等于权限 | ProfileLink 不保存 Assignment/PermissionGrant，不自动生成 policy |
-| 搜索性能不污染写模型 | Suggest 维护 `SuggestibleProfile` 派生读模型和进程内索引 |
-| 现有运行时不得被理想图覆盖 | 直接 SQL、同步 port、忽略的 proto 字段均明确记录 |
-
-## 5. 当前上下文映射
+| SignUp 开通登录入口 | AuthN UoW 组合 Identity User、LoginIdentity、Credential | User active、provider/Redis 效果同事务提交或已经登录 |
+| Block / Deactivate | Identity 保存状态并 Stage 本地撤销意图；Worker 调 AuthN Revoker | 每次都新增 pending、全部 Session 已清理、所有在途请求已停止 |
+| PATCH /identity/me 后权限读取失败 | 先完成资料 UoW，再读 AuthZ roles/permissions | 错误响应意味着资料没保存 |
+| 受信服务 Check 一个 blocked User | AuthZ 读取授权事实，不重做 User 准入 | ALLOW 意味着该人当前可以认证或访问业务对象 |
+| ProfileLink 撤销后仍搜索到候选 | Suggest 的投影、owner/org/ProfileID 许可各有来源 | 搜索结果意味着仍有关系，或可以读取/修改详情 |
 
 ```mermaid
-flowchart LR
-    AUTHN["AuthN\nLoginIdentity / Credential / Principal / Session"]
-    IDENTITY["Identity\nUser / Profile / ProfileLink"]
-    AUTHZ["AuthZ\nSubject / Role / Permission / Check"]
-    IDP["IDP\nWechatApp / Credential / AppAccessToken / ExternalIdentity"]
-    SUGGEST["Suggest\nSuggestibleProfile / Candidate / Scope"]
-
-    AUTHN -->|"LoginIdentity.UserID"| IDENTITY
-    AUTHN -->|"signup UOW uses User repository port"| IDENTITY
-    IDENTITY -->|"durable revocation task + worker"| AUTHN
-
-    IDENTITY -->|"REST /me EffectiveRoleReader"| AUTHZ
-    SUGGEST -->|"route roles and mobile-search authorization"| AUTHZ
-
-    AUTHN -->|"Resolve(provider, realm, code)"| IDP
-    SUGGEST -->|"Full/Delta read Identity tables"| IDENTITY
+flowchart TB
+    AN["AuthN SignUp"] -->|"User repository port + 共享 MySQL UoW"| I["Identity User / Profile / ProfileLink"]
+    AD["AuthN Admission"] -->|"最小 User 状态读取"| I
+    AZ["AuthZ Assignment validator"] -->|"User 锚点存在性"| I
+    I -->|"状态 + Stage：同一事务"| T["Identity 撤销任务表"]
+    T -->|"claim / 重试"| W["Identity Worker"]
+    W -->|"RevokeByUser"| S["AuthN Session Revoker / Redis"]
+    ME["Identity REST /me"] -->|"直接角色名 / 权限项展示"| Z["AuthZ Runtime"]
+    Q["Suggest Loader / VisibilityReader"] -->|"只读投影 / created_by"| I
+    Q -->|"本实例索引与可见性"| R["Suggest 查询"]
+    R -->|"Resource/Action 布尔能力"| Z
 ```
 
-箭头只表示当前存在的依赖或数据引用，不表示被依赖方将模型所有权转交给调用方。
+图中箭头标签区分调用、写入或投影传播；不表示共同聚合、联合快照或外键。IDP proof 的请求链在第7节展开。当前模块共享进程与部分存储，仅有目录/端口不足以证明可以独立部署。
 
-## 6. 核心设计决策
+## 3. 事实所有权与稳定 ID
 
-### 6.1 决策 A：共享稳定 ID，不共享大实体
-
-> 标签：设计决策 · 当前模型和持久化引用可证明
-
-#### 解决的问题
-
-让多个上下文能引用同一个主体，又不迫使 User 同时包含认证、授权和搜索字段。
-
-#### 选择
-
-AuthN LoginIdentity/Session 保存 UserID；AuthZ Subject 使用 `{Type, ID}` 引用；Suggest 使用 ProfileID 和局部搜索投影。
-
-#### 替代方案
-
-1. 所有模块传递并共享完整 User/Profile domain entity；
-2. 在各模块复制一份 User 主数据；
-3. 用外部 openid、username 或 phone 作为跨模块主键。
-
-#### 取舍
-
-ID/reference 可以维持语义和生命周期独立，但消费方需要查询、缓存或派生自己的读模型，并处理主数据不可用或滞后。
-
-<a id="4-authn-signup共享事务的明确例外"></a>
-
-### 6.2 决策 B：AuthN signup 作为跨模块本地事务的明确例外
-
-> 标签：设计决策 · AuthN UOW、signup steps 和提交历史可证明
-
-AuthN signup 需要原子创建/复用 User、LoginIdentity 和 Credential。当前它们都使用同一 MySQL 事务基础，
-因此 AuthN UOW 提供 Identity `user.Repository` port，signup 直接使用 Identity domain 构造和 repository port。
-
-#### 为什么不先调 Identity gRPC
-
-这会把一个本地原子事务拆成两次服务调用，并引入 User 已创建、LoginIdentity 失败后的补偿状态。
-
-#### 接受的代价
-
-- AuthN application/UOW 依赖 Identity domain repository port；
-- Identity `user.Creator` 中的 Phone checker 不会自动被 signup 复用；
-- 三个模型如果未来拆到不同数据库，当前事务设计必须复议。
-
-#### 护栏
-
-这个例外仅支持 signup 所需的 User 解析/创建。它不授权 AuthN 任意修改 Profile、ProfileLink 或 User lifecycle。
-
-### 6.3 决策 C：Block 先提交 Identity 状态，再通过窄端口撤销 Session
-
-> 标签：当前设计决策 + 已知一致性缺口
-
-Identity `StatusChanger` 依赖 AuthN domain 的 `session.Revoker` 接口，而不依赖 Session repository concrete。
-`Block` 先在 Identity UOW 中保存 blocked，提交成功后再调用 `RevokeByUser`。
-
-#### 替代方案
-
-1. Identity 直接删除 Redis/Session 数据；
-2. 把 User status 和 Session 强行放入同一个技术事务；
-3. UserBlocked/UserDeactivated 本地安全 Outbox 异步撤销；
-4. 每次 Session/Token 使用时实时查 User status。
-
-#### 当前方案的好处
-
-依赖面窄，Identity 不需要了解 AuthN 存储细节；User 状态和撤销任务在同一 MySQL 事务中提交，在线 Verify 同时实时检查 User 状态。
-
-#### 当前方案的代价
-
-Redis Session 撤销是最终一致的：Worker 失败时任务保留并指数退避，超过 `stale_processing_after` 的 processing 任务可重新 claim。
-API 在 MySQL 状态和任务提交后返回成功；MySQL 与 Redis 之间不宣称原子提交或 exactly-once。
-
-### 6.4 决策 D：`/identity/me` 的 roles 是可降级展示增强
-
-> 标签：当前实现；设计动机可从降级语义推导，尚无独立 ADR
-
-Identity REST `UserHandler` 接收 `EffectiveRoleReader`，按当前 tenant domain 和 platform domain 查询并去重有效角色名。如果 reader 为 nil、
-subject 构造失败或查询报错，handler 返回无 roles 的 UserResponse，不使 `/me` 整体失败。
-
-这说明当前 roles 是 response enrichment，不是 Identity User 事实，也不是 `/me` 请求的授权决策。
-
-#### 风险
-
-消费方如果将“roles 为空”理解为“用户确实无角色”，无法区分无角色与 AuthZ 查询失败。若这一区别对产品有意义，需要显式的降级状态或独立角色查询。
-
-### 6.5 决策 E：Suggest 是 Identity 事实的派生读模型
-
-> 标签：设计决策 · Suggest 领域/application 护栏与专题设计可证明
-
-Identity 保持 Profile 写模型简洁；Suggest 将 Profile 姓名、手机号等派生为受约束的 `SuggestibleProfile`，并由 memory adapter 维护 TST/Hash 进程内索引。
-
-#### 为什么不直接用 Identity repository 做模糊搜索
-
-- 拼音、前缀、手机号精确匹配的数据形态不同于事务写模型；
-- 排序、限流、脱敏和降级不应进入 Profile 实体；
-- 索引可重建，可以接受最终一致。
-
-#### 当前实现代价
-
-Suggest 尚未通过 event/outbox 获取变化，而是在 infra Loader 中直接 SQL 读取 `profiles/profile_links/users`。这是对 Identity 存储 schema 的读依赖，
-任何表结构或 revoked 语义变化都必须同步 Suggest Loader。
-
-详见 [Suggest 为什么采用派生读模型](../../06-专题设计/05-Suggest为什么是读模型.md)。
-
-## 7. Identity 与 AuthN
-
-### 7.1 模型边界
-
-| Identity | AuthN |
-| --- | --- |
-| User、UserStatus | LoginIdentity、Credential、Challenge |
-| Profile、ProfileLink | Principal、Session、Token、JWKS |
-
-`User` 是长期持久主体；`Principal` 是一次认证结果。User 不保存 provider、realm、identifier、AMR、Session 或 Token。
-
-### 7.2 已实现协作
-
-1. LoginIdentity、Session 和 Token 通过 UserID 引用 Identity User；
-2. AuthN signup 在 AuthN UOW 内使用 Identity User repository port 创建、复用或修复 User；
-3. AuthN signup 按 LoginIdentity provider key/global identifier 解析 User，不按 Phone 自动合并；
-4. Identity Block/Deactivate 与 Session 撤销任务在同一 MySQL 事务中提交；
-5. Worker 以 at-least-once 语义调用幂等 `session.Revoker.RevokeByUser`，失败指数退避重试。
-
-### 7.3 不得越过的边界
-
-- Identity 不应存 password、openid、sessionID、token 或 AMR；
-- Identity 不应直接读写 AuthN repository concrete 或 Redis key；
-- AuthN signup 使用 User repository port 是明确事务例外，不应演变为 AuthN 接管 Identity application；
-- Principal 不应被持久化成 User。
-
-## 8. Identity 与 AuthZ
-
-### 8.1 模型边界
-
-| Identity | AuthZ |
-| --- | --- |
-| User | Subject Ref |
-| Profile | 业务系统管理关系所引用的 ID |
-| ProfileLink | 可供业务服务构造受信对象上下文，但不是 Assignment、PermissionGrant 或 AuthorizationDecision |
-
-User 不是 Subject 对象本身；AuthZ 可以用 UserID 构造 `subject.Ref`。ProfileLink 不是 PermissionGrant，也不会自动变成 Assignment 或角色继承边。
-
-### 8.2 已实现协作
-
-- Identity container 接收 `EffectiveRoleReader`；
-- REST `GET/PATCH /identity/me` 查询 tenant/platform 角色名并补充响应；
-- `/identity/me/profiles` 和 `/identity/profiles/:id` 用当前 User 的 active ProfileLink 做局部访问前置；
-- Suggest scope provider 使用 AuthZ route runtime 获取角色和手机号搜索能力。
-
-### 8.3 局部 ProfileLink 前置不等于通用 AuthZ
-
-Identity REST 在访问 Profile 详情/修改时，检查当前 User 是否与 Profile 存在 active link。这条规则只回答当前自助 Profile 用例的前置，
-没有 Resource/Action 输入，不能代替通用授权。
-
-无作用域的 REST `/identity/profiles/search` 已下线。需要候选搜索时使用 `/suggest/profile`，由 Suggest 的 scope provider 和手机号权限控制可见范围与脱敏。
-
-详见 [身份、认证与授权为什么必须分开](../../06-专题设计/01-身份认证与授权边界.md)。
-
-## 9. Identity 与 IDP
-
-### 9.1 当前模型
-
-IDP 当前主要模型位于 `internal/apiserver/domain/idp/wechatapp`：
-
-- `WechatApp`；
-- IDP `Credentials`；
-- `AppAccessToken`；
-- `SecretVault`、`AppTokenProvider`、token cache 等 ports。
-
-IDP 的通用值对象位于 `internal/apiserver/domain/idp/externalidentity`。它只在一次 provider exchange 请求内存在，包含 provider、realm、
-受限 identifiers 和 VerifiedAt，不进入 Identity、数据库或公开协议。
-
-Identity v2 proto 虽然也定义同名 `ExternalIdentity` message 和 User request/response 字段，但 Identity handler 当前仍忽略输入，
-response mapper 返回空列表。这是另一份历史 transport 契约，不是 IDP 请求内值对象，也未因本次重构落地。
-
-### 9.2 实际微信小程序 signup 链路
-
-```text
-AuthN signup
-  -> IDP ExternalIdentity Resolver(appID, jsCode)
-  -> IDP 内部查 app、解密 secret、调用 provider
-  -> 返回 request-local ExternalIdentity(openid/unionid)
-  -> AuthN 构造 LoginIdentity ProviderKey
-  -> 解析/创建 Identity User
-  -> 建立 LoginIdentity.UserID 引用
-```
-
-AuthN application 编排业务用例，但 provider 交换细节完全归 IDP Resolver。IDP 不直接创建 User、LoginIdentity、Principal、Session 或 IAM Token；
-Identity 也不需要知道 app secret、provider code 或 ExternalIdentity。
-
-### 9.3 已实现的中间抽象
-
-IDP 已统一产出请求内 `ExternalIdentity`，覆盖微信小程序、微信开放平台和企业微信。AuthN 的单一 mapper 按 SignIn、SignUp、Linking 的既有策略转换它；
-历史内部直传 OpenID/UnionID 走 `TrustedLegacyInput`，不伪装为 provider 验证结果。仍不能把 Identity v2 proto message 当成这一领域对象。
-
-## 10. Identity 与 Suggest
-
-### 10.1 读模型与主事实的区别
-
-| Identity | Suggest |
-| --- | --- |
-| Profile 主事实 | `SuggestibleProfile` 派生读模型 |
-| ProfileLink 关系事实 | `visibility.Scope` 所需的局部可见投影 |
-| MySQL 事务写模型 | TST/Hash 进程内索引与 Full/Delta runtime |
-
-Suggest 进程内索引可以从 Identity facts 重建，但不是 Profile 主表，也不能回写 Identity。
-
-### 10.2 当前数据来源
-
-默认 Loader 直接执行 SQL：
-
-- 从 `profiles` 读取 ID、Name、created_by；
-- 联结 `profile_links` 和 `users` 聚合 Phone；
-- Full 构建新 Store 并原子切换 runtime；
-- Delta 按 updated_at 读取变化，adapter 将空 Name 行转换为显式 `ProjectionChange(Delete)`。
-
-当前没有订阅 Identity Profile/ProfileLink domain event 或 durable outbox topic。
-
-默认 Full/Delta SQL 同时过滤 `profile_links.deleted_at IS NULL` 与 `revoked_at IS NULL`，
-已撤销 link 的 User Phone 不进入 `SuggestibleProfile`。
-
-### 10.3 当前可见范围
-
-`queryprofile.ScopeResolverService` 结合：
-
-- AuthZ facts reader 返回的平台 `profiles/list` 与平台/tenant `search_by_mobile` 授权事实；
-- `visibility.Principal` 的 OperatorID/OrgIDs；
-- `VisibilityReader` 按 `profiles.created_by` 返回的 ProfileID；
-- `ResolutionPolicy` 生成最终 `visibility.Scope`。
-
-`profiles.created_by` 可见性是当前过渡读模型，不是 Identity 领域中的所有权规则。ProfileLink 参与候选构建，但不等于最终 `visibility.Scope`。
-
-## 11. 允许的依赖与禁止的耦合
-
-### 11.1 允许的当前依赖
-
-| 调用方 | 被调用方 | 方式 | 理由 |
-| --- | --- | --- | --- |
-| AuthN signup | Identity User | domain repository port + shared MySQL UOW | 保证 signup 原子性 |
-| Identity lifecycle | AuthN Session | `session.Revoker` port | 封禁后失效会话 |
-| Identity REST | AuthZ | `EffectiveRoleReader` | `/me` 响应展示增强 |
-| Suggest infra | Identity storage | read-only Full/Delta SQL | 派生搜索索引 |
-| Suggest scope infra | AuthZ runtime | route/role query | 生成搜索范围和 mobile capability |
-| AuthN signup/linking/signin | IDP ExternalIdentity Resolver | `Resolve(provider, realm, code)` | AuthN 不理解 secret、app repository 或 provider SDK |
-
-### 11.2 禁止的耦合
-
-- Identity domain import AuthN/AuthZ/IDP/Suggest concrete；
-- Identity domain 存储 Principal、Subject、Permission、provider token 或 search index 字段；
-- Identity application 直接读写 AuthN/AuthZ/Suggest repository concrete；
-- AuthN 因 signup 特例而接管 Profile/ProfileLink 任意写入；
-- ProfileLink.Rel 直接生成通用 PermissionGrant/Assignment；
-- Suggest 回写 Profile 主数据；
-- 把 Identity v2 proto 的同名 `ExternalIdentity` 字段与 IDP 请求内值对象混为一谈；
-- 把 Suggest SQL 直读描述为已实现事件订阅。
-
-## 12. 已知缺口与复议条件
-
-| 主题 | 当前状态 | 复议或修复触发条件 |
+| 事实 | 所有者 | 对外消费的含义 |
 | --- | --- | --- |
-| AuthN signup 的 Phone 规则 | 不复用 Identity checker，也不按 Phone 合并；数据库唯一索引负责最终拒绝重复活跃手机号 | 需要更友好冲突提示时，在 signup 增加同事务预检查，但不能改成隐式账号合并 |
-| AuthN/Identity 数据库拆分 | 当前 signup 依赖同 MySQL 事务 | 拆库前必须设计 saga/outbox/补偿和幂等 |
-| Block/Deactivate + Session | User 状态与本地撤销任务同事务提交；Worker 对 Redis 失败持久化重试，在线 Verify 同时检查状态 | 需要跨 MySQL/Redis 强原子性时另行评估，不宣称 exactly-once |
-| `/me` roles 降级 | 无 roles 不区分“无角色”与“查询失败” | 客户端需要可观测降级语义时 |
-| REST Profile search | 无作用域 `/identity/profiles/search` 已下线；搜索统一走受授权 Suggest | 新增搜索能力时继续复用显式 scope，不恢复旧入口 |
-| IDP ExternalIdentity | 已实现为三类 provider 的请求内值对象；Identity v2 同名 proto 仍未接入 | 增加新 provider 或需要公开/持久化时重新评估契约，不直接复用历史 proto |
-| Suggest 同步 | 定时 Full/Delta SQL，无 Profile event | 新鲜度或 schema 耦合成本不可接受时，引入稳定事件/outbox |
-| Suggest revoked link | Full/Delta 只接受 active Profile、active ProfileLink 和 active User；最后关联失效生成 tombstone | 保持 Full/Delta 共享 eligibility 和删除传播测试 |
-| ProfileLink 与 AuthZ | 彼此独立 | 业务关系继续由 Identity 判断；只有稳定对象属性才经注册后提交 AuthZ |
+| User、Status、联系资料 | Identity | 稳定主体与当前存储状态；Phone 不自动成为登录身份或账号合并键 |
+| Profile、ProfileLink | Identity | 申报档案与关系事实；self 没有自动实名/亲属证明 |
+| LoginIdentity、Credential、Principal、Session | AuthN | 入口归属、身份核验与持续认证；UserID 是引用 |
+| Subject、Assignment、PermissionGrant | AuthZ | 主体的角色、资源动作能力；subject.Ref 引用 UserID，不接管 User lifecycle |
+| 请求内 ExternalIdentity | IDP | provider/realm 下此次 proof 的结果；不是 IAM User |
+| 候选索引、visibility.Scope | Suggest | 查询投影和本次可见规则；不回写 User/Profile 或授予详情访问 |
 
-## 13. 事实源与 Verify
+稳定 ID 让资料变更不破坏 Session、Assignment 或业务引用，但也要求消费方处理缺失、旧读、缓存和投影滞后。openid、username、phone 各有入口/联系生命周期，不能替代这些跨模块引用。
 
-| 内容 | 路径 |
+组合根先构造 Identity-owned UserAccess，交给 AuthN 的 UserStatusReader 与 AuthZ 的 UserResolver；完整 IdentityModule 后初始化并不转移所有权。SignUp 的 User repository 是共享提交例外；Suggest 则直接依赖表结构，不经 Identity application API。
+
+这些依赖表达三种不同合同：窄同步端口提供当次结果，共享 UoW 组合本地提交，派生投影承担刷新与恢复。不能用“都经过接口”或“都有 Outbox”概括它们。
+
+## 4. AuthN signup：共享事务的明确例外
+
+SignUp 的本地 User、LoginIdentity、Credential 使用同一 MySQL 事务。AuthN application 调用 Identity domain 构造与 repository port，没有调用 Creator，因而不自动继承 Creator 的 Phone 友好预检查；当前新 User 保存错误也被包装 ErrDatabase。数据库约束与公开错误合同分别由创建主文维护。
+
+外部解析先于 SignUp **自身**的 UoW 调用；若传入 context 已有事务，Required 借用它，provider 交换仍可能发生在外层事务存续期间。返回成功也可能早于宿主提交；provider、state、Redis 效果不受本地 rollback 覆盖。宿主须传播失败，借用层没有自动 rollback-only。
+
+| 方案 | 当前取舍与代价 |
 | --- | --- |
-| Identity 跨模块依赖 | `internal/apiserver/container/identity/deps.go`、`module.go`、`rest.go`、`grpc.go` |
-| Block/Session | `internal/apiserver/application/identity/user/service_lifecycle.go` |
-| `/me` roles | `internal/apiserver/transport/rest/identity/handler/user.go` |
-| AuthN signup/User | `internal/apiserver/application/authn/signup`、`internal/apiserver/application/authn/uow/uow.go`、`internal/apiserver/infra/mysql/uow/authn/uow.go` |
-| IDP 微信模型 | `internal/apiserver/domain/idp/wechatapp` |
-| 微信 signup 解析 | `internal/apiserver/application/authn/signup/wechat_signup.go` |
-| Suggest Loader | `internal/apiserver/infra/mysql/suggest/loader.go` |
-| Suggest scope | `internal/apiserver/infra/suggest/authorization/facts_reader.go`、`internal/apiserver/infra/mysql/suggest/visibility_reader.go` |
-| 依赖护栏 | `internal/pkg/architecture/architecture_test.go` |
+| 当前 repository port + 同库 UoW | 组合本地三类记录的提交；AuthN 须理解必要的 Identity 创建规则和错误差异 |
+| 候选 Identity 创建端口，共享明确事务 | 可封装 User 规则，仍可保留原子性；须定义事务 owner，不能偷偷独立提交 |
+| 复用现有 Creator 并传 txCtx | Creator 的 Required 可借用事务，并非必然独立提交；须接受 Phone 预检查、输入/错误合同与 application 协作依赖 |
+| 独立 Identity RPC / 事件创建 | User 已提交、登录入口失败可能半完成；拆库前须设计请求回执、补偿及可查询恢复状态 |
 
-```bash
-go test ./internal/apiserver/application/identity/user
-go test ./internal/apiserver/application/authn/signup
-go test ./internal/apiserver/application/suggest/...
-go test ./internal/apiserver/infra/mysql/suggest ./internal/apiserver/infra/suggest/...
-go test ./internal/apiserver/container/identity
-go test ./internal/pkg/architecture
+当前 SignUp 流程没有写 Profile/ProfileLink，但 AuthN UoW 实际还暴露这两个仓储。例外是用例和评审约束，并非类型已强制只能访问 User；可候选收窄注册专用 UoW。已有 blocked User 可在复用分支继续确保入口，之后登录仍被 Admission 拒绝；缺失 User repair 也不恢复丢失的旧状态，详细规则归注册主文。开通、登录和建档因此是不同用例。
+
+Admission 先读入口归属/active，再读 User 状态，没有联合行锁或共同版本；已借用事务时还受既有快照影响。在线 Verify/Refresh 的身份来源和在途登录窗口归[AuthN边界](../02-AuthN/07-模块边界-AuthN与Identity-IDP-AuthZ.md)。Linking 不因此获得新的 User 状态证明；它依赖各 adapter 的认证前置，见[Linking](../02-AuthN/03-关键链路-Linking登录身份绑定.md)。
+
+## 5. Block/Deactivate：持久化任务与最终撤销
+
+### 5.1 谁提交什么
+
+公开协议提供 DeactivateUser / BlockUser；Activate 只有 application 能力，没有公开 REST/gRPC 激活入口。两种停用动作在目标状态不同于当前状态时更新 User，再 Stage revoke_all；已经处于目标状态直接成功，不补写任务。
+
+生产 Identity UoW 将 Users 与 SessionRevocations 装配到同一 GORM transaction。应用负责步骤，Stager 保存意图，container 注入 AuthN 窄 Revoker，Worker 负责提交后的执行。替身未装配 Stager 时，用例仍可只改状态，不能把所有装配都写成必有持久任务。
+
+```mermaid
+sequenceDiagram
+    participant C as 服务调用方
+    participant A as Identity StatusChanger
+    participant D as Identity UoW / MySQL
+    participant W as Identity Worker
+    participant R as AuthN Revoker / Redis
+    C->>A: Block / Deactivate User
+    A->>D: 在 UoW 内普通读取 User
+    A->>D: Update 状态；Stage 查询 version + INSERT/DoNothing
+    D-->>A: 正常顶层事务提交，或借用回调返回
+    A-->>C: 成功：状态 + Stage 写入/去重结果
+    W->>D: claim：事务领取 pending/failed，处理过期 processing
+    D-->>W: 固定任务批次，status=processing
+    W->>R: RevokeByUser(UserID, reason, iam:identity-status)
+    R->>R: 一次列举 SID，再逐项撤销
+    alt Revoker 返回 nil
+        W->>D: Complete(task_id, status=processing)
+    else Revoker 返回 error
+        W->>D: Fail + 指数退避时间
+    end
+    Note over C,R: 调用成功、任务完成、持续封禁是三个不同证据
 ```
 
-## 14. 继续阅读
+图展开状态确需变化的路径；User/Stage/提交失败不返回用例成功。图中的返回是 StatusChanger 应用结果，不是最终 gRPC 响应。借用事务由宿主最终提交与失败传播，没有把回调返回画成独立提交。领取事务与状态事务独立，Redis 也不参加二者。
 
-- Identity 总体定位和宏观决策：[00-模块总览](00-模块总览.md)
-- AuthN signup 与 Identity 创建链路：[02-创建 User 与 Profile](02-关键链路-创建User与Profile.md)
-- ProfileLink 关系语义：[03-建立与撤销 ProfileLink](03-关键链路-建立与撤销ProfileLink.md)
-- Suggest 主从取舍：[Suggest 为什么采用派生读模型](../../06-专题设计/05-Suggest为什么是读模型.md)
+gRPC DeactivateUser / BlockUser 在 StatusChanger 返回后，还调用 Directory.GetByID 组装 UserOperationResponse。正常顶层命令先提交状态/Stage，再开启查询 UoW；查询或映射后的响应交付失败不能撤回已提交状态。借用事务仍由宿主提交并传播失败。当前没有该公开命令的请求回执，客户端收到错误不能据此认定未执行；依据[生命周期 adapter](../../../internal/apiserver/transport/grpc/service/identity/identity_lifecycle.go)。UpdateUser 则只有一次 Editor.PatchProfile，不是多步独立资料更新。
+
+### 5.2 Stage 的幂等键不是生命周期代次保证
+
+Store.Stage 在当前事务查询 users.version，要求非零，插入任务时冲突 DoNothing。迁移000018唯一键是 user_id + user_version + action，reason 不在键内。Block 与 Deactivate 都使用 revoke_all，因此原因不同不保证得到第二条任务。
+
+UserPO 创建时 version=1，当前 mapper / BeforeUpdate / 通用 Update 不递增版本，迁移也没有 User 状态 trigger。若标准更新、该唯一索引及旧 completed 行仍在，激活后再次停用可复用原键而不新建 pending。此处是源码联合推论；没有核验生产版本、额外 trigger 或任务保留。
+
+同一目标状态的重复 Block 也不是补任务接口。Activate 不取消旧任务；Worker 不按 Task.UserVersion 或当前 User 状态跳过执行。任务尚待处理时激活并新登录，旧任务可能清理新 Session；已 completed 后再次停用，则可能没有新任务。两者机制不同，不能统一称为“幂等解决了重试”。
+
+此外，普通资料 Editor 也读取整个 User 后 Update；mapper 会带入读取时 Status，更新没有 expected Status/Version 条件。慢资料请求具备把旧 Status 带回写入的源码条件，尚未做 MySQL 竞争复现。只给生命周期方法加锁、不约束其他 User writer，仍不能承诺状态与资料写互不覆盖。
+
+### 5.3 Worker 的重试与领取保护
+
+| 环节 | 当前保护 | 不能扩大为的保证 |
+| --- | --- | --- |
+| Claim | 事务内先回收过期 processing，再按 task_id 领取到期 pending/failed；使用 FOR UPDATE SKIP LOCKED | 领取事务结束后仍拥有独占执行租约 |
+| Processing 超时 | 依据 updated_at 与 stale_processing_after 回收 | 原 Worker 已停止、所有副作用已取消；没有心跳续租 |
+| Complete / Fail | WHERE task_id 且 status=processing | 比较本次领取 attempt/token；不检查 RowsAffected |
+| 执行 | 顺序调用 RevokeByUser；错误后保存下一次指数退避时间 | 批次事务、无限期封禁或一条任务覆盖未来新 SID |
+| 失败记录 | last_error 仅存固定 session_revoke_failed 类别 | 已保存全部异常/逐 SID 结果，可据任务行还原业务接受 |
+
+例如 W1 领取后仍执行，超过过期阈值，W2 可重领同一 task；W1 后到的 Complete/Fail 只比较 processing，不能区分 W2 的领取。源码没有领取代次隔离，未进行多 Worker/MySQL 专项；不能仅凭 SKIP LOCKED 宣称执行与完成全程互斥。
+
+RevokeByUser 先读一次用户 SID 索引，再逐 SID 撤销。中途失败可能已有部分清理；重试重新列举，集合可以变化。单 SID 重复撤销可安全处理不等于按 User 任务与新登录共同幂等。新 SID 在列举后保存不在该轮集合内，完整 Session/令牌清理归[Token](../02-AuthN/05-关键链路-Token签发刷新吊销.md)。
+
+### 5.4 运行前提与效力边界
+
+Worker 仅在 Revoker 非nil、PollInterval 正数时启动；Run 的 context 来自 container，Cleanup 取消并等待，没有独立等待期限。任务持久化不证明 Worker 正在执行，IdentityModule.CheckHealth 当前恒nil。
+
+readiness 检查 Store 可查询、最老未完成任务年龄是否超过 OutboxMaxPendingAge；没有未完成行可通过，不证明 Worker 活跃、SID 清理完整或新登录被屏障阻断。后续更强健康合同须区分领取活动、积压、执行错误与最终效果。
+
+在线 Admission 读取到 blocked/inactive 会拒绝后续认证使用；本地 JWT 验签不读 User。已通过 Admission 的在途登录或业务请求没有联合生命周期屏障。状态写入也不删除 Assignment、不推进 AuthZ PolicyVersion；直接服务 Check 仍可 ALLOW。消费方应遵守认证/业务准入，不能把任一模块成功当作整条请求允许。
+
+当前本地任务关闭提交后崩溃/Redis失败的恢复缺口，但没有 MySQL/Redis 原子提交、exactly-once 或持续封禁保证。它不经 NSQ，不是标准事件 Relay；事件 Outbox 的 ACK/handoff 合同另见[事件机制](../../03-基础设施/03-事件与Transactional-Outbox.md)。
+
+## 6. AuthZ：能力读取与对象关系检查分工
+
+### 6.1 /identity/me 的读取顺序与失败
+
+GET 先完成 User Directory UoW；PATCH 先完成 Editor.PatchProfile UoW。随后两者先 resolveRoles，再独立读取 PermissionEntriesForSubject，最后返回 Success。当前 Runtime 实现后一个可选接口；reader 形状也会改变失败合同。
+
+| 阶段 | 当前行为 |
+| --- | --- |
+| reader=nil / 不实现可选权限接口 | 不附加角色，或权限保持空数组；不等于确认没有权限 |
+| roles 读取 error | debug日志后返回nil roles，继续读取 permissions |
+| roles 成功 | 当前Runtime给直接分配角色名，不算继承闭包；方法/注释中的 Effective 不改变行为 |
+| permissions 读取 | 要求新鲜快照；不可用错误为HTTP503/业务码103002，GET/PATCH整体失败 |
+| PATCH 正常顶层 UoW 已提交，随后 permissions 失败 | 资料仍已保存；响应不是该资料事务的回滚凭证 |
+
+角色和权限可以分别读到不同快照；roles失败后权限读取也可能恢复成功。permissions没有AppName过滤，可包含受保护的全局通配Grant；REST丢弃应用结果的Scopes。DTO只有resource/action/mode，不含Assignment Scope或PolicyVersion，不能作为公司/门店范围凭证或多个读取共同版本证明。
+
+例如昵称修改成功而权限投影短暂不新鲜，客户端得到503；先核对资料，再按具体用例处理重试。若希望资料操作独立于权限展示，可候选拆分接口或显式展示降级状态；若希望展示fail-closed，仍须表达“资料已提交”，不能借增强读取制造跨存储回滚。
+
+绑定非法JSON/类型与普通领域格式错误不同：合法JSON中的坏Phone/Email当前可落HTTP500/100101，而不是统一400。机器契约还未完整列User缺失404及权限503；输入/错误来源归[创建链路](02-关键链路-创建User与Profile.md)，契约差异归[接口治理](../../04-接口与SDK/01-REST-gRPC与契约治理.md)。本文只登记，不修改协议或handler。
+
+### 6.2 存在、关系、动作与业务提交分别检查
+
+AuthZ UserResolver只确认User锚点存在，不要求active；授权事实加载也不重读User。Grant/Replace的存在性普通读即使借用事实事务，也不锁住生命周期。Assignment删除有独立清理入口，停用不是赋权自动回收。
+
+普通顶层调用的MyProfiles.Get先完成active pair检查UoW，再进入Directory查询UoW；context已有事务时两次均可借用宿主事务，仍无关系锁/周期条件。Patch虽在同UoW普通读取pair和Profile，也没有关系行锁/expected周期。Revoke完成不自动取消已经通过检查的读写。关系查询故障可被改写PermissionDenied，不能据此判断必然未关联；标准pair读不排除deleted_at。当前普通REST档案自助用例没有Resource/Action输入，不提供通用对象动作授权。
+
+业务应把动作能力、局部对象关系/机构、对象状态与自己的提交合同明确组合；每次普通读都不等于持续许可。AuthZ不接收旧object_context求值，Suggest结果也不是详情凭证；无作用域Profile搜索已下线。完整关系读取范围与周期归[ProfileLink链路](03-关键链路-建立与撤销ProfileLink.md)。
+
+## 7. IDP：外部证明不进入 Identity 主模型
+
+IDP拥有应用配置、provider凭据、Secret/AppToken访问与外部code交换；它产出请求内ExternalIdentity，AuthN mapper再转换为入口标识，最终引用Identity User。
+
+ExternalIdentity包含provider、realm、受限identifiers与VerifiedAt，不包含IAM UserID、provider token或可重放credential；当前覆盖微信小程序、开放平台和企业微信。构造器只检查结构，证明可信性依赖实际Resolver/Exchanger；VerifiedAt是Resolver本地Now，不是provider原始认证时间。结果不证明User已创建/active、当前组织资格或AuthZ能力，应用停用、AppToken与已有Session也没有自动共同生命周期。
+
+历史标识直传使用TrustedLegacyInput，是内部来源分类，不是自动验证来源的凭证；内部调用者传非空OpenID可跳过Resolver，Source没有进一步准入用途。当前公开REST/gRPC mapper只投影AppID/JsCode；新增transport不得把普通用户OpenID接入该可信路径。SignUp/SignIn/Linking各自消费方式由[AuthN边界](../02-AuthN/07-模块边界-AuthN与Identity-IDP-AuthZ.md#4-idp外部交换负责证明来源authn-按用例决定本地归属)维护。
+
+Identity v2 proto的同名ExternalIdentity是另一个历史transport对象：创建handler忽略输入、响应空列表。字段存在不意味着Identity已经保存登录入口或支持provider交换。新增公开provider合同需明确证明来源、幂等及AuthN归属规则，不能借同名message跨越事实所有权。
+
+## 8. Suggest：只读投影，自己组合业务可见性
+
+### 8.1 资格与传播
+
+内建Loader聚合Profile名称/ID/created_by与关联User手机。资格是Profile未软删、至少一条未删且未撤销Link、其User未软删；User.Status不在SQL条件中。撤销一条仍有其他eligible关系时重算Upsert，末条失效才Delete；API成功不等于刷新成功或所有实例已变化。
+
+Full在当前进程构建Store后切换atomic.Value；Delta在该Store锁内应用完整投影。Refresher本地TryLock、防错不推进游标，不提供跨实例屏障或与Identity事务共同快照。索引与VisibilityReader直接依赖schema；“只读”是默认SQL与责任约定，自定义FullSQL/DeltaSQL直接Raw执行，护栏没有SQL只读语义检查。
+
+时间游标还不是提交序号：默认SQL以updated_at/deleted_at/revoked_at严格大于since筛选，成功后游标前进到本轮查询开始，空Delta也不经writer就推进。迁移中的无fsp DATETIME与带小数游标可留下同秒窗口；T0写入而T2晚提交、T1刷新读不到却已推进时，也可能持续漏读。维护硬删或关系移动还需保留可定位的影响ID。均为条件源码推论，没有真实MySQL专项；失败、重复重算与成功Full修复的边界由[刷新主文](../05-Suggest/02-关键链路-索引刷新Full-Delta.md)维护。
+
+### 8.2 查询范围不等于 ProfileLink
+
+FactsReader按user:OperatorID查list_all；true分支再查search_by_mobile_all并跳过VisibilityReader，false分支查search_by_mobile并读取created_by ProfileIDs。适配器只取Decision.Allowed，不读Assignment的company/store Scope或共同授权版本。
+
+非全量scope允许ProfileID **或** OrgID **或** owner命中；不是三者交集。OrgIDs非空时优先于单OrgID，REST当前只填UserID与JWT透传的OrgID，不查询当前组织成员。owner投影来自Profile.created_by，不是领域认领关系。
+
+例如占位Loader OrgID=7会把eligible候选投为同一组织；非全量principal的OrgID=7仍可能走组织分支允许这些候选，受外层准入及召回合同约束。组织声明、配置占位、created_by与active Link不能互相替代。
+
+非全量VisibilityReader失败会使scope解析失败；其缓存也缓存error。清理该缓存并不立即删除旧索引owner/org许可，初次刷新成功的健康标志也不证明以后持续新鲜。默认缺Checker不自动拒绝全部；route装配和组合分支、过滤/手机号披露由[查询主文](../05-Suggest/03-关键链路-SuggestProfile查询.md)维护，不能据端口非nil认定生产准入完整。
+
+## 9. 允许的依赖与复议条件
+
+当前AuthN/AuthZ domain经Identity发布的最小能力消费User；SignUp明确共享UoW，Identity应用经Stager，container Worker经AuthN Revoker，REST经AuthZ只读增强，Suggest经SQL及能力适配。禁止把共享存储改写成共同聚合、投影回写或ProfileLink自动赋权。
+
+静态护栏检查指定直接import和固定文本，包含AuthN/AuthZ domain对两个Identity User repository路径的禁止；没有全局跨模块白名单，也不证明SQL只读、正确组织事实或事务/调用时序。
+
+以下是**未实施候选**，按要求选择而非笼统添加事务/事件：
+
+| 要求 | 具体设计与代价 |
+| --- | --- |
+| 每次状态变更都留下独立清理意图 | lifecycle generation同事务推进并作任务键；所有User writer统一条件写或隔离资料字段，迁移旧版本/任务 |
+| 旧任务不撤新登录、停用屏障更强 | Session携带generation/cutoff并明确在途准入后晚保存的归类；MySQL/Redis间失败与历史Session兼容须另定 |
+| 领取到完成均有代次保护 | claim token/attempt条件写、影响行数检查、执行预算或续租；单独处理过期Worker副作用，不能只改Complete SQL |
+| /me资料与授权展示失败可区分 | 拆展示读取或增加降级/已提交结果合同；仍保留真正权限决策的失败准入和重新读取 |
+| 对象关系撤销立即约束业务提交 | 在拥有业务写入的边界定义关系周期/版本前置；统一锁或可验证条件，不把先查Has当作租约 |
+| 搜索提交不漏且撤销有时效证据 | 提交序号/可重放变更流，或明确lookback+去重+周期Full对账；绑定索引版本/年龄，并复议owner/org独立许可 |
+| 模块拆库或可独立部署 | 先替代SignUp共享提交、User准入读和Suggest schema直读；设计半完成、回执、缓存期限与恢复，不只换目录/API |
+
+## 10. 事实来源与验证
+
+| 当前事实 | 源码入口 |
+| --- | --- |
+| 发布能力与装配 | container/module_graph.go、container/identity/{deps,module}.go |
+| 状态步骤、Stage原子范围 | application/identity/user/service_lifecycle.go、application/identity/sessionrevocation/ports.go、infra/mysql/uow/identity/uow.go |
+| 去重、领取、重试/完成 | infra/mysql/sessionrevocation/{store,worker}.go、迁移000018 |
+| User写入范围与版本 | infra/mysql/user/{repo,mapper,user}.go、internal/pkg/database/mysql/base.go |
+| SID集合、准入效力 | infra/cache/redis/session_store.go、domain/authn/admission/policy.go |
+| 最小User能力与存在性 | domain/identity/useraccess/capabilities.go |
+| /me增强 | transport/rest/identity/handler/user.go、infra/authz/runtime/self_permissions.go |
+| 共享SignUp、provider结果 | application/authn/signup、infra/mysql/uow/authn/uow.go、application/idp/externalidentity |
+| 投影/范围 | infra/mysql/suggest/loader.go、application/suggest/{refreshindex,queryprofile}、domain/suggest/visibility、infra/suggest/index/memory |
+
+表中除internal/pkg外路径均相对internal/apiserver。接口、借用事务及模型约束详见各主文；本篇没有改业务源码/测试/配置/协议。
+
+| 现有证据 | 实际证明与未覆盖项 |
+| --- | --- |
+| StatusChanger SQLite用例 | 普通状态变更；不证明迁移唯一键下completed后再Stage、旧资料写覆盖或重激活竞争 |
+| Store/Worker三个SQLite用例 | 意图参与调用者事务回滚、stub失败后重试完成、年龄/计数；AutoMigrate不带000018完整唯一索引，未测多Worker领取代次 |
+| SessionStore miniredis用例 | SID索引清理、Revoke/Extend竞争；不证明停用与新Session共同屏障 |
+| SignUp/UoW/Admission用例 | 本地步骤、借用与状态判断；不证明provider与宿主事务的共同恢复 |
+| /me角色helper与资料Editor | 角色helper返回值、昵称回退与Editor资料回滚；没有完整GET/PATCH增强失败HTTP专项或跨模块原子性证明 |
+| Suggest SQL/refresh/visibility | SQLite或stub的资格、游标、失败与范围组合；不证明长事务不漏、组织成员事实或多实例收敛 |
+| container/架构用例 | 装配、注册和指定依赖；Identity模块接受空gorm.DB用例不执行数据库/Worker业务 |
+
+本篇按相关包复用已有回归日志，范围、摘要和本篇实际补充检查另在[复核记录](../../_data/reviews/2026-10-06-docs-refactor.md)绑定；上表不是新的测试执行声明。新正文与两图执行文档门禁、真实渲染和逐图查看。生产schema、Worker运行、实际清理与业务接受仍须各自证据。
+
+下一篇[Identity分层与代码索引](05-分层架构与代码索引.md)维护改动入口和影响面，不复制本文的跨模块规则。

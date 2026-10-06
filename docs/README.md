@@ -1,8 +1,6 @@
 # IAM 文档中心
 
-> 状态：已实现 · 当前设计与实现按篇复核中；运行/生产结论仍只由对应环境证据支持。
-
-2026-10-06本批完成18篇正文深化：AuthN七篇、AuthZ十篇、身份/认证/授权边界专题一篇。另有47篇技术正文及手册待深化；[阶段记录与剩余清单](_data/reviews/2026-10-06-docs-refactor.md)区分本批内容、支持同步与后续工作。阅读认证和授权时，从[AuthN](02-业务模块/02-AuthN/README.md)、[AuthZ](02-业务模块/03-AuthZ/README.md)进入。
+> 状态：已实现 · 当前说明校准于源码 `c8fc1fe61a32056368148e232e96d32763c15ba5`（2026-10-02）；文档修订于2026-10-06。历史验收不证明当前部署。
 
 ## 1. 这套文档解决什么问题
 
@@ -56,7 +54,13 @@ flowchart LR
 | IDP | provider app/secret/token 与外部声明验证 | IAM User、Session、资源授权 |
 | Suggest | 从 Identity 派生可见、脱敏的联想候选 | 主数据写入、通用授权结论 |
 
+现行运维任务入口见 [授权维护](operations/README.md)。
+
 跨模块完整模型见 [跨模块统一模型](00-概览/06-跨模块统一模型.md)。
+
+当前维护正文、带日期的历史验收和归档快照是不同材料。历史索引见 [发布记录](_data/releases/README.md) 与 [归档区](_archive/README.md)；历史状态标记不纳入当前能力计数。
+
+本轮事实校准、结构调整与验证范围见 [2026-10-06 文档重构阶段记录](_data/reviews/2026-10-06-docs-refactor.md)。设计深度继续按篇复核，篇幅缩短不作为质量验收依据。
 
 ## 3. 文档结构
 
@@ -127,7 +131,7 @@ docs/
 3. [IAM 威胁模型与安全边界](06-专题设计/03-IAM威胁模型与安全边界.md)
 4. [JWT/JWS/JWK/JWKS 与密钥轮换](06-专题设计/04-JWT-JWS-JWK-JWKS与密钥轮换.md)
 5. [Suggest 为什么采用派生读模型](06-专题设计/05-Suggest为什么是读模型.md)
-6. [为什么从 Casbin 迁移到自有不可变角色图](06-专题设计/06-从Casbin到自有不可变角色图.md)
+6. [为什么从 Casbin 迁移到自有不可变授权快照](06-专题设计/06-从Casbin到自有不可变角色图.md)
 
 面试索引只组织表达顺序；专题中的“面试追问”用于检验理解，答案的推理和代码证据仍在 canonical 正文。
 
@@ -155,9 +159,9 @@ docs/
 | 类别 | 含义 | 示例 |
 | --- | --- | --- |
 | 当前事实 | 代码今天真实执行 | Refresh 当前先延长 Session 再 CAS 轮换 |
-| 设计决策 | 已采用方案及其约束 | DB 是 AuthZ fact truth，原生不可变 runtime snapshot 是投影 |
-| 当前限制 | 已知失败窗口/缺失能力 | 无 per-tenant loaded-version barrier |
-| 设计建议 | 尚未实现的增强 | KMS envelope encryption、Refresh family reuse detection |
+| 设计决策 | 已采用方案及其约束 | DB 是 AuthZ fact truth，直接角色与 Grant 的不可变 snapshot 是投影 |
+| 当前限制 | 已知失败窗口/缺失能力 | 无请求级/全实例 loaded-version barrier |
+| 设计建议 | 尚未实现的增强 | KMS envelope encryption、跨实例 JWKS 加载屏障 |
 | 运行证据 | 特定环境和时刻的观察 | 生产 backup restore、部署 digest、时间窗口 |
 
 无法由当前实现或决策记录确认原始动机时，应写“基于当前约束的设计分析”，不能把合理推断冒充历史事实。
@@ -167,7 +171,7 @@ docs/
 1. **变化原因决定模块边界**：User、LoginIdentity、Session、PermissionGrant 和 provider app 因不同原因变化，不能因都带 ID 就合表。
 2. **强声明必须由足够强的证明推导**：openid、JWT 签名、ProfileLink、UI capability 都不能单独推出资源允许。
 3. **一致性按不变量和风险选择**：同库事务、数据库约束、Redis Lua、Outbox、可重建投影各自解决不同问题。
-4. **投影永远回到事实源**：AuthZ 不可变快照（含内存角色图）、Suggest Store、JWKS snapshot 和普通 cache 不能成为隐式第二份主数据。
+4. **投影永远回到事实源**：AuthZ 不可变快照（直接角色与 Grant 索引）、Suggest Store、JWKS snapshot 和普通 cache 不能成为隐式第二份主数据。
 5. **安全方向必须显式**：依赖失败时是拒绝、保留旧值、返回空结果还是继续服务，要说明失去的语义和观测方式。
 
 ## 7. 机器事实入口
@@ -205,7 +209,7 @@ MySQL/Redis integration，以及 staging/production observation；每类证据�
 - AuthZ 有 durable version event 和 reload health，但没有请求级/全实例 loaded-version barrier；
 - IDP SecretVault 是本地 AES-GCM，不等价于 KMS，且当前 secret 轮换为单槽覆盖；
 - Refresh 先延长 Session 再轮换 token，失败请求可能改变 Session TTL；
-- Suggest 原始手机号存在于进程内索引，默认输出脱敏，当前没有持久化索引快照；
+- Suggest 原始手机号经过 Loader 与进程内模型/索引，默认输出脱敏，当前没有持久化索引快照；
 - 单元/契约/架构门禁通过不等于生产迁移、备份恢复和发布已验收。
 
 这些限制不是文档缺陷，而是当前系统设计的一部分。只有代码、配置、迁移和运行证据改变后，才能把它们从当前事实中移除。

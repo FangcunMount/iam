@@ -1112,7 +1112,7 @@ def check_active_docs() -> None:
     suggest_query = (
         ROOT / "docs/02-业务模块/05-Suggest/03-关键链路-SuggestProfile查询.md"
     ).read_text(encoding="utf-8")
-    for required in ("原始手机号只存在于进程内索引", "不写入文件或日志"):
+    for required in ("Loader", "SuggestibleProfile", "Hash key", "没有 Suggest 文件 snapshot", "不记录原始关键词", "通用 access log"):
         if required not in suggest_query:
             fail(f"Suggest query documentation is missing current privacy fact: {required}")
 

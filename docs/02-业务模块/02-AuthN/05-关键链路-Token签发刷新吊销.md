@@ -279,7 +279,7 @@ GetActive使用status==active、未过期及LifetimePolicy，不把RevokedAt/Rea
 
 第N个SID失败时前N-1个可已撤销；重跑重新枚举当时索引，有效依赖索引完整和实际重试成功，不是“一次成功即所有并发新增Session都已撤”。后续新SID可出现在下一次重跑，但本次ZRange之后创建的SID不会自动追加。
 
-User block/deactivate在MySQL同事务更新状态并写identity_session_revocation_outbox，worker按UserID批量撤Redis Session；不枚举refresh、写每个jti或撤AuthZ岗位。独立在线Admission同时拒绝inactive/blocked User，但多次读取不构成提交屏障。此任务与标准Broker Outbox是不同对象。
+User block/deactivate在状态改变时，于MySQL同事务更新状态并Stage identity_session_revocation_outbox意图；Stage可去重，不保证新增pending。worker按UserID批量撤Redis Session，不枚举refresh、写每个jti或撤AuthZ岗位。当前标准User更新不推进users.version，旧completed任务可能挡住后一次Stage；条件及验证缺口由[AuthN模块边界](07-模块边界-AuthN与Identity-IDP-AuthZ.md#3-停用用户状态判断与会话清理互补任务成功不是并发屏障)维护。独立在线Admission拒绝读到的inactive/blocked User，但多次读取不构成提交屏障。此任务与标准Broker Outbox是不同对象。
 
 任务不按创建截止时间/UserVersion筛Session，也不重查当前User状态；Activate不取消旧任务。因此停用任务仍pending→激活并新登录→旧任务执行可撤新Session。反向窗口是Admission早先通过→停用任务枚举完成→在途Login后建SID，当前任务不再回访；User继续inactive时在线检查仍挡住，未来Activate没有认证epoch自动排除该SID。这些是源码时序推论，现无真实交错专项。
 
