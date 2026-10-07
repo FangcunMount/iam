@@ -1,472 +1,99 @@
-# IAM 系统定位
+# IAM系统定位：交付事实、接入路径与责任边界
 
-> 状态：已实现 · 系统定位、模块边界和事实源已按当前代码与机器契约复核；演进方向不作为当前能力。
+> 状态：已实现 · 以当前源码和契约说明定位，目标部署、消费者配置与业务接受另行取证；本文的接入情境不表示新功能已经实施。
 
----
+## 1. IAM提供哪些共同能力
 
-## 1. 本文回答
+IAM为多个业务入口提供内部主体与档案关系、登录与在线会话、资源动作能力及范围事实。其价值在于这些事实可由共同合同管理：同一内部User不必随登录provider变化而换ID，登录状态不必寄生在业务档案上，人员岗位变更不必重写每个业务对象。当前实现是Go模块化单体，五个业务模块在标准APIServer进程中装配，并与后台任务、消息运行时协作；五个模块不对应五个部署服务。[实际组合根](../../internal/apiserver/container/module_graph.go)、[标准入口](../../cmd/apiserver/apiserver.go)。
 
-本文回答 4 个问题：
+共享这些能力也集中了承诺和故障责任：消费者必须采用一致的身份引用、Token接受合同和范围语义，不能各自解释同名字段。IAM并没有接管任务、报告、业务组织主数据或每个对象的执行规则。业务接入应明确自己需要哪一种事实，而不是只问“是否接了IAM”。
 
-- IAM 是什么？
-- IAM 解决什么问题？
-- IAM 不应该被理解成什么？
-- Identity、AuthN、AuthZ、IDP、Suggest 在系统定位上分别承担什么职责？
+| 读者的问题 | 当前职责中心 | 交付内容及边界 |
+| --- | --- | --- |
+| 登录人、服务对象和两者关系如何表示 | Identity | User、Profile、ProfileLink；档案可属于被服务对象，不要求该对象已有登录主体 |
+| 本次证明指向谁，能否建立/继续登录状态 | AuthN | LoginIdentity/Credential、Principal、Admission、Session、Access/Refresh Token；这些成功分阶段成立 |
+| 这个主体有什么资源动作能力和范围事实 | AuthZ | 直接Role/Assignment、无条件Grant、Decision、许可配对Scope；宿主处理实际对象 |
+| 外部code如何解析、应用秘密如何管理 | IDP | provider/realm标识、ExternalIdentity、应用凭据与provider AppToken；不是用户授权票据 |
+| 怎样从输入取得少量档案候选 | Suggest | Identity派生投影、有限召回、可见性过滤和按配置披露；不是后续动作授权 |
 
-本文只建立系统级定位，不展开每个模块的内部模型和关键链路。业务模块细节见 [02-业务模块](../02-业务模块/README.md)。
+五类职责按事实与变化原因划分，不自动证明五个DDD战略子域。“核心/辅助”是本仓实现分组，不是部署拓扑或启动优先级：标准关键模块清单包含IDP、AuthN、AuthZ、Identity，Suggest另有enable/required配置。辅助能力也可能处于登录关键路径。术语与协作细节分别由[术语表](03-核心概念术语表.md)、[模块协作](02-模块划分与协作关系.md)维护。
 
----
+## 2. 三个接入情境：成功之后还需要什么
 
-## 2. 30 秒结论
+### 家长U17使用儿童档案P88
 
-IAM 是面向业务系统接入的身份与访问管理服务。
+受信内部调用创建User U17，只得到用户事实，不自动生成LoginIdentity、Profile、Role或Token。AuthN注册另建立/复用内部User与登录入口，返回UserID/LoginIdentityID及可选Credential摘要；SignUp也不创建Session或交付Token。登录才继续身份核验、Admission、Session及初始Token保存/签发。[用户创建](../../internal/apiserver/application/identity/user/service_create.go)、[注册](../../internal/apiserver/application/authn/signup/service.go)、[登录完成](../../internal/apiserver/application/authn/signin/completion.go)。
 
-它围绕 3 个核心问题组织能力：
+Identity CreateProfile可以为U17创建儿童档案P88并建立ProfileLink。这不等于让儿童以U17登录；U17是请求者，P88是被服务对象。当前Identity REST查询档案从可信用户上下文进入MyProfiles，以有效关系决定能否查看自己的档案；同名gRPC目录读取则按受信服务请求目标，不重做这一自助门禁。ProfileLink确实参与这些用例的访问判断，不能笼统说“关系完全不参与授权”。[创建出口](../../internal/apiserver/transport/grpc/service/identity/profile_command.go)、[自助读取](../../internal/apiserver/transport/rest/identity/handler/profile_query.go)。
 
-```text
-用户是谁？        -> Identity
-如何证明用户身份？ -> AuthN + IDP
-用户能访问什么？   -> AuthZ
-```
+若业务随后让U17为P88完成某个测评任务，宿主还须从自身可信记录取得任务与对象、判断当前关系可用于这个操作、校验任务状态和本次提交。一个有效ProfileLink不自动授予全部业务动作；IAM也不从前端提交的ProfileID推断任务归属。该场景说明责任划分，不声称本仓已经实现任意业务任务接口。
 
-同时，IAM 还提供两类配套能力：
+### 员工从公司1门店A转到门店B
 
-```text
-接入能力：REST / gRPC / Go SDK。
-辅助读模型：Suggest Profile 联想搜索。
-```
+Role描述岗位能力，Assignment描述主体获得该Role及公司/门店范围。设某员工的read范围在A，retry范围在B；Check只判断目标resource/action是否命中Grant，不检查业务对象究竟在哪个门店。宿主必须取可信对象上的公司/门店，再消费对应许可的范围，不能将全部Assignment范围并成A+B用于每个动作。Scope构造器校验结构和正数ID，也不查询真实门店归属。[模型](../02-业务模块/03-AuthZ/01-领域模型设计.md)、[范围配对](../../internal/apiserver/infra/authz/runtime/scopes.go)。
 
-IAM 不是普通用户中心、单纯登录系统、权限 CRUD、微信登录适配器或 Profile 搜索服务。
+岗位调整成功、事实版本提交、某实例加载、旧证明到期和业务操作提交分别成立。Check与Snapshot是独立调用，没有共同版本承诺；一次旧ALLOW后的在途业务也不会被新快照自动撤回。需要更严格的转店/撤权生效语义时，宿主先确定冲突处理和业务提交边界，再选择在线判定、应用快照或缓存合同，不能用“实时权限”四个字跳过这些条件。[判定主文](../02-业务模块/03-AuthZ/02-关键链路-授权判定与不可变快照.md)、[收敛主文](../02-业务模块/03-AuthZ/04-关键链路-多实例策略收敛.md)。
 
-如果只记一句话：
+### 操作员搜索到了P88，或搜索结果为空
 
-> IAM 以 `User` 为稳定身份锚点，把身份事实、认证事实、授权事实、外部身份源适配、Profile 联想搜索读模型，以及 REST/gRPC/SDK 接入能力组织在同一个身份与访问管理系统中。
+Suggest处理的是展示候选。内建默认Loader SQL从Identity资料构建索引，owner取Profile.created_by，Org取配置占位值；标准装配也允许FullSQL/DeltaSQL覆盖，覆盖后须重核字段来源。局部可见性按创建人ProfileID、索引Org或索引owner任一命中。它与AuthZ的Assignment company/store Scope不同，也不能直接当作当前ProfileLink持有关系。[来源](../../internal/apiserver/infra/mysql/suggest/loader.go)、[局部可见性](../../internal/apiserver/domain/suggest/visibility/scope.go)。
 
----
+召回先受预算限制，之后过滤和排序；空结果还可能来自查询准入拒绝或optional降级。因此返回P88不证明可以编辑/测评它，返回空也不证明全库不存在符合业务条件的P88。宿主用ProfileID取得当前事实并重新判断后续操作；默认掩码保护展示，生产禁止配置关闭mask，但不能抹去手机号已进入Loader和内存索引的事实。[查询](../../internal/apiserver/application/suggest/queryprofile/service.go)、[运行配置](../../internal/apiserver/container/suggest/module.go)、[读模型专题](../06-专题设计/05-Suggest为什么是读模型.md)。
 
-## 3. 系统定位图
+## 3. 请求者、服务调用者和业务对象是三条线
+
+外部微信code被IDP交换为provider/realm标识，再由AuthN按登录入口合同映射内部主体。ExternalIdentity不含IAM UserID/LoginIdentityID，也不表示已建立Session。provider AppToken供服务调用provider API，不是用户AccessToken；秘密保存或AppToken获取成功不能当作用户登录完成。当前provider枚举、已注册接口与真正可用路径也应分开：标准企微nil-cache装配限制尚未修复，详见[外部解析](../02-业务模块/04-IDP/02-外部身份解析与AuthN协作.md)。
+
+对于用户AccessToken，接入方先确定接受合同，再读取验证结果并校验宿主必需的身份字段和对应关系。AuthN Principal在证明核验成功后即可形成，仍须经过Admission、Session和Token交付；它不是已登录会话。在线Verify还检查撤销标记、claims指向的活跃SID及User/LoginIdentity准入，但不把IAM验证与宿主业务commit绑定。Verify RPC无错误也可返回Valid=false，必须读取结果；SID检查和准入读取也不能宣称全库同版。[在线验证器](../../internal/apiserver/domain/authn/token/verifier.go)、[应用结果](../../internal/apiserver/application/authn/token/capabilities.go)。
 
 ```mermaid
-flowchart TD
-    Client["业务系统 / 前端 / 管理端"]
-    Access["Access\nREST / gRPC / Go SDK"]
-
-    Identity["Identity\n用户是谁\nUser / Profile / ProfileLink"]
-    AuthN["AuthN\n如何证明身份\nLoginIdentity / Credential / Challenge / Principal / Session / Token"]
-    AuthZ["AuthZ\n能访问什么\nSubject / Role / Assignment / PermissionGrant"]
-    IDP["IDP\n外部身份来源\nWechatApp / Credentials / AppToken / ExternalIdentity"]
-    Suggest["Suggest\n可见 Profile 联想搜索\nSuggestibleProfile / Candidate / Scope"]
-
-    Client --> Access
-    Access --> Identity
-    Access --> AuthN
-    Access --> AuthZ
-    Access --> Suggest
-
-    IDP --> AuthN
-    AuthN --> Identity
-    AuthZ --> Identity
-    Suggest --> Identity
-    Suggest --> AuthZ
+flowchart TB
+  T["用户AccessToken"] --> L["宿主选择SDK本地验证<br/>签名 / issuer / audience / 时效等合同"]
+  T --> V["宿主选择IAM在线Verify<br/>额外检查撤销 / SID / Admission"]
+  L --> U["宿主读取已验证的身份声明<br/>校验必需字段及对应关系"]
+  V --> U
+  U --> A["以已确认UserID形成Subject<br/>请求AuthZ能力 / 配对范围"]
+  U --> I["按用例读取Identity<br/>Profile及有效ProfileLink"]
+  A --> B["宿主最终处理业务对象<br/>对象状态 / 关系用途 / 范围 / 提交"]
+  I --> B
 ```
 
-这张图表达 5 个边界：
+图表示接入责任，两个验证出口是可选接受合同，不表示一次请求必定都执行。SDK结果缓存与fallback也会改变实际路径，本地验证不检查实时Session/User/LoginIdentity撤销，也不重跑IAM claims对象的完整身份不变量；它提取UserID等可选字段，宿主不能把验签成功直接等同于身份字段齐全且相互一致。这里区分来源证明与消费形状，不声称标准IAM签发产生异常身份。线上验证后仍存在读取到业务执行的窗口。图不是所有REST路由的统一middleware流水线：Identity自助关系门禁、Suggest局部过滤与AuthZ管理路由各有实现。[SDK接入合同](../04-接口与SDK/02-Go-SDK与业务系统接入.md)、[JWT专题](../06-专题设计/04-JWT-JWS-JWK-JWKS与密钥轮换.md)。
 
-| 边界 | 含义 |
-| --- | --- |
-| Access -> 业务模块 | REST、gRPC、Go SDK 是接入形态，不是业务模型本身 |
-| AuthN -> Identity | AuthN 通过 `UserID` 指向 Identity 的 `User`，不复制 User 写模型 |
-| AuthZ -> Identity | AuthZ 通过 `Subject` 引用 User，不拥有 User/Profile/ProfileLink 写模型 |
-| IDP -> AuthN | IDP 提供外部身份源证明，IAM 登录态由 AuthN 决定 |
-| Suggest -> Identity/AuthZ | Suggest 消费 Profile 事实，并用权限范围控制可见结果 |
+服务调用者在启用并正确装配的安全配置下，由mTLS证书身份和配置ACL准入；方法ACL只在启用且成功加载时安装，不能从接口存在推导现场已经启用。一个QS服务获准调用AuthZ，不表示该请求字段中的`user:42`已被验证为本次登录人。Check/Snapshot读RPC校验服务身份与Subject语法，没有再次认证目标User；Snapshot的AppName也不绑定到证书服务。宿主必须从可信用户验证结果构造Subject，不能照抄前端字段。Assignment写入另有服务、受管Role及管理保护准入，但ChangedBy/GrantedBy文本也不是人类操作者的身份或管理权证明。[AuthZ gRPC](../../internal/apiserver/transport/grpc/service/authz/service.go)、[调用准入](../03-基础设施/05-传输层与服务间安全.md)。
 
----
+## 4. 持久事实、在线状态与投影各有恢复合同
 
-## 4. IAM 解决的问题
+| 载体 | 当前承担什么责任 | 接入/恢复时需要保留的区别 |
+| --- | --- | --- |
+| MySQL | 内部身份/登录入口/凭据、关系、授权事实与版本、应用凭据、JWK元数据、Outbox等 | 同库UoW只覆盖加入该事务的写入；不包含所有Redis、文件与provider操作 |
+| Redis | Session、RefreshToken、Challenge、撤销标记及部分普通缓存 | Session/Refresh是在线状态，不是可由MySQL自动重建的普通cache；丢失和清理有登录后果 |
+| 本地授权快照 | 已发布能力、范围及目录投影，附版本/证明 | 可重建不等于当前新鲜；全量构建失败保留旧版，读取仍受证明预算 |
+| Suggest内存索引 | 从Identity资料重建，Full替换/Delta更新 | 可重建不等于完整召回、及时同步或长期不可变；局部查询还可读DB/AuthZ |
+| 秘密材料与公钥分发 | 签名私钥PEM、IDP主密钥输入、公钥元数据及消费缓存 | 公钥不是私钥；只恢复数据库不保证文件/密钥与事实相配，也不清除外部旧缓存 |
+| Broker与标准Outbox | 已提交事件的持久交接、发布/重试及消费传播 | Broker确认、consumer ACK和业务接受分别取证，重复与恢复由各层合同处理 |
 
-IAM 解决的是业务系统接入中的身份与访问控制问题。
+共享数据库、同进程调用和一个版本数字不能统称“全系统强一致”。Required借入宿主事务时应用返回未必已提交；某些即时Reload又通过根DB独立读取。跨MySQL/Redis、消息与文件的失败要按具体窗口补偿或恢复，而不是把一切贴成“最终一致”。本页只给定位，时序与候选恢复由[一致性专题](../06-专题设计/02-事务缓存与事件一致性.md)及[基础设施](../03-基础设施/README.md)维护。
 
-典型问题包括：
+## 5. 当前接入面与扩展代价
 
-```text
-一个业务系统如何识别当前调用者是谁？
-一个用户可以通过哪些登录身份进入系统？
-密码、验证码、微信、企微等身份来源如何统一进入认证体系？
-认证成功后如何表达调用者身份？
-AccessToken、RefreshToken、Session 如何划分边界？
-资源服务如何验证 Token？
-某个用户是否有权限访问某个资源？
-权限策略变更后如何传播到运行时？
-管理端如何快速搜索自己可见范围内的 Profile？
-业务系统如何通过 REST、gRPC、Go SDK 接入 IAM？
-```
+当前公开传输由REST和gRPC适配，后台任务与NSQ消息协作不算第三套用户API。REST包含登录/自助/管理/搜索等不同门禁，gRPC面向受信服务；不能按协议名称假定全部方法具备相同用户授权。Go SDK提供已发布gRPC客户端与本地验证等消费能力，Raw/Conn的出口也保留；Suggest当前只有REST，没有Suggest gRPC/SDK客户端。`/v5` Go module、REST URL与proto package分别演进。[接口治理](../04-接口与SDK/01-REST-gRPC与契约治理.md)。
 
-因此，IAM 的核心价值不是“多几个接口”，而是统一治理：
+本仓“已实现”是源码/契约状态。Prepare、模块Available、gRPC SERVING、REST readyz和业务流成功各有依据；只看端口或健康不能证明所有provider、所有权限或所有消费者可用。标准运行模式还有关键模块与可靠消息硬门禁，optional Suggest降级不是“任意模块都可缺失”的启动保证。[启动](../01-运行时/01-启动与组合根.md)、[就绪与关闭](../01-运行时/03-后台任务就绪与优雅关闭.md)。
 
-```text
-身份事实；
-认证事实；
-授权事实；
-外部身份源事实；
-接入契约；
-模块边界；
-文档和代码事实源。
-```
+下表是定位层面的候选判断条件，不是已经接受的改造计划；实现方案仍由相应主文决定。
 
----
+| 新诉求 | 需要新增/改变的合同 | 成本与接受样本 |
+| --- | --- | --- |
+| 把完整业务对象授权收进IAM | 谁提供当前对象/关系/组织事实；数据类型、时效、拒绝语义及提交顺序 | 增加业务耦合；以同主体不同对象、旧关系/旧属性、未知值和撤销并发验证，不能直接恢复已退役object_context求值 |
+| 接入一个新provider或统一入口 | realm/标识等价、证明来源、内部归属、应用停用/凭据轮换、历史入口迁移 | 不能只加provider enum；需要新旧入口正反匹配、来源错配、停用、失败重试与退出样本 |
+| 将模块拆为独立服务 | 资源/lifecycle归属、事务替代、远程失败/重试、版本传播与缓存消费 | 五模块名称不构成拆分理由；分别证明注册与关系写入、会话撤销、权限变更在网络失败下的结果 |
+| 增加更大规模的通用档案搜索 | 搜索用途、资格与披露合同、来源覆盖、预算/分页、索引更新与恢复 | 搜索结果仍不授权后续动作；需要可见集合之外的拒绝样本、坏资料、迟到更新和全量恢复 |
 
-## 5. IAM 的模块分工
+## 6. 如何阅读和验证这个定位
 
-### 5.1 Identity：用户是谁
+先按问题进入唯一正文：模型关系见[业务模块](../02-业务模块/README.md)，部署与资源责任见[运行时](../01-运行时/README.md)，接入接受合同见[接口与SDK](../04-接口与SDK/README.md)，跨模块取舍见[专题](../06-专题设计/README.md)。本页的例子说明返回值为何不足以代表最终业务接受，不重复各模块完整算法，也不将候选写成当前路线承诺。
 
-Identity 是身份事实中心。
+本轮新增Go行为执行0、测试文件0；精确复用第43/44/50篇原日志6run/pass（6顶层、0子项），5份原package pass另计、5不同包。原绑定、命令与日期保留；43/44没有记录工具摘要及执行开始/结束字段，保持缺口，不由当前工具或阶段HEAD补写。55组来源map重核5022条路径，本篇90项静态子集没有新增独立路径；数量不等于行为覆盖，详见[阶段记录](../_data/reviews/2026-10-06-docs-refactor.md)。
 
-它回答：
-
-```text
-系统内部这个人是谁？
-这个人有哪些业务档案？
-User 和 Profile 之间是什么关系？
-这些关系如何建立、查询和撤销？
-```
-
-Identity 的核心对象是：
-
-```text
-User；
-Profile；
-ProfileLink。
-```
-
-Identity 不负责登录认证、Token 签发、权限判定，也不负责 Profile 联想搜索索引。
-
-详细文档见 [Identity](../02-业务模块/01-Identity/README.md)。
-
----
-
-### 5.2 AuthN：如何证明用户身份
-
-AuthN 是认证域。
-
-它回答：
-
-```text
-系统如何通过登录身份找到 User？
-请求者如何证明自己控制某个 LoginIdentity？
-认证成功后如何表达 Principal？
-认证结果如何转化为 Session、AccessToken、RefreshToken？
-资源服务如何通过 JWKS 完成本地验签？
-```
-
-AuthN 的核心对象是：
-
-```text
-LoginIdentity；
-Credential；
-Challenge；
-Principal；
-Session；
-AccessToken；
-RefreshToken；
-JWKS。
-```
-
-AuthN 不负责 Role、Assignment 或 PermissionGrant，不负责 ProfileLink 关系治理，也不拥有外部身份源配置。
-
-详细文档见 [AuthN](../02-业务模块/02-AuthN/README.md)。
-
----
-
-### 5.3 AuthZ：用户能访问什么
-
-AuthZ 是授权域。
-
-它回答：
-
-```text
-某个 Subject，
-在某个授权域下，
-能不能对某个 Resource 执行某个 Action，
-业务系统随后检查对象关系、机构范围和状态。
-```
-
-AuthZ 的核心对象是：
-
-```text
-Subject；
-Resource；
-Action；
-Role；
-Assignment；
-DirectRole / EffectiveRole；
-PermissionGrant；
-直接角色与资源动作匹配；
-AuthorizationDecision；
-PolicyVersion。
-```
-
-AuthZ 不负责登录认证、Token 签发、User/Profile 写模型，也不负责 ProfileLink 关系治理。
-
-详细文档见 [AuthZ](../02-业务模块/03-AuthZ/README.md)。
-
----
-
-### 5.4 IDP：外部身份来源如何接入
-
-IDP 是外部身份源辅助模块。
-
-它回答：
-
-```text
-微信、企微等外部身份源如何配置？
-外部应用密钥如何治理？
-外部 access token 如何获取和缓存？
-外部身份声明如何被解析出来并交给 AuthN 消费？
-```
-
-IDP 的核心对象是：
-
-```text
-WechatApp；
-Credentials；
-AppToken；
-ExternalIdentity。
-```
-
-IDP 不创建 IAM 登录态，不签发 IAM Token，不拥有 User，也不决定权限。
-
-详细文档见 [IDP](../02-业务模块/04-IDP/README.md)。
-
----
-
-### 5.5 Suggest：如何快速搜索可见 Profile
-
-Suggest 是 Profile 联想搜索读模型模块。
-
-它回答：
-
-```text
-管理端或业务后台如何快速搜索 Profile？
-如何基于进程内索引快速召回候选？
-如何用 visibility.Scope 控制可见范围？
-手机号搜索如何脱敏、限流和治理？
-索引如何刷新和降级？
-```
-
-Suggest 的核心对象是：
-
-```text
-SuggestibleProfile；
-Keyword / Candidate；
-visibility.Scope / ResultItem。
-```
-
-Suggest 不拥有 Profile 写模型，不负责认证，不负责通用授权策略管理，也不是核心身份域。
-
-详细文档见 [Suggest](../02-业务模块/05-Suggest/README.md)。
-
----
-
-## 6. IAM 不是什么
-
-### 6.1 IAM 不是普通用户中心
-
-普通用户中心通常围绕用户资料 CRUD 展开。
-
-IAM 的核心不是“维护用户表”，而是围绕身份与访问管理组织：
-
-```text
-Identity 维护 User/Profile/ProfileLink；
-AuthN 维护 LoginIdentity/Credential/Session/Token；
-AuthZ 维护 Subject/Role/Assignment/PermissionGrant，并区分直接角色与继承后的有效角色；
-IDP 适配外部身份源；
-Suggest 构建 Profile 联想搜索读模型。
-```
-
-`User` 是 IAM 的稳定身份锚点，但 IAM 不等于 User CRUD。
-
----
-
-### 6.2 IAM 不是单纯登录系统
-
-单纯登录系统通常只关心“能不能登录”和“登录后给一个 token”。
-
-IAM 的 AuthN 还需要明确：
-
-```text
-一个 User 可以绑定多个 LoginIdentity；
-Credential 和 Challenge 是不同认证事实；
-Principal 是认证成功后的运行时主体；
-Session 是服务端认证上下文；
-AccessToken 和 RefreshToken 有不同安全边界；
-JWKS 让资源服务可以本地验签。
-```
-
-因此，登录只是 AuthN 的一条关键链路，不是 IAM 的全部。
-
----
-
-### 6.3 IAM 不是权限 CRUD
-
-权限 CRUD 只是在表上增删改查角色和权限。
-
-IAM 的 AuthZ 需要解决：
-
-```text
-授权主体如何表达；
-资源如何建模；
-Resource 与 Action 如何参与判定；
-Role 如何聚合 PermissionGrant；
-Assignment 如何表达 Subject 持有 Role；
-RoleInheritance 如何复用角色能力；
-业务系统如何独立检查数据范围；
-Check 如何在运行时快速判定；
-PolicyVersion 和 Outbox 如何传播授权事实变化。
-```
-
-因此，AuthZ 的核心是授权模型和运行时判定，不是简单 CRUD。
-
----
-
-### 6.4 IAM 不是微信登录适配器
-
-微信、企微等外部身份源属于 IDP 的适配范围。
-
-IDP 的输出是外部身份声明，IAM 登录态由 AuthN 创建，User 事实由 Identity 维护。
-
-```text
-IDP 证明外部身份；
-AuthN 绑定或认证 LoginIdentity；
-Identity 提供 User；
-AuthZ 决定访问权。
-```
-
-因此，微信登录只是外部身份源接入的一种场景，不是 IAM 的系统定位。
-
----
-
-### 6.5 IAM 不是 Profile 搜索服务
-
-Suggest 服务 Profile autocomplete，但它不是独立搜索产品，也不是核心身份域。
-
-Suggest 的定位是辅助读模型：
-
-```text
-从 Identity 消费 Profile 事实；
-构建搜索索引和快照；
-根据 visibility.Scope 过滤可见结果；
-对手机号等敏感查询做脱敏、限流和安全治理。
-```
-
-因此，Suggest 是 IAM 里的辅助查询能力，不拥有 User/Profile/ProfileLink 主事实。
-
----
-
-## 7. 系统边界
-
-### 7.1 IAM 对外提供什么
-
-IAM 对外主要提供：
-
-```text
-REST API：面向前端、管理端、调试和部分业务接入；
-gRPC API：面向服务间调用；
-Go SDK：面向 Go 业务服务的产品化接入封装；
-JWKS：面向资源服务的本地验签；
-```
-
-接入细节见 [接口与 SDK](../04-接口与SDK/README.md)。
-
----
-
-### 7.2 IAM 内部如何分层
-
-IAM 内部采用分层与组合根组织：
-
-```text
-process：生命周期管理；
-container：组合根和依赖装配；
-transport：REST/gRPC 协议适配；
-application：用例编排；
-domain：领域模型和业务规则；
-infra：数据库、缓存、token、授权快照、外部服务等基础设施适配。
-```
-
-运行时细节见 [01-运行时](../01-运行时/README.md)。
-
----
-
-## 8. 事实源
-
-本文是系统定位说明，不是机器契约。
-
-当本文与代码、契约、测试冲突时，按以下优先级判断：
-
-1. 源码与运行时行为。
-2. 机器可读契约与配置：OpenAPI、proto、配置、迁移。
-3. 测试：架构测试、契约测试、模块测试、SDK compile test。
-4. 现行维护中的 `docs/`。
-5. `_archive/` 历史材料。
-
-当前主要事实源：
-
-| 事实 | 路径 |
-| --- | --- |
-| 运行时入口 | `../../cmd/apiserver` |
-| App 初始化 | `../../internal/apiserver/app.go` |
-| 进程生命周期 | `../../internal/apiserver/process` |
-| 组合根 | `../../internal/apiserver/container` |
-| REST transport | `../../internal/apiserver/transport/rest` |
-| gRPC transport | `../../internal/apiserver/transport/grpc` |
-| Identity | `../../internal/apiserver/domain/identity`、`../../internal/apiserver/application/identity` |
-| AuthN | `../../internal/apiserver/domain/authn`、`../../internal/apiserver/application/authn` |
-| AuthZ | `../../internal/apiserver/domain/authz`、`../../internal/apiserver/application/authz` |
-| IDP | `../../internal/apiserver/domain/idp`、`../../internal/apiserver/application/idp` |
-| Suggest | `../../internal/apiserver/domain/suggest`、`../../internal/apiserver/application/suggest` |
-| REST 契约 | `../../api/rest` |
-| gRPC 契约 | `../../api/grpc` |
-| Go SDK | `../../pkg/sdk` |
-| 架构测试 | `../../internal/pkg/architecture` |
-
----
-
-## 9. Verify
-
-修改本文后至少执行：
-
-```bash
-make docs-hygiene
-```
-
-涉及模块边界或分层依赖时，再执行：
-
-```bash
-go test ./internal/pkg/architecture
-```
-
-涉及 REST、gRPC、SDK 契约时，再执行：
-
-```bash
-make api-validate
-make proto-gen
-go test ./internal/apiserver/transport/grpc
-go test ./pkg/sdk/...
-```
-
----
-
-## 10. 本文总结
-
-IAM 的系统定位可以压缩成 5 个判断：
-
-```text
-Identity 回答“用户是谁”；
-AuthN 回答“如何证明身份”；
-AuthZ 回答“能访问什么”；
-IDP 回答“外部身份来源如何接入”；
-Suggest 回答“如何快速搜索可见 Profile”。
-```
-
-IAM 不是普通用户中心、不是单纯登录系统、不是权限 CRUD、不是微信登录适配器、也不是 Profile 搜索服务。
-
-它是面向业务系统接入的身份与访问管理服务，核心价值在于把身份事实、认证事实、授权事实、外部身份源、Profile 联想搜索读模型和接入契约分开治理，并通过清晰的模块边界组织起来。
+注册、typed facade、ForceRemote分派与fake版本恢复均只证明各自断言，不建立完整五模块回归或真实provider、跨库补偿、宿主对象授权。源码/契约核对、文档门禁、CI、目标部署及业务接受分别成立；当前现场配置、消费者接受集合、索引时效、组织事实和业务结果仍为unknown。
