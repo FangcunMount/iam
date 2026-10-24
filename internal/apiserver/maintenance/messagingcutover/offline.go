@@ -83,8 +83,16 @@ func Read(ctx context.Context, db *sql.DB) (Snapshot, error) {
 	extra := rows.Next()
 	scanErr := rows.Err()
 	_ = rows.Close()
-	if extra || scanErr != nil || dirty || out.Version < 41 || out.Version > 45 {
+	if extra || scanErr != nil || dirty || out.Version < 40 || out.Version > 45 {
 		return out, ErrRefused
+	}
+	// Schema40 has not installed the provider-aware audit table. Claiming its
+	// ownership is safe only after proving that the exact name is absent.
+	if out.Version == 40 {
+		var auditObjects int
+		if db.QueryRowContext(ctx, "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND BINARY TABLE_NAME='iam_message_failure_audit'").Scan(&auditObjects) != nil || auditObjects != 0 {
+			return out, ErrRefused
+		}
 	}
 	ddl, err := ddlHash(ctx, db, "schema_migrations")
 	if err != nil {
@@ -180,7 +188,7 @@ func Build(action, store, epoch string, snapshot Snapshot) (Plan, error) {
 	return p, Validate(p)
 }
 func Validate(p Plan) error {
-	if p.Schema != Schema || !identifier.MatchString(p.StoreID) || !identifier.MatchString(p.WriterEpoch) || p.MigrationDigest != migration.MessagingMigrationDigest() || p.Before.Database == "" || p.Before.ServerUUID == "" || p.Before.Version < 41 || p.Before.Version > 45 {
+	if p.Schema != Schema || !identifier.MatchString(p.StoreID) || !identifier.MatchString(p.WriterEpoch) || p.MigrationDigest != migration.MessagingMigrationDigest() || p.Before.Database == "" || p.Before.ServerUUID == "" || p.Before.Version < 40 || p.Before.Version > 45 {
 		return ErrRefused
 	}
 	if p.Action != "schema" && p.Action != "select" {

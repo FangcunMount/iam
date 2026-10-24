@@ -38,18 +38,25 @@ func CaptureProtection(ctx context.Context, db *sql.DB, store, epoch string) (Pr
 		return p, err
 	}
 	plan, err := Build("schema", store, epoch, s)
-	if err != nil || s.Version != 41 || len(s.Objects) != 0 || s.LegacyPending {
+	if err != nil || (s.Version != 40 && s.Version != 41) || len(s.Objects) != 0 || s.LegacyPending {
 		return p, ErrRefused
 	}
 	var table, ddl string
 	if db.QueryRowContext(ctx, "SHOW CREATE TABLE schema_migrations").Scan(&table, &ddl) != nil || table != "schema_migrations" || digest([]byte(ddl)) != s.VersionDDLHash {
 		return p, ErrRefused
 	}
-	p = Protection{ProtectionSchema, "seven-new-objects-and-original-version-journal", store, epoch, plan.MigrationDigest, s, ddl}
+	p = Protection{ProtectionSchema, protectionScope(s.Version), store, epoch, plan.MigrationDigest, s, ddl}
 	return p, validateProtection(p)
 }
+func protectionScope(version uint) string {
+	if version == 40 {
+		return "eight-new-objects-and-original-version-journal"
+	}
+	return "seven-new-objects-and-original-version-journal"
+}
+
 func validateProtection(p Protection) error {
-	if p.Schema != ProtectionSchema || p.Scope != "seven-new-objects-and-original-version-journal" || p.Before.Version != 41 || len(p.Before.Objects) != 0 || p.Before.Binding != nil || p.Before.Selection != nil || p.Before.LegacyPending || len(p.OriginalVersionDDL) > 65536 || !strings.HasPrefix(p.OriginalVersionDDL, "CREATE TABLE `schema_migrations` (") || digest([]byte(p.OriginalVersionDDL)) != p.Before.VersionDDLHash {
+	if p.Schema != ProtectionSchema || p.Scope != protectionScope(p.Before.Version) || (p.Before.Version != 40 && p.Before.Version != 41) || len(p.Before.Objects) != 0 || p.Before.Binding != nil || p.Before.Selection != nil || p.Before.LegacyPending || len(p.OriginalVersionDDL) > 65536 || !strings.HasPrefix(p.OriginalVersionDDL, "CREATE TABLE `schema_migrations` (") || digest([]byte(p.OriginalVersionDDL)) != p.Before.VersionDDLHash {
 		return ErrRefused
 	}
 	plan, err := Build("schema", p.StoreID, p.WriterEpoch, p.Before)
@@ -149,7 +156,7 @@ func RestoreProtection(ctx context.Context, p Protection, open func() (*sql.DB, 
 	extra := versions.Next()
 	rowErr := versions.Err()
 	_ = versions.Close()
-	if extra || rowErr != nil || current < 41 || current > 45 || (current == 41 && !dirty) {
+	if extra || rowErr != nil || current < p.Before.Version || current > 45 || (current == p.Before.Version && !dirty) {
 		return ErrRefused
 	}
 	// A missing or out-of-range journal is never forced. A recorded in-range dirty value is
@@ -159,7 +166,13 @@ func RestoreProtection(ctx context.Context, p Protection, open func() (*sql.DB, 
 		return ErrRefused
 	}
 	present := []string{}
-	for _, name := range tables {
+	restoreTables := append([]string(nil), tables...)
+	if p.Before.Version == 40 {
+		// Only schema40 protection proved this table did not exist. A schema41
+		// protection must preserve its audit rows even if new failures arrived.
+		restoreTables = append(restoreTables, "iam_message_failure_audit")
+	}
+	for _, name := range restoreTables {
 		var n int
 		if db.QueryRowContext(ctx, "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND BINARY TABLE_NAME=BINARY ? AND TABLE_TYPE='BASE TABLE' AND ENGINE='InnoDB'", name).Scan(&n) != nil || n > 1 {
 			return ErrRefused
@@ -235,7 +248,7 @@ func RestoreProtection(ctx context.Context, p Protection, open func() (*sql.DB, 
 		return ErrRefused
 	}
 	defer func() { _ = tx.Rollback() }()
-	result, err := tx.ExecContext(ctx, "UPDATE schema_migrations SET version=41,dirty=FALSE WHERE version=? AND dirty=?", current, dirty)
+	result, err := tx.ExecContext(ctx, "UPDATE schema_migrations SET version=?,dirty=FALSE WHERE version=? AND dirty=?", p.Before.Version, current, dirty)
 	if err != nil {
 		return ErrRefused
 	}

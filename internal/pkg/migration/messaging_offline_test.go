@@ -19,3 +19,13 @@ func TestOfflineMessagingRequiresDeadlineBeforeAnyConnection(t *testing.T) {
 		t.Fatal("canceled migration accepted")
 	}
 }
+
+func TestProduction40UsesOriginalAuditMigration(t *testing.T) {
+	name := messagingMigrationFile(41)
+	if name != "000041_message_failure_audit.up.sql" {
+		t.Fatal("production40 bridge omitted the original additive audit migration")
+	}
+	if data, err := migrations.ReadFile("migrations/" + name); err != nil || len(data) == 0 {
+		t.Fatal("original audit migration unavailable", err)
+	}
+}

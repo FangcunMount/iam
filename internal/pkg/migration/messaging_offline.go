@@ -11,14 +11,14 @@ import (
 
 var ErrOfflineMessagingMigration = errors.New("offline additive IAM migration incomplete; preserve the original journal and remain stopped")
 
-// RunMessagingOffline applies only the frozen additive 42..45 templates. Every
+// RunMessagingOffline applies only the frozen additive 41..45 templates. Every
 // SQL operation borrows the caller's real deadline. Generic RunTo uses upstream
 // background contexts and cannot enforce the maintenance command's budget.
 // No source/journal constructor is used and no missing journal is installed.
 // The caller owns db. Each DDL may commit independently; dirty is persisted
 // first and never cleared after an unknown/canceled operation.
 func RunMessagingOffline(ctx context.Context, db *sql.DB, expected uint) (uint, error) {
-	if ctx == nil || db == nil || expected < 41 || expected >= 45 {
+	if ctx == nil || db == nil || expected < 40 || expected >= 45 {
 		return 0, ErrOfflineMessagingMigration
 	}
 	if _, ok := ctx.Deadline(); !ok || ctx.Err() != nil {
@@ -101,6 +101,8 @@ func casMessagingJournal(ctx context.Context, conn *sql.Conn, from uint, dirty b
 }
 func messagingMigrationFile(version uint) string {
 	switch version {
+	case 41:
+		return "000041_message_failure_audit.up.sql"
 	case 42:
 		return "000042_transaction_messaging.up.sql"
 	case 43:

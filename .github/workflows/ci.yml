@@ -146,8 +146,9 @@ jobs:
         run: |
           set -euo pipefail
           go test -race -tags=integration -count=1 -timeout=3m -v ./cmd/iam-maintenance \
-            -run '^TestM3MessagingOfflineNative$' | tee "$RUNNER_TEMP/m3-offline.log"
+            -run '^TestM3MessagingOffline(Native|ProductionBaselinesNative)$' | tee "$RUNNER_TEMP/m3-offline.log"
           grep -q -- '--- PASS: TestM3MessagingOfflineNative ' "$RUNNER_TEMP/m3-offline.log"
+          grep -q -- '--- PASS: TestM3MessagingOfflineProductionBaselinesNative ' "$RUNNER_TEMP/m3-offline.log"
           if grep -q -- '--- SKIP:' "$RUNNER_TEMP/m3-offline.log"; then exit 1; fi
       - name: Prove maintenance planner and original-root transactions with isolated native MySQL
         env:
