@@ -5,11 +5,11 @@ import (
 	"encoding/hex"
 )
 
-// MessagingMigrationDigest binds only the additive M3 source templates. It is
+// MessagingMigrationDigest binds the additive audit and M3 source templates. It is
 // not a database backup or an assertion that live migration 41 is installed.
 func MessagingMigrationDigest() string {
 	h := sha256.New()
-	for version := uint(42); version <= 45; version++ {
+	for version := uint(41); version <= 45; version++ {
 		name := messagingMigrationFile(version)
 		raw, err := migrations.ReadFile("migrations/" + name)
 		if err != nil {

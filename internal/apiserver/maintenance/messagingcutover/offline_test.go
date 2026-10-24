@@ -32,7 +32,7 @@ func TestFrozenPlanRejectsWrongProtocolAndCanonicalMutation(t *testing.T) {
 	}
 	for _, change := range []func(*Plan){
 		func(p *Plan) { p.Schema = "other" }, func(p *Plan) { p.MigrationDigest = "old" },
-		func(p *Plan) { p.Before.Version = 40 }, func(p *Plan) { p.Before.Version = 46 },
+		func(p *Plan) { p.Before.Version = 39 }, func(p *Plan) { p.Before.Version = 46 },
 		func(p *Plan) { p.Before.Binding = &Binding{Owner: "iam.mysql"} },
 		func(p *Plan) { p.Before.Objects = []Object{{Name: "rm_tx_execution", Nonempty: true}} },
 		func(p *Plan) { p.Before.Selection = &Selection{Protocol: "transaction", Generation: 2, Version: 1} },
