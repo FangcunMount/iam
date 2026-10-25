@@ -13,6 +13,24 @@ services:
       - "9090"   # gRPC 服务 (mTLS 保护，内网服务间通信)
       - "9091"   # gRPC 健康检查 (内网监控系统)
     volumes:
+      - type: bind
+        source: /data/infra/iam-messaging/versions/${ROCKETMQ_BINDING_REVISION:?fixed messaging revision required}/rocketmq/credentials.json
+        target: /etc/iam/rocketmq/credentials.json
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: /data/infra/iam-messaging/versions/${ROCKETMQ_BINDING_REVISION:?fixed messaging revision required}/rocketmq/ca.crt
+        target: /etc/iam/rocketmq/ca.crt
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: /data/infra/iam-messaging/versions/${ROCKETMQ_BINDING_REVISION:?fixed messaging revision required}/rocketmq/routes.json
+        target: /etc/iam/rocketmq/routes.json
+        read_only: true
+        bind:
+          create_host_path: false
       - /data/infra/ssl/redis/ca-chain.pem:/etc/qlume/redis/ca-chain.pem:ro
       - /data/infra/ssl/mysql/ca-chain.pem:/etc/qlume/mysql/ca-chain.pem:ro
       # 挂载配置文件（可以覆盖镜像中的配置）

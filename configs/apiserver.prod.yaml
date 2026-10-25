@@ -168,7 +168,7 @@ mysql:
 # 3.2 数据库迁移配置
 # ----------------------------------------------------------------------------
 migration:
-  enabled: true  # 是否启用自动迁移（生产环境建议启用）
+  enabled: false # Production schema is installed explicitly by the maintenance command.
   database: "iam"  # 数据库名称
 
 # ----------------------------------------------------------------------------
@@ -330,15 +330,13 @@ log:
       - /var/log/iam/error.log    # 额外记录 ERROR（快速定位故障）
 
 # ----------------------------------------------------------------------------
-# 5.2 事件目录与 Transactional Outbox Relay
+# 5.2 最终事务事件目录与关闭预算
 # ----------------------------------------------------------------------------
 events:
-  catalog_path: /app/configs/events.yaml
+  catalog_path: /app/configs/events-m3.yaml
   reliable_messaging:
-    enabled: false # Explicit deployment variable selects the reviewed Outbox owner.
-  outbox_relay_interval: 2s
-  outbox_relay_batch_size: 100
-  outbox_relay_retry_delay: 10s
+    enabled: false # No production Outbox/Relay owner.
+    shutdown_timeout: 20s
 
 # Policy confirmation budgets; no database reads occur on the Check path.
 authz:

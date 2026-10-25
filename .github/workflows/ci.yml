@@ -14,6 +14,14 @@ env:
   GOTOOLCHAIN: local
 
 jobs:
+  production-transaction-package:
+    name: Production transaction package (Compose)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Render real final profile without starting containers
+        run: python3 scripts/cd/test_transaction_compose.py -v
+
   lint:
     name: Lint Code
     runs-on: ubuntu-latest
