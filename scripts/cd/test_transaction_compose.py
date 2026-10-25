@@ -50,7 +50,8 @@ class ProductionCompose(unittest.TestCase):
                              {"credentials.json", "ca.crt", "routes.json"})
             for mount in mounts:
                 self.assertTrue(mount["read_only"])
-                self.assertFalse(mount["bind"]["create_host_path"])
+                # Compose omits false fields from its normalized JSON model.
+                self.assertFalse(mount["bind"].get("create_host_path", False))
                 self.assertEqual(mount["source"], "/data/infra/iam-messaging/versions/m4-iam-fixture/rocketmq/" + mount["target"].rsplit("/", 1)[1])
             self.assertFalse(any("NSQ_" in k for k in service["environment"]))
             self.assertEqual(service["environment"]["IAM_APISERVER_MYSQL_TLS_MODE"], "VERIFY_IDENTITY")
