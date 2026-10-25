@@ -71,20 +71,10 @@ redact_env_file() {
     "$1"
 }
 
-if [ "${MESSAGING_PROVIDER_REQUIRED:-false}" = true ]; then
-  require_env IAM_MESSAGING_PROVIDER
-fi
-IAM_MESSAGING_PROVIDER="${IAM_MESSAGING_PROVIDER:-nsq}"
-case "$IAM_MESSAGING_PROVIDER" in nsq|rocketmq) ;; *) echo 'Unsupported IAM messaging provider' >&2; exit 1 ;; esac
-ROCKETMQ_PUBLISH_ENABLED="${ROCKETMQ_PUBLISH_ENABLED:-true}"
-case "$ROCKETMQ_PUBLISH_ENABLED" in true|false) ;; *) echo 'Invalid publishing gate' >&2; exit 1 ;; esac
-if [ "$IAM_MESSAGING_PROVIDER" = rocketmq ]; then
-  require_env ROCKETMQ_ENDPOINT ROCKETMQ_INSTANCE_ID
-fi
+# Validate the final owner and original identity before replacing any package.
+python3 "$SCRIPT_DIR/render-messaging.py" validate
+ROCKETMQ_PUBLISH_ENABLED="${ROCKETMQ_PUBLISH_ENABLED:-false}"
 MYSQL_PORT="${MYSQL_PORT:-3306}"
-NSQ_LOOKUPD_PORT="${NSQ_LOOKUPD_PORT:-4161}"
-NSQ_NSQD_PORT="${NSQ_NSQD_PORT:-4150}"
-NSQ_NSQD_HTTP_PORT="${NSQ_NSQD_HTTP_PORT:-4151}"
 default_redis_ssl
 SMS_ALIYUN_ACCESS_KEY_ID="${SMS_ALIYUN_ACCESS_KEY_ID:-}"
 SMS_ALIYUN_ACCESS_KEY_SECRET="${SMS_ALIYUN_ACCESS_KEY_SECRET:-}"
@@ -92,17 +82,6 @@ SEED_MOCK_AUTH_ENABLED="${SEED_MOCK_AUTH_ENABLED:-true}"
 SEED_MOCK_AUTH_SHARED_SECRET="${SEED_MOCK_AUTH_SHARED_SECRET:-}"
 validate_sms_aliyun_credentials
 validate_seed_mock_auth
-IAM_RELIABLE_MESSAGING_ENABLED="${IAM_RELIABLE_MESSAGING_ENABLED:-false}"
-case "$IAM_RELIABLE_MESSAGING_ENABLED" in
-  true|false) ;;
-  *) echo 'IAM_RELIABLE_MESSAGING_ENABLED must be true or false' >&2; exit 1 ;;
-esac
-IAM_NSQ_CONSUMER_SDK_ENABLED="${IAM_NSQ_CONSUMER_SDK_ENABLED:-false}"
-case "$IAM_NSQ_CONSUMER_SDK_ENABLED" in
-  true|false) ;;
-  *) echo 'IAM_NSQ_CONSUMER_SDK_ENABLED must be true or false' >&2; exit 1 ;;
-esac
-
 if [ "${SERVICE:-apiserver}" != collection ]; then
   require_env MYSQL_TLS_MODE
   if [ "$MYSQL_TLS_MODE" != VERIFY_IDENTITY ]; then
@@ -115,32 +94,13 @@ require_env \
   MYSQL_HOST MYSQL_PORT MYSQL_USERNAME MYSQL_PASSWORD MYSQL_DBNAME \
   REDIS_HOST REDIS_PORT IPD_ENCRYPTION_KEY
 
-if [ -n "${NSQ_LOOKUPD_HOST:-}" ]; then
-  NSQ_ENABLED=true
-else
-  NSQ_ENABLED=false
-fi
-if [ "$IAM_MESSAGING_PROVIDER" = nsq ] && [ "$IAM_NSQ_CONSUMER_SDK_ENABLED" = true ]; then
-  if [ "$IAM_RELIABLE_MESSAGING_ENABLED" != true ] || [ "$NSQ_ENABLED" != true ] || [ -z "${NSQ_NSQD_HOST:-}" ]; then
-    echo 'IAM_NSQ_CONSUMER_SDK_ENABLED requires reliable messaging, lookupd and nsqd' >&2
-    exit 1
-  fi
-  case "$NSQ_NSQD_HTTP_PORT" in
-    ''|*[!0-9]*) echo 'NSQ_NSQD_HTTP_PORT must be a numeric port' >&2; exit 1 ;;
-  esac
-  if [ "$NSQ_NSQD_HTTP_PORT" -lt 1 ] || [ "$NSQ_NSQD_HTTP_PORT" -gt 65535 ]; then
-    echo 'NSQ_NSQD_HTTP_PORT must be within 1..65535' >&2
-    exit 1
-  fi
-fi
-
-if [ "$IAM_MESSAGING_PROVIDER" = rocketmq ]; then NSQ_ENABLED=false; IAM_NSQ_CONSUMER_SDK_ENABLED=false; fi
 PACKAGE_DIR="${DEPLOY_PACKAGE_DIR:-deploy-package}"
 ENV_FILE="${PACKAGE_DIR}/configs/env/config.prod.env"
 
 rm -rf "$PACKAGE_DIR" "$DEPLOY_PACKAGE"
 mkdir -p "${PACKAGE_DIR}/configs/env" "${PACKAGE_DIR}/build/docker" "${PACKAGE_DIR}/scripts/cd"
 cp -r configs "$PACKAGE_DIR/"
+python3 "$SCRIPT_DIR/render-messaging.py" render "$PACKAGE_DIR/configs/apiserver.prod.yaml"
 cp build/docker/docker-compose.prod.yml "${PACKAGE_DIR}/build/docker/docker-compose.prod.yml"
 cp scripts/cd/image-retention.py scripts/cd/image-retention.sh scripts/cd/image-metadata.sh scripts/cd/maintenance-acl.sh scripts/cd/remote-deploy.sh "${PACKAGE_DIR}/scripts/cd/"
 
@@ -173,28 +133,9 @@ IAM_APISERVER_SMS_ALIYUN_ACCESS_KEY_SECRET=${SMS_ALIYUN_ACCESS_KEY_SECRET}
 IAM_APISERVER_SEED_MOCK_AUTH_ENABLED=${SEED_MOCK_AUTH_ENABLED}
 IAM_APISERVER_SEED_MOCK_AUTH_SHARED_SECRET=${SEED_MOCK_AUTH_SHARED_SECRET}
 
-# NSQ configuration
-IAM_APISERVER_EVENTS_RELIABLE_MESSAGING_ENABLED=${IAM_RELIABLE_MESSAGING_ENABLED}
-IAM_APISERVER_NSQ_ENABLED=${NSQ_ENABLED}
-IAM_APISERVER_NSQ_CONSUMER_SDK_ENABLED=${IAM_NSQ_CONSUMER_SDK_ENABLED}
-IAM_APISERVER_NSQ_LOOKUPD_ADDRS=${NSQ_LOOKUPD_HOST:-}:${NSQ_LOOKUPD_PORT}
-IAM_APISERVER_NSQ_NSQD_ADDR=${NSQ_NSQD_HOST:-}:${NSQ_NSQD_PORT}
+# Compose mounts a fixed, pre-provisioned version; no credentials in the package.
+ROCKETMQ_BINDING_REVISION=${ROCKETMQ_BINDING_REVISION}
 EOF
-if [ "$IAM_MESSAGING_PROVIDER" = nsq ] && [ "$IAM_NSQ_CONSUMER_SDK_ENABLED" = true ]; then
-  printf 'IAM_APISERVER_NSQ_NSQD_HTTP_ADDRS=http://%s:%s\n' \
-    "$NSQ_NSQD_HOST" "$NSQ_NSQD_HTTP_PORT" >> "$ENV_FILE"
-fi
-printf 'IAM_APISERVER_MESSAGING_PROVIDER=%s\n' "$IAM_MESSAGING_PROVIDER" >> "$ENV_FILE"
-if [ "$IAM_MESSAGING_PROVIDER" = rocketmq ]; then
-  cat >> "$ENV_FILE" <<EOF
-IAM_APISERVER_MESSAGING_ENDPOINT=${ROCKETMQ_ENDPOINT}
-IAM_APISERVER_MESSAGING_CREDENTIALS_FILE=/app/configs/rocketmq/credentials.json
-IAM_APISERVER_MESSAGING_CA_FILE=/app/configs/rocketmq/ca.crt
-IAM_APISERVER_MESSAGING_ROUTES_FILE=/app/configs/rocketmq/routes.json
-IAM_APISERVER_MESSAGING_INSTANCE_ID=${ROCKETMQ_INSTANCE_ID}
-IAM_APISERVER_MESSAGING_PUBLISH_ENABLED=${ROCKETMQ_PUBLISH_ENABLED}
-EOF
-fi
 # Redis cloud TLS uses Go's additive system trust directories; retain stock roots.
 if [ "${REDIS_HOST:-}" = bj-crs-3dli07u2.sql.tencentcdb.com ] && [ "${REDIS_USE_SSL:-false}" != true ]; then
   echo 'Tencent production Redis requires explicit TLS' >&2

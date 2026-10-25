@@ -167,13 +167,13 @@ jobs:
 
       - name: Prepare deployment package
         env:
-          MESSAGING_PROVIDER_REQUIRED: 'true'
           IAM_MESSAGING_PROVIDER: ${{ vars.IAM_MESSAGING_PROVIDER }}
           ROCKETMQ_ENDPOINT: ${{ vars.ROCKETMQ_ENDPOINT }}
           ROCKETMQ_INSTANCE_ID: ${{ vars.ROCKETMQ_INSTANCE_ID }}
-          ROCKETMQ_PUBLISH_ENABLED: ${{ vars.ROCKETMQ_PUBLISH_ENABLED || 'true' }}
-          IAM_RELIABLE_MESSAGING_ENABLED: ${{ vars.IAM_RELIABLE_MESSAGING_ENABLED || 'false' }}
-          IAM_NSQ_CONSUMER_SDK_ENABLED: ${{ vars.IAM_NSQ_CONSUMER_SDK_ENABLED || 'false' }}
+          ROCKETMQ_PUBLISH_ENABLED: ${{ vars.ROCKETMQ_PUBLISH_ENABLED || 'false' }}
+          ROCKETMQ_STORE_ID: ${{ vars.ROCKETMQ_STORE_ID }}
+          ROCKETMQ_WRITER_EPOCH: ${{ vars.ROCKETMQ_WRITER_EPOCH }}
+          ROCKETMQ_BINDING_REVISION: ${{ vars.ROCKETMQ_BINDING_REVISION }}
           MYSQL_HOST: ${{ vars.MYSQL_PUBLIC_HOST }}
           MYSQL_TLS_MODE: ${{ vars.MYSQL_TLS_MODE }}
           MYSQL_TLS_CA_REF: ${{ vars.MYSQL_TLS_CA_REF }}
@@ -190,11 +190,6 @@ jobs:
           REDIS_USE_SSL: ${{ secrets.REDIS_USE_SSL }}
           REDIS_SSL_INSECURE_SKIP_VERIFY: ${{ secrets.REDIS_SSL_INSECURE_SKIP_VERIFY }}
           IPD_ENCRYPTION_KEY: ${{ secrets.IPD_ENCRYPTION_KEY }}
-          NSQ_LOOKUPD_HOST: ${{ secrets.NSQ_LOOKUPD_HOST }}
-          NSQ_LOOKUPD_PORT: ${{ secrets.NSQ_LOOKUPD_PORT || 4161 }}
-          NSQ_NSQD_HOST: ${{ secrets.NSQ_NSQD_HOST }}
-          NSQ_NSQD_PORT: ${{ secrets.NSQ_NSQD_PORT || 4150 }}
-          NSQ_NSQD_HTTP_PORT: ${{ secrets.NSQ_NSQD_HTTP_PORT || 4151 }}
           SMS_ALIYUN_ACCESS_KEY_ID: ${{ secrets.SMS_ALIYUN_ACCESS_KEY_ID }}
           SMS_ALIYUN_ACCESS_KEY_SECRET: ${{ secrets.SMS_ALIYUN_ACCESS_KEY_SECRET }}
           SEED_MOCK_AUTH_ENABLED: ${{ vars.SEED_MOCK_AUTH_ENABLED || 'true' }}

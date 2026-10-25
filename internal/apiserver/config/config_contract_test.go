@@ -142,11 +142,13 @@ func TestAPIServerYAMLConfigMapsToRuntimeOptions(t *testing.T) {
 				assertBoolPtr(t, "debug cache governance require admin", opts.Debug.CacheGovernance.RequireAdmin, true)
 				assertEqual(t, "seed mock enabled by default", opts.SeedMockAuth.Enabled, true)
 				assertEqual(t, "seed mock secret", opts.SeedMockAuth.SharedSecret, "")
-				assertEqual(t, "events catalog path", opts.Events.CatalogPath, "/app/configs/events.yaml")
+				assertEqual(t, "events catalog path", opts.Events.CatalogPath, "/app/configs/events-m3.yaml")
+				assertEqual(t, "production automatic migration disabled", opts.MigrationOptions.Enabled, false)
+				assertEqual(t, "transaction shutdown budget", opts.Events.ReliableMessaging.ShutdownTimeout, 20*time.Second)
 				assertEqual(t, "reliable messaging remains disabled", opts.Events.ReliableMessaging.Enabled, false)
 				assertEqual(t, "events relay interval", opts.Events.OutboxRelayInterval, 2*time.Second)
-				assertEqual(t, "events relay batch size", opts.Events.OutboxRelayBatchSize, 100)
-				assertEqual(t, "events relay retry delay", opts.Events.OutboxRelayRetryDelay, 10*time.Second)
+				assertEqual(t, "retired relay batch omitted", opts.Events.OutboxRelayBatchSize, 0)
+				assertEqual(t, "retired relay retry omitted", opts.Events.OutboxRelayRetryDelay, time.Duration(0))
 			},
 		},
 	}

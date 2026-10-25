@@ -229,6 +229,7 @@ IMAGE_NAME=${compose_image_name}
 IMAGE_TAG=${IMAGE_TAG}
 WWW_UID=${APP_UID}
 WWW_GID=${APP_GID}
+ROCKETMQ_BINDING_REVISION=${ROCKETMQ_BINDING_REVISION}
 EOF
   $SUDO rsync -a "$local_compose_env" "$compose_env_file"
   rm -f "$local_compose_env"
@@ -461,6 +462,12 @@ if [ "${SERVICE:-apiserver}" != collection ]; then
   mysql_ca_ref=$(sed -n 's/^MYSQL_TLS_CA_REF=//p' "$DEPLOY_TMP/configs/env/config.prod.env" | head -1)
   python3 /opt/infra/scripts/mysql/ca.py verify --ref "$mysql_ca_ref"
 fi
+ROCKETMQ_BINDING_REVISION=$(sed -n 's/^ROCKETMQ_BINDING_REVISION=//p' "$DEPLOY_TMP/configs/env/config.prod.env")
+if ! [[ "$ROCKETMQ_BINDING_REVISION" =~ ^[a-z0-9][a-z0-9-]{0,63}$ ]]; then
+  echo 'Invalid frozen messaging file revision' >&2
+  exit 1
+fi
+export ROCKETMQ_BINDING_REVISION
 sync_package
 ensure_network
 setup_grpc_certs
