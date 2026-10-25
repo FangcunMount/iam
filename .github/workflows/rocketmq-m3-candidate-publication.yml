@@ -1,0 +1,100 @@
+name: M3 reviewed candidate archive publication
+
+on:
+  workflow_dispatch:
+    inputs:
+      workflow_sha:
+        description: Exact reviewed main workflow SHA; no application rebuild or deployment
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: m3-reviewed-candidate-publication
+  cancel-in-progress: false
+
+jobs:
+  publish-reviewed-archives:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    environment: production
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REVIEWED_WORKFLOW_SHA: ${{ inputs.workflow_sha }}
+      INFRA_SHA: 89581dca3e8d06a4f69580b18cce78b5d91ca9bc
+      PLAN_SHA256: 5baf315f229ce6c81f49394a3c12b7954ce54c8d8c0f7de2461ff0dff64957ff
+    steps:
+      - name: Require exact reviewed main and preserve production deployment pause
+        env:
+          DEPLOY_PAUSED: ${{ vars.PRODUCTION_DEPLOY_PAUSED }}
+        run: |
+          set -euo pipefail
+          [[ "$REVIEWED_WORKFLOW_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$GITHUB_SHA" = "$REVIEWED_WORKFLOW_SHA"
+          test "$DEPLOY_PAUSED" = true
+      - uses: actions/checkout@v6
+        with:
+          repository: FangcunMount/infra
+          ref: 89581dca3e8d06a4f69580b18cce78b5d91ca9bc
+          fetch-depth: 0
+          path: infra
+          persist-credentials: false
+      - name: Verify reviewed transport source was merged into infra main
+        run: |
+          set -euo pipefail
+          test "$(git -C infra rev-parse HEAD)" = "$INFRA_SHA"
+          git -C infra merge-base --is-ancestor "$INFRA_SHA" origin/main
+          python3 - <<'PY'
+          import os,sys
+          from pathlib import Path
+          sys.path.insert(0,'infra/scripts/rocketmq')
+          from publish_candidates import load_plan
+          load_plan(Path('infra/docs/server/evidence/rocketmq-m3-image-publication-plan-20261025.json'),os.environ['PLAN_SHA256'])
+          PY
+      - name: Install registry transport on disposable GitHub runner only
+        run: sudo apt-get update -qq && sudo apt-get install -y skopeo
+      - name: Authenticate to existing ACR without exposing credential bytes
+        env:
+          ACR_REGISTRY: ${{ secrets.ALIYUN_ACR_REGISTRY }}
+          ACR_USERNAME: ${{ secrets.ALIYUN_ACR_USERNAME }}
+          ACR_PASSWORD: ${{ secrets.ALIYUN_ACR_PASSWORD }}
+        run: |
+          set -euo pipefail
+          umask 077
+          test "$ACR_REGISTRY" = crpi-x3r4i68cpfmwtcll.cn-beijing.personal.cr.aliyuncs.com
+          test -n "$ACR_USERNAME"
+          test -n "$ACR_PASSWORD"
+          printf '%s' "$ACR_PASSWORD" | skopeo login --authfile "$RUNNER_TEMP/m3-acr-auth.json" \
+            --username "$ACR_USERNAME" --password-stdin "$ACR_REGISTRY" >/dev/null
+      - name: Publish exact reviewed five archives and verify immutable references
+        env:
+          ALIYUN_ACR_REGISTRY: ${{ secrets.ALIYUN_ACR_REGISTRY }}
+          ALIYUN_ACR_NAMESPACE: ${{ secrets.ALIYUN_ACR_NAMESPACE }}
+        run: |
+          set -euo pipefail
+          umask 077
+          python3 infra/scripts/rocketmq/publish_candidates.py \
+            --plan infra/docs/server/evidence/rocketmq-m3-image-publication-plan-20261025.json \
+            --plan-sha256 "$PLAN_SHA256" --authfile "$RUNNER_TEMP/m3-acr-auth.json" \
+            --report candidate-publication.json
+          python3 - <<'PY'
+          import json
+          x=json.load(open('candidate-publication.json'))
+          assert (x['passed'],x['failed'],x['skipped']) == (5,0,0)
+          assert x['complete'] and x['all_source_evidence_verified'] and x['private_downloads_removed']
+          assert len(x['published']) == 5
+          assert not x['application_started'] and not x['production_business_cutover']
+          PY
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: m3-candidate-publication-${{ github.run_id }}-${{ github.run_attempt }}
+          path: candidate-publication.json
+          if-no-files-found: warn
+          retention-days: 90
+      - name: Remove only this runner's ACR authentication file
+        if: always()
+        run: rm -f -- "$RUNNER_TEMP/m3-acr-auth.json"
