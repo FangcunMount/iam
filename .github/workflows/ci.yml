@@ -21,6 +21,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Render real final profile without starting containers
         run: python3 scripts/cd/test_transaction_compose.py -v
+      - name: Retired runtime proofs refuse before dependencies
+        run: python3 scripts/testing/test_retired_messaging_entrypoints.py -v
       - name: Material refusal precedes configuration sync
         run: python3 scripts/cd/test_material_gate.py -v
 
@@ -179,6 +181,18 @@ jobs:
             grep -q -- "--- PASS: $test_name " "$RUNNER_TEMP/m3-maintenance.log"
           done
           if grep -q -- '--- SKIP:' "$RUNNER_TEMP/m3-maintenance.log"; then exit 1; fi
+      - name: Managed assignment concurrency on the real isolated database
+        env:
+          MYSQL_HOST: 127.0.0.1
+          MYSQL_DSN: root:owned-ci-only@tcp(127.0.0.1:3306)/iam_m4_assignment_concurrency?parseTime=true
+          MYSQL_PWD: owned-ci-only
+        run: |
+          set -euo pipefail
+          mysql --host=127.0.0.1 --user=root -e 'CREATE DATABASE iam_m4_assignment_concurrency'
+          go test -race -count=1 -timeout=3m -v ./internal/apiserver/infra/mysql/uow/authz \
+            -run '^TestReplaceManagedAssignmentsMySQLConcurrentLinearization$' | tee "$RUNNER_TEMP/m4-concurrency.log"
+          grep -q -- '--- PASS: TestReplaceManagedAssignmentsMySQLConcurrentLinearization ' "$RUNNER_TEMP/m4-concurrency.log"
+          if grep -q -- '--- SKIP:' "$RUNNER_TEMP/m4-concurrency.log"; then exit 1; fi
       - uses: actions/upload-artifact@v7
         if: always()
         with:
@@ -187,4 +201,5 @@ jobs:
             ${{ runner.temp }}/m3-offline.log
             ${{ runner.temp }}/m3-schema.log
             ${{ runner.temp }}/m3-maintenance.log
+            ${{ runner.temp }}/m4-concurrency.log
           if-no-files-found: error

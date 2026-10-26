@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/FangcunMount/iam/v5/internal/apiserver/infra/mysql/eventoutbox"
 	"github.com/FangcunMount/iam/v5/internal/apiserver/options"
@@ -19,13 +18,8 @@ type EventingDeps struct {
 	EnableSMSMessaging bool
 	Messaging          options.MessagingOptions
 	ReliableMessaging  options.ReliableMessagingOptions
-	NSQEnabled         bool
-	NSQAddress         string
-	OutboxInterval     time.Duration
 	DB                 *gorm.DB
 	CatalogPath        string
-	OutboxBatch        int
-	OutboxRetry        time.Duration
 }
 
 // Eventing holds initialized event platform collaborators.
@@ -40,8 +34,12 @@ type Eventing struct {
 	Outbox    outboxport.StatusReader
 }
 
-// InitEventing loads the catalog, publisher, and optional outbox relay.
+// InitEventing assembles only the final IAM transaction owner and optional NORMAL publisher.
 func InitEventing(deps EventingDeps) (*Eventing, error) {
+	_, finalOwner := deps.Messaging.Transactions["iam.mysql"]
+	if deps.Messaging.SelectedProvider() != "rocketmq" || len(deps.Messaging.Transactions) != 1 || !finalOwner || deps.ReliableMessaging.Enabled {
+		return nil, fmt.Errorf("final RocketMQ transaction owner required; NSQ and publishing Outbox/Relay are retired: %w", eventoutbox.ErrUnsafeMessagingHandoff)
+	}
 	catalogPath := strings.TrimSpace(deps.CatalogPath)
 	if catalogPath == "" {
 		catalogPath = "configs/events.yaml"
@@ -52,25 +50,18 @@ func InitEventing(deps EventingDeps) (*Eventing, error) {
 	}
 	catalog := eventcatalog.NewCatalog(cfg)
 	result := &Eventing{Catalog: catalog}
-	if len(deps.Messaging.Transactions) > 0 {
-		owner, err := NewTransactionEventing(deps, catalog, "")
-		if err != nil {
-			return nil, err
-		}
-		result.Stager = owner.Writer
-		result.Publisher, err = owner.DirectPublisher(catalog)
-		if err != nil {
-			return nil, err
-		}
-		result.ReliableRuntime = owner
-		result.Outbox = eventoutbox.NewStandardStatusReader(deps.DB)
-		return result, nil
+
+	owner, err := NewTransactionEventing(deps, catalog, "")
+	if err != nil {
+		return nil, err
 	}
-	if !deps.ReliableMessaging.Enabled {
-		return nil, fmt.Errorf("legacy Outbox runtime is retired; enable events.reliable_messaging and use a fixed prior image for rollback: %w", eventoutbox.ErrUnsafeMessagingHandoff)
+	result.Stager = owner.Writer
+	result.Publisher, err = owner.DirectPublisher(catalog)
+	if err != nil {
+		return nil, err
 	}
-	if err := initReliableEventing(deps, result); err != nil {
-		return nil, fmt.Errorf("initialize reliable messaging: %w", err)
-	}
+	result.ReliableRuntime = owner
+	// Retain the read-only unresolved historical-work check; this is not a publisher.
+	result.Outbox = eventoutbox.NewStandardStatusReader(deps.DB)
 	return result, nil
 }

@@ -2,13 +2,19 @@
 
 > 状态：已实现 · 依据 IAM 当前装配及锁定 reliable-messaging v0.5.0 / go-nsq v1.1.0；源码条件、离线测试和运行接受分别标明。
 
-## RocketMQ 普通消息接入
+## 当前生产装配：显式事务owner
 
-当前源码新增显式 `messaging.provider=rocketmq` 分支，默认仍为 `nsq`。客户端由 IAM 生命周期启动和关闭，事务、连接池、Outbox、原事件身份与策略版本收敛仍归 IAM。未配置事务 owner 的此分支采用普通消息并保留发布型 Outbox。事务模式候选须另行显式选择，见下节。Broker 的确认不等于策略已被所有实例加载。
+M4 C02-01收敛[进程准备](../../internal/apiserver/process/event_bus.go)和[InitEventing](../../internal/apiserver/container/platform/eventing.go)：仅接受显式RocketMQ、唯一 `iam.mysql` owner及旧 `events.reliable_messaging.enabled=false`。默认/显式NSQ、无owner的普通消息Relay或混合装配都在catalog、数据库或Broker准备前拒绝。启动不创建Topic、订阅或ACL，资源由infra管理。
 
-RocketMQ 配置要求 endpoint、credentials_file、ca_file、routes_file 和稳定 instance_id。可信 version1 路由清单把逻辑 topic/subscription 映射到预先创建的物理 topic/group；IAM 不用收到的元数据创建资源。策略订阅使用 `iam-policy-sync.<instance_id>`，供重启后的同一实例继续消费；其他实例必须使用不同订阅以保持广播语义。
+授权事实、精确版本、操作journal与witness沿原PlannedUnitOfWork提交；Checker、CAS、幂等、双订阅和freshness保持。NORMAL只承担原尽力通知；可选MQ SMS仍由事务owner持有独立NORMAL客户端。`publish_enabled=false`封新准入，保留Checker及原关闭顺序，不启动发布型Outbox扫描。
 
-`messaging.publish_enabled=false` 会在 Relay 领取 Outbox 前暂停，也阻止 direct 发布。终态失败必须先提交 `iam_message_failure_audit` 才能 ACK；迁移41新增该表，保留旧 NSQ 审计。重复身份但原文冲突或数据库不可用均不能授权 ACK。配置和源码能力不证明生产启用；Docker、路由与账号由 infra 维护，切换后按固定镜像、有效 provider、回执和业务结果独立验收。
+当前RocketMQ失败审计仍使用 `iam_message_failure_audit`。`identity_session_revocation_outbox`承担Redis撤销责任，历史表的只读未决检查也继续保留；名称带Outbox不代表发布Relay仍运行，不在本批删表/删卷。未使用的旧SDK helper、历史维护入口及格式清理由M4 C03/C04/C05分别收口。
+
+旧生产装配专用的三个wiring/NSQ业务/四进程交接夹具已退出。替代证明为平台/进程的依赖前拒绝、最终装配无I/O构造、M3原事务原子性/操作journal、原生Broker及IAM→QS fanout；旧脚本明确拒绝，不再构建已移除的装配。当前RocketMQ失败审计继续由独立真实MySQL工作流验证；固定源码、CI和部署状态见[infra M4总表](https://github.com/FangcunMount/infra/blob/main/docs/server/rocketmq-m4-execution.md)。
+
+## 已退出的普通消息Relay（历史设计）
+
+原M1曾以普通消息配合发布型Outbox和NSQ备选。其运行装配已删除，旧证明脚本返回退役错误；不能通过关闭事务配置恢复该路径。以下保留的原事务说明和维护历史不授予旧Relay运行或重新发布权限。
 
 ## M3 独立事务模式候选
 

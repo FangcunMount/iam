@@ -1,17 +1,14 @@
-name: IAM M6 SDK messaging isolation
+name: IAM current RocketMQ failure audit
 
 on:
   pull_request:
     paths:
-      - scripts/testing/build-retired-subscriber.sh
       - go.mod
       - go.sum
       - internal/apiserver/container/**
       - internal/apiserver/infra/messaging/**
-      - internal/apiserver/infra/authz/integration/reliable_messaging_wiring_test.go
       - internal/apiserver/infra/authz/integration/rocketmq_audit_proof_test.go
       - internal/apiserver/infra/mysql/messagefailure/**
-      - internal/pkg/migration/migrations/000040_iam_nsq_failure_audit.*.sql
       - internal/pkg/migration/migrations/000041_message_failure_audit.*.sql
       - .github/workflows/reliable-messaging-m6-subscriber.yml
   workflow_dispatch:
@@ -20,12 +17,12 @@ permissions:
   contents: read
 
 jobs:
-  mysql-nsq:
+  mysql-audit:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     services:
       mysql:
-        image: mysql:8.0
+        image: mysql:8.0.36
         env:
           MYSQL_ROOT_PASSWORD: root
           MYSQL_DATABASE: iam_m6_subscriber
@@ -44,46 +41,19 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
-      - name: Start disposable NSQ
-        run: |
-          set -euo pipefail
-          docker run -d --name iam-m6-test-nsqd -p 127.0.0.1:4150:4150 -p 127.0.0.1:4151:4151 nsqio/nsq:v1.3.0 /nsqd
-          for attempt in $(seq 1 30); do
-            if curl -fsS http://127.0.0.1:4151/ping >/dev/null; then exit 0; fi
-            sleep 1
-          done
-          docker logs iam-m6-test-nsqd
-          exit 1
-      - name: Verify v0.6.1 cutover and retained SDK failure audit
-        env:
-          RM_IAM_M6_REQUIRED: "1"
-          IAM_AUTHZ_TEST_MYSQL_DSN: "root:root@tcp(127.0.0.1:3306)/?parseTime=true&loc=UTC"
-          RM_IAM_M6_MYSQL_DSN: "root:root@tcp(127.0.0.1:3306)/iam_m6_subscriber?parseTime=true&loc=UTC"
-          RM_IAM_NSQ_TCP: 127.0.0.1:4150
-          RM_IAM_NSQ_HTTP: http://127.0.0.1:4151
-        run: |
-          set -euo pipefail
-          old_binary="$RUNNER_TEMP/iam-v061-policy-proof"
-          scripts/testing/build-retired-subscriber.sh "$old_binary"
-          IAM_RM_LEGACY_SUBSCRIBER_BINARY="$old_binary" go test -tags reliable_messaging ./internal/apiserver/container/authz \
-            -run '^(TestIAMV061CutoffThenSDKReconcilesMySQLVersion|TestSDKPolicySyncFailureHandoffAcrossEphemeralChannels)$' -count=1 -v
-      - name: Verify standard Outbox publisher wire and lifecycle
-        env:
-          IAM_AUTHZ_TEST_MYSQL_DSN: "root:root@tcp(127.0.0.1:3306)/?parseTime=true&loc=UTC"
-          RM_IAM_NSQ_TCP: 127.0.0.1:4150
-          RM_IAM_EVENTS_CATALOG: ${{ github.workspace }}/configs/events.yaml
-          RM_IAM_OUTBOX_SCHEMA: ${{ github.workspace }}/internal/pkg/migration/migrations/000006_add_domain_event_outbox.up.sql
-          RM_IAM_OUTBOX_UPGRADE: ${{ github.workspace }}/internal/pkg/migration/migrations/000038_standard_message_outbox.up.sql
-          RM_IAM_OUTBOX_FAILURE_UPGRADE: ${{ github.workspace }}/internal/pkg/migration/migrations/000039_reliable_messaging_failure_state.up.sql
-        run: |
-          set -euo pipefail
-          go test -tags reliable_messaging ./internal/apiserver/infra/authz/integration \
-            -run '^TestReliableMessagingPlatformWiring$' -count=1 -v
       - name: Verify RocketMQ terminal audit on real MySQL
         env:
           IAM_AUTHZ_TEST_MYSQL_DSN: "root:root@tcp(127.0.0.1:3306)/?parseTime=true&loc=UTC"
           RM_IAM_ROCKETMQ_AUDIT_SCHEMA: ${{ github.workspace }}/internal/pkg/migration/migrations/000041_message_failure_audit.up.sql
-        run: go test -tags reliable_messaging ./internal/apiserver/infra/authz/integration -run '^TestReliableMessagingRocketMQFailureAudit$' -count=1 -v
-      - name: Remove disposable NSQ
+        run: |
+          set -euo pipefail
+          go test -tags reliable_messaging ./internal/apiserver/infra/authz/integration -run '^TestReliableMessagingRocketMQFailureAudit$' -count=1 -v | tee "$RUNNER_TEMP/rocketmq-audit.log"
+          grep -q -- '--- PASS: TestReliableMessagingRocketMQFailureAudit ' "$RUNNER_TEMP/rocketmq-audit.log"
+          if grep -q -- '--- SKIP:' "$RUNNER_TEMP/rocketmq-audit.log"; then exit 1; fi
+      - uses: actions/upload-artifact@v7
         if: always()
-        run: docker rm -f iam-m6-test-nsqd || true
+        with:
+          name: current-rocketmq-failure-audit
+          path: ${{ runner.temp }}/rocketmq-audit.log
+          if-no-files-found: error
+          retention-days: 14

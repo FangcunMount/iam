@@ -60,6 +60,13 @@ func TestTransactionEventingConstructorUsesExplicitCatalogAndStartsNoClient(t *t
 	mixed.ReliableMessaging.Enabled = true
 	_, err = NewTransactionEventing(mixed, eventcatalog.NewCatalog(cfg), "")
 	require.ErrorContains(t, err, "cannot both be enabled")
+	deps.CatalogPath = filepath.Join(testRepoRoot(t), "configs/events-m3.yaml")
+	assembled, err := InitEventing(deps)
+	require.NoError(t, err)
+	require.IsType(t, &TransactionEventing{}, assembled.ReliableRuntime)
+	require.IsType(t, owner.Writer, assembled.Stager)
+	require.NotNil(t, assembled.Publisher)
+	require.NoError(t, assembled.ReliableRuntime.Stop(context.Background()))
 	deps.EnableSMSMessaging = true
 	_, err = NewTransactionEventing(deps, eventcatalog.NewCatalog(cfg), "")
 	require.Error(t, err, "enabled NORMAL SMS accepted a transaction-only manifest")

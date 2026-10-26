@@ -1,36 +1,32 @@
 package platform
 
 import (
+	"fmt"
 	"path/filepath"
 	"runtime"
 	"testing"
 
 	"github.com/FangcunMount/iam/v5/internal/apiserver/options"
 
+	"github.com/FangcunMount/iam/v5/internal/apiserver/infra/mysql/eventoutbox"
 	"github.com/stretchr/testify/require"
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
-func TestInitEventingRejectsRetiredLegacyRuntime(t *testing.T) {
-	db, err := gorm.Open(sqlite.Open("file:"+t.Name()+"?mode=memory&cache=shared"), &gorm.Config{})
-	require.NoError(t, err)
-
-	eventing, err := InitEventing(EventingDeps{
-		DB:          db,
-		CatalogPath: filepath.Join(testRepoRoot(t), "configs", "events.yaml"),
-	})
-	require.ErrorContains(t, err, "legacy Outbox runtime is retired")
-	require.Nil(t, eventing)
-
-}
-
-func TestInitReliableEventingFailsWithoutDependencies(t *testing.T) {
-	opts := options.DefaultReliableMessagingOptions()
-	opts.Enabled = true
-	result, err := InitEventing(EventingDeps{ReliableMessaging: opts, CatalogPath: filepath.Join(testRepoRoot(t), "configs", "events.yaml")})
-	require.ErrorContains(t, err, "requires IAM MySQL")
-	require.Nil(t, result, "explicit reliable mode must not return a legacy fallback")
+// A deliberately unusable DB and catalog prove rejection precedes both.
+func TestInitEventingRejectsRetiredAssemblyBeforeDependencies(t *testing.T) {
+	for _, provider := range []string{"", "nsq", "rocketmq"} {
+		for _, relay := range []bool{false, true} {
+			t.Run(provider+fmt.Sprint(relay), func(t *testing.T) {
+				opts := options.DefaultReliableMessagingOptions()
+				opts.Enabled = relay
+				result, err := InitEventing(EventingDeps{DB: &gorm.DB{}, CatalogPath: "does-not-exist", Messaging: options.MessagingOptions{Provider: provider}, ReliableMessaging: opts})
+				require.ErrorContains(t, err, "final RocketMQ transaction owner required")
+				require.ErrorIs(t, err, eventoutbox.ErrUnsafeMessagingHandoff)
+				require.Nil(t, result)
+			})
+		}
+	}
 }
 
 func testRepoRoot(t *testing.T) string {
