@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	apiserverconfig "github.com/FangcunMount/iam/v5/internal/apiserver/config"
@@ -13,87 +14,11 @@ import (
 	genericoptions "github.com/FangcunMount/iam/v5/internal/pkg/options"
 )
 
-func TestDurableTopicNamesFromCatalogReturnsOnlyDurableTopics(t *testing.T) {
-	catalogPath := writeEventCatalog(t, `
-version: "1"
-topics:
-  authz_version:
-    name: iam.authz.version.v2
-  notification_sms:
-    name: iam.notify.sms
-events:
-  iam.authz.version_changed.v2:
-    topic: authz_version
-    delivery: durable_outbox
-    handler: iam-policy-sync
-  iam.login_otp_sms:
-    topic: notification_sms
-    delivery: best_effort
-    handler: sms-dispatcher
-`)
-
-	topics, err := durableTopicNamesFromCatalog(catalogPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(topics) != 1 || topics[0] != "iam.authz.version.v2" {
-		t.Fatalf("durable topics = %#v, want only iam.authz.version.v2", topics)
-	}
-}
-
-func TestPrepareMessagingUsesSDKProvisionerWithoutLegacyBus(t *testing.T) {
-	catalogPath := writeEventCatalog(t, `
-version: "1"
-topics:
-  authz_version:
-    name: iam.authz.version.v2
-  notification_sms:
-    name: iam.notify.sms
-events:
-  iam.authz.version_changed.v2:
-    topic: authz_version
-    delivery: durable_outbox
-    handler: iam-policy-sync
-  iam.login_otp_sms:
-    topic: notification_sms
-    delivery: best_effort
-    handler: sms-dispatcher
-`)
-	created := make([]string, 0, 1)
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost || r.URL.Path != "/topic/create" {
-			t.Errorf("unexpected request %s %s", r.Method, r.URL.String())
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-		created = append(created, r.URL.Query().Get("topic"))
-		w.WriteHeader(http.StatusOK)
-	}))
-	t.Cleanup(server.Close)
-	opts := apiserveroptions.NewEventOptions()
-	opts.CatalogPath = catalogPath
-	opts.ReliableMessaging.Enabled = true
-	s := &apiServer{cfg: &apiserverconfig.Config{Options: &apiserveroptions.Options{
-		Events: opts,
-		NSQOptions: &genericoptions.NSQOptions{Enabled: true, ConsumerSDKEnabled: true,
-			NSQdAddr: "127.0.0.1:1", NSQdHTTPAddrs: []string{server.URL}},
-	}}}
-	err := s.prepareMessaging()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(created) != 1 || created[0] != "iam.authz.version.v2" {
-		t.Fatalf("created topics = %#v, want only durable authorization topic", created)
-	}
-}
-
-func TestPrepareMessagingFailsClosedWhenSDKTopicPreparationFails(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusServiceUnavailable)
-	}))
-	t.Cleanup(server.Close)
-	opts := apiserveroptions.NewEventOptions()
-	opts.CatalogPath = writeEventCatalog(t, `
+func TestPrepareMessagingRejectsRetiredAssemblyBeforeProvisioning(t *testing.T) {
+	var requests atomic.Int64
+	endpoint := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { requests.Add(1); w.WriteHeader(http.StatusOK) }))
+	defer endpoint.Close()
+	catalog := writeEventCatalog(t, `
 version: "1"
 topics:
   authz_version:
@@ -104,15 +29,21 @@ events:
     delivery: durable_outbox
     handler: iam-policy-sync
 `)
-	opts.ReliableMessaging.Enabled = true
-	s := &apiServer{cfg: &apiserverconfig.Config{Options: &apiserveroptions.Options{
-		Events: opts,
-		NSQOptions: &genericoptions.NSQOptions{Enabled: true, ConsumerSDKEnabled: true,
-			NSQdHTTPAddrs: []string{server.URL}},
-	}}}
-	err := s.prepareMessaging()
-	if err == nil || !strings.Contains(err.Error(), "503") {
-		t.Fatalf("topic preparation error = %v, want HTTP 503", err)
+	for _, provider := range []string{"", "nsq", "rocketmq"} {
+		t.Run(provider, func(t *testing.T) {
+			opts := apiserveroptions.NewOptions()
+			opts.Events.CatalogPath = catalog
+			opts.Events.ReliableMessaging.Enabled = true
+			opts.NSQOptions = &genericoptions.NSQOptions{Enabled: true, ConsumerSDKEnabled: true, NSQdHTTPAddrs: []string{endpoint.URL}}
+			opts.Messaging = apiserveroptions.MessagingOptions{Provider: provider, Endpoint: "127.0.0.1:1", CredentialsFile: "absent", CAFile: "absent", RoutesFile: "absent", InstanceID: "fixture"}
+			server := &apiServer{cfg: &apiserverconfig.Config{Options: opts}}
+			if err := server.prepareMessaging(); err == nil || !strings.Contains(err.Error(), "final RocketMQ transaction owner required") {
+				t.Fatalf("retired assembly was not rejected before dependencies: %v", err)
+			}
+		})
+	}
+	if requests.Load() != 0 {
+		t.Fatalf("retired topic provisioner made %d requests", requests.Load())
 	}
 }
 
@@ -139,6 +70,11 @@ func TestPrepareTransactionMessagingIndependentOfLegacyFlags(t *testing.T) {
 	if err := server.prepareMessaging(); err != nil {
 		t.Fatal(err)
 	}
+	opts.Events.ReliableMessaging.Enabled = true
+	if err := server.prepareMessaging(); err == nil {
+		t.Fatal("transaction owner accepted retired Relay flag")
+	}
+	opts.Events.ReliableMessaging.Enabled = false
 	opts.Messaging.Provider = "nsq"
 	if err := server.prepareMessaging(); err == nil {
 		t.Fatal("transaction configuration fell through to NSQ")

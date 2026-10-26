@@ -1,5 +1,7 @@
 # IAM reliable messaging proofs
 
+> 历史记录：M4 C02-01已删除本文依赖的旧生产NSQ/Outbox装配及三个专项夹具。两个proof脚本当前只返回退役错误，不执行Docker/构建/数据库操作；以下命令仅记录历史，不适用于当前main。现行门禁见infra的RocketMQ IAM original host transaction与M4总表。
+
 M3 uses the SDK standard `rm_outbox` table after the legacy path is drained. It remains a draft and is disabled in normal configuration. This document describes the current candidate, not production acceptance. Historical-table implementation/proof details remain in Git checkpoints d3036b14 and 4e20cf75; they are superseded as the M3 runtime route.
 
 ## Reproducible isolated proof

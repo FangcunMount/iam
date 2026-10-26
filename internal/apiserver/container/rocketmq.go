@@ -12,6 +12,9 @@ import (
 )
 
 func (c *Container) initRocketMQPolicySync(module *authz.AuthzModule) error {
+	if c.runtimeOptions.Messaging.SelectedProvider() != "rocketmq" {
+		return errors.New("final RocketMQ policy subscriber required; NSQ is retired")
+	}
 	if c.mysqlDB == nil {
 		return errors.New("RocketMQ policy subscriber requires IAM MySQL")
 	}

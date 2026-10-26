@@ -10,14 +10,6 @@ import (
 // RuntimeOptions contains typed bootstrap options consumed by the container.
 type RuntimeOptions struct {
 	Messaging                     apiserveroptions.MessagingOptions
-	NSQEnabled                    bool
-	NSQAddress                    string
-	NSQConsumerSDKEnabled         bool
-	NSQLookupdAddresses           []string
-	NSQDHTTPAddresses             []string
-	NSQMaxAttempts                uint16
-	NSQMaxInFlight                int
-	NSQRequeueDelaySeconds        int
 	Authz                         apiserveroptions.AuthzOptions
 	Environment                   genericapiserver.Environment
 	Auth                          apiserveroptions.AuthOptions
@@ -57,16 +49,7 @@ func RuntimeOptionsFromAPIServerOptions(opts *apiserveroptions.Options, environm
 		GRPCAssignmentConstraintsFile: defaults.GRPCOptions.AuthzAssignmentConstraintsFile,
 		Suggest:                       suggestmodule.ModuleConfigFromOptions(*defaults.Suggest),
 	}
-	if opts.NSQOptions != nil {
-		runtime.NSQEnabled = opts.NSQOptions.Enabled
-		runtime.NSQAddress = opts.NSQOptions.NSQdAddr
-		runtime.NSQConsumerSDKEnabled = opts.NSQOptions.ConsumerSDKEnabled
-		runtime.NSQLookupdAddresses = append([]string(nil), opts.NSQOptions.LookupdAddrs...)
-		runtime.NSQDHTTPAddresses = append([]string(nil), opts.NSQOptions.NSQdHTTPAddrs...)
-		runtime.NSQMaxAttempts = opts.NSQOptions.MaxAttempts
-		runtime.NSQMaxInFlight = opts.NSQOptions.MaxInFlight
-		runtime.NSQRequeueDelaySeconds = opts.NSQOptions.RequeueDelay
-	}
+
 	if opts.Authz != nil {
 		runtime.Authz = *opts.Authz
 	}

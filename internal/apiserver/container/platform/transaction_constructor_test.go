@@ -54,9 +54,7 @@ func TestTransactionConstructorIsInertAndUsesExactBinding(t *testing.T) {
 		t.Fatal(err)
 	}
 	o := options.MessagingOptions{Provider: "rocketmq", Endpoint: "127.0.0.1:1", CredentialsFile: filepath.Join(dir, "credentials.json"), CAFile: filepath.Join(dir, "ca.crt"), RoutesFile: filepath.Join(dir, "routes.json"), InstanceID: "fixture-instance", PublishEnabled: false, Transactions: map[string]options.TransactionOptions{owner: {StoreID: binding.StoreID, WriterEpoch: binding.WriterEpoch, RouteRevision: "m3-1"}}}
-	if _, err := newEventTransport(EventingDeps{Messaging: o}, nil); err == nil {
-		t.Fatal("legacy Relay assembly accepted transaction owners")
-	}
+
 	native, err := NewSQLNativeLimits(pool, binding, "m3-1")
 	if err != nil {
 		t.Fatal(err)
