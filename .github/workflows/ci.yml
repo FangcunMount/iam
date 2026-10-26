@@ -152,16 +152,15 @@ jobs:
             grep -q -- "--- PASS: $test_name " "$RUNNER_TEMP/m3-schema.log"
           done
           if grep -q -- '--- SKIP:' "$RUNNER_TEMP/m3-schema.log"; then exit 1; fi
-      - name: Prove offline M3 CLI without starting the runtime
-        env:
-          IAM_M3_TEST_MYSQL_DSN: root:owned-ci-only@tcp(127.0.0.1:3306)/mysql?parseTime=true&multiStatements=true
+      - name: Retired cutover tools and publishing modes refuse before resources
         run: |
           set -euo pipefail
-          go test -race -tags=integration -count=1 -timeout=3m -v ./cmd/iam-maintenance \
-            -run '^TestM3MessagingOffline(Native|ProductionBaselinesNative)$' | tee "$RUNNER_TEMP/m3-offline.log"
-          grep -q -- '--- PASS: TestM3MessagingOfflineNative ' "$RUNNER_TEMP/m3-offline.log"
-          grep -q -- '--- PASS: TestM3MessagingOfflineProductionBaselinesNative ' "$RUNNER_TEMP/m3-offline.log"
-          if grep -q -- '--- SKIP:' "$RUNNER_TEMP/m3-offline.log"; then exit 1; fi
+          go test -race -count=1 -v ./cmd/iam-maintenance \
+            -run '^Test(RetiredMessagingToolsRejectBeforeEnvironmentOrResourceUse|MaintenanceRejectsPublishingProfilesBeforeDatabaseOrConfig)$' | tee "$RUNNER_TEMP/m4-retired-tools.log"
+          for test_name in TestRetiredMessagingToolsRejectBeforeEnvironmentOrResourceUse TestMaintenanceRejectsPublishingProfilesBeforeDatabaseOrConfig; do
+            grep -q -- "--- PASS: $test_name " "$RUNNER_TEMP/m4-retired-tools.log"
+          done
+          if grep -q -- '--- SKIP:' "$RUNNER_TEMP/m4-retired-tools.log"; then exit 1; fi
       - name: Prove maintenance planner and original-root transactions with isolated native MySQL
         env:
           ROLE_MODEL_REQUIRE_MYSQL: 'true'
@@ -198,7 +197,7 @@ jobs:
         with:
           name: m3-schema-mysql-${{ matrix.mysql }}
           path: |
-            ${{ runner.temp }}/m3-offline.log
+            ${{ runner.temp }}/m4-retired-tools.log
             ${{ runner.temp }}/m3-schema.log
             ${{ runner.temp }}/m3-maintenance.log
             ${{ runner.temp }}/m4-concurrency.log
