@@ -8,6 +8,8 @@ SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 . "$SCRIPT_DIR/image-retention.sh"
 # shellcheck source=/dev/null
 . "$SCRIPT_DIR/maintenance-acl.sh"
+# shellcheck source=/dev/null
+. "$SCRIPT_DIR/material-guard.sh"
 
 : "${DOCKER_REGISTRY:?DOCKER_REGISTRY is required}"
 : "${DOCKER_REPOSITORY:?DOCKER_REPOSITORY is required}"
@@ -468,6 +470,7 @@ if ! [[ "$ROCKETMQ_BINDING_REVISION" =~ ^[a-z0-9][a-z0-9-]{0,63}$ ]]; then
   exit 1
 fi
 export ROCKETMQ_BINDING_REVISION
+m4_material_preflight iam "$ROCKETMQ_BINDING_REVISION"
 sync_package
 ensure_network
 setup_grpc_certs

@@ -102,7 +102,7 @@ mkdir -p "${PACKAGE_DIR}/configs/env" "${PACKAGE_DIR}/build/docker" "${PACKAGE_D
 cp -r configs "$PACKAGE_DIR/"
 python3 "$SCRIPT_DIR/render-messaging.py" render "$PACKAGE_DIR/configs/apiserver.prod.yaml"
 cp build/docker/docker-compose.prod.yml "${PACKAGE_DIR}/build/docker/docker-compose.prod.yml"
-cp scripts/cd/image-retention.py scripts/cd/image-retention.sh scripts/cd/image-metadata.sh scripts/cd/maintenance-acl.sh scripts/cd/remote-deploy.sh "${PACKAGE_DIR}/scripts/cd/"
+cp scripts/cd/image-retention.py scripts/cd/image-retention.sh scripts/cd/image-metadata.sh scripts/cd/maintenance-acl.sh scripts/cd/material-guard.sh scripts/cd/remote-deploy.sh "${PACKAGE_DIR}/scripts/cd/"
 
 cat > "$ENV_FILE" <<EOF
 MYSQL_TLS_CA_REF=${MYSQL_TLS_CA_REF:-}
