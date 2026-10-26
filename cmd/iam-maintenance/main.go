@@ -43,12 +43,8 @@ func run(args []string, output io.Writer) error {
 		return errors.New("a maintenance subcommand is required")
 	}
 	switch args[0] {
-	case "m3-messaging-recovery":
-		return runMessagingRecovery(args[1:], output)
-	case "m3-messaging":
-		return runMessagingOffline(args[1:], output)
-	case "reliable-messaging":
-		return runReliableMessaging(args[1:], output)
+	case "m3-messaging-recovery", "m3-messaging", "reliable-messaging":
+		return errors.New("historical messaging cutover tools are retired; use current transaction diagnostics and retain original evidence")
 	case "purge-login-state":
 		return runPurgeLoginState(args[1:], output)
 	case "signing-key-cutover":

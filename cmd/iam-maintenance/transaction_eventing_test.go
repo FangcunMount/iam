@@ -59,7 +59,7 @@ func TestMaintenanceTransactionConfigIsExplicitAndCannotFallBack(t *testing.T) {
 	require.Error(t, err)
 	require.NotContains(t, err.Error(), "private-value")
 	err = withMaintenanceStager(context.Background(), nil, nil, "standard", path, func(event.Stager) error { t.Fatal("ignored transaction config"); return nil })
-	require.ErrorContains(t, err, "cannot be ignored")
+	require.ErrorContains(t, err, "publishing profiles are retired")
 }
 
 type maintenancePoolStub struct{ closed int }

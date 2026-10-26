@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/FangcunMount/iam/v5/internal/apiserver/container/platform"
-	"github.com/FangcunMount/iam/v5/internal/apiserver/infra/mysql/eventoutbox"
 	"github.com/FangcunMount/iam/v5/internal/apiserver/options"
 	"github.com/FangcunMount/iam/v5/pkg/event"
 	"github.com/FangcunMount/iam/v5/pkg/eventcatalog"
@@ -106,15 +105,9 @@ func loadMaintenanceMessaging(path string) (options.MessagingOptions, error) {
 }
 func withMaintenanceStager(ctx context.Context, db *gorm.DB, catalog *eventcatalog.Catalog, mode, path string, fn func(event.Stager) error) error {
 	if mode != "transaction" {
-		if path != "" {
-			return errors.New("transaction messaging config cannot be ignored by standard maintenance")
-		}
-		stager, err := eventoutbox.NewMaintenanceStager(ctx, db, catalog, mode)
-		if err != nil {
-			return err
-		}
-		return fn(stager)
+		return errors.New("transaction maintenance is required; legacy and standard publishing profiles are retired")
 	}
+
 	config, err := loadMaintenanceMessaging(path)
 	if err != nil {
 		return err
