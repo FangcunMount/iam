@@ -52,7 +52,7 @@ class ProductionCompose(unittest.TestCase):
                 self.assertTrue(mount["read_only"])
                 # Compose omits false fields from its normalized JSON model.
                 self.assertFalse(mount["bind"].get("create_host_path", False))
-                self.assertEqual(mount["source"], "/data/infra/iam-messaging/versions/m4-iam-fixture/rocketmq/" + mount["target"].rsplit("/", 1)[1])
+                self.assertEqual(mount["source"], "/var/lib/fangcun-m4-materials/iam-messaging/versions/m4-iam-fixture/rocketmq/" + mount["target"].rsplit("/", 1)[1])
             self.assertFalse(any("NSQ_" in k for k in service["environment"]))
             self.assertEqual(service["environment"]["IAM_APISERVER_MYSQL_TLS_MODE"], "VERIFY_IDENTITY")
             self.assertEqual(service["stop_grace_period"], "1m0s")

@@ -14,19 +14,19 @@ services:
       - "9091"   # gRPC 健康检查 (内网监控系统)
     volumes:
       - type: bind
-        source: /data/infra/iam-messaging/versions/${ROCKETMQ_BINDING_REVISION:?fixed messaging revision required}/rocketmq/credentials.json
+        source: /var/lib/fangcun-m4-materials/iam-messaging/versions/${ROCKETMQ_BINDING_REVISION:?fixed messaging revision required}/rocketmq/credentials.json
         target: /etc/iam/rocketmq/credentials.json
         read_only: true
         bind:
           create_host_path: false
       - type: bind
-        source: /data/infra/iam-messaging/versions/${ROCKETMQ_BINDING_REVISION:?fixed messaging revision required}/rocketmq/ca.crt
+        source: /var/lib/fangcun-m4-materials/iam-messaging/versions/${ROCKETMQ_BINDING_REVISION:?fixed messaging revision required}/rocketmq/ca.crt
         target: /etc/iam/rocketmq/ca.crt
         read_only: true
         bind:
           create_host_path: false
       - type: bind
-        source: /data/infra/iam-messaging/versions/${ROCKETMQ_BINDING_REVISION:?fixed messaging revision required}/rocketmq/routes.json
+        source: /var/lib/fangcun-m4-materials/iam-messaging/versions/${ROCKETMQ_BINDING_REVISION:?fixed messaging revision required}/rocketmq/routes.json
         target: /etc/iam/rocketmq/routes.json
         read_only: true
         bind:
