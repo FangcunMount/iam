@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 class RetiredMessagingEntrypoints(unittest.TestCase):
     def test_proofs_reject_before_docker_build_git_or_temporary_files(self):
-        for name in ('reliable-messaging-proof.sh', 'reliable-messaging-business-proof.sh'):
+        for name in ('reliable-messaging-proof.sh', 'reliable-messaging-business-proof.sh', 'reliable-messaging-m6-image-handoff.sh'):
             for arguments in ([], ['/unused-sdk', '/unused-qs']):
                 with self.subTest(script=name, arguments=arguments), tempfile.TemporaryDirectory() as raw:
                     root=Path(raw); marker=root/'external-call'

@@ -10,7 +10,7 @@ M4 C02-01收敛[进程准备](../../internal/apiserver/process/event_bus.go)和[
 
 当前RocketMQ失败审计仍使用 `iam_message_failure_audit`。`identity_session_revocation_outbox`承担Redis撤销责任，历史表的只读未决检查也继续保留；名称带Outbox不代表发布Relay仍运行，不在本批删表/删卷。未使用的旧SDK helper、历史维护入口及格式清理由M4 C03/C04/C05分别收口。
 
-旧生产装配专用的三个wiring/NSQ业务/四进程交接夹具已退出。替代证明为平台/进程的依赖前拒绝、最终装配无I/O构造、M3原事务原子性/操作journal、原生Broker及IAM→QS fanout；旧脚本明确拒绝，不再构建已移除的装配。当前RocketMQ失败审计继续由独立真实MySQL工作流验证；固定源码、CI和部署状态见[infra M4总表](https://github.com/FangcunMount/infra/blob/main/docs/server/rocketmq-m4-execution.md)。
+旧生产装配专用的三个wiring/NSQ业务/四进程交接夹具已退出。替代证明为平台/进程的依赖前拒绝、最终装配无I/O构造、M3原事务原子性/操作journal、原生Broker及IAM→QS fanout；旧wiring/业务/image-handoff脚本明确拒绝，不再构建已移除的装配。当前RocketMQ失败审计继续由独立真实MySQL工作流验证；固定源码、CI和部署状态见[infra M4总表](https://github.com/FangcunMount/infra/blob/main/docs/server/rocketmq-m4-execution.md)。
 
 ## 已退出的普通消息Relay（历史设计）
 
