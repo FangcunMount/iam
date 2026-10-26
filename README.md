@@ -56,12 +56,12 @@ IAM 可以拆解为三个核心模块和两个辅助模块。
 | --- | --- | --- |
 | 进程入口 | [cmd/apiserver](cmd/apiserver) | iam-apiserver 服务入口 |
 | 生命周期管理 | [internal/apiserver/process](internal/apiserver/process) | 配置、资源初始化、container、REST/gRPC、后台任务、优雅关闭 |
-| 组合根 | [internal/apiserver/container](internal/apiserver/container) | 装配 AuthN、AuthZ、Identity、IDP、Suggest、Outbox 等模块 |
+| 组合根 | [internal/apiserver/container](internal/apiserver/container) | 装配 AuthN、AuthZ、Identity、IDP、Suggest、事务消息等模块 |
 | REST 适配层 | [internal/apiserver/transport/rest](internal/apiserver/transport/rest) | HTTP 路由、中间件、DTO、错误映射、debug 接口、Suggest REST |
 | gRPC 适配层 | [internal/apiserver/transport/grpc](internal/apiserver/transport/grpc) | Proto service 注册、interceptor、mapper |
 | 应用层 | [internal/apiserver/application](internal/apiserver/application) | 用例编排、事务边界、命令/查询、跨模块协作 |
 | 领域层 | [internal/apiserver/domain](internal/apiserver/domain) | 实体、值对象、领域服务、业务规则、端口定义 |
-| 基础设施层 | [internal/apiserver/infra](internal/apiserver/infra) | MySQL、Redis、AuthZ 原生快照/内存角色图、JWT、Outbox、微信 API、Suggest Trie/Hash Runtime 等适配器 |
+| 基础设施层 | [internal/apiserver/infra](internal/apiserver/infra) | MySQL、Redis、AuthZ 原生快照/内存角色图、JWT、事务消息 witness/Checker、微信 API、Suggest Trie/Hash Runtime 等适配器 |
 | SDK | [pkg/sdk](pkg/sdk) | Go 服务端接入 IAM 的产品化封装 |
 
 **核心原则：**
@@ -269,7 +269,7 @@ SDK 是接入产品层，不是业务层。
 | 服务如何启动、装配和关闭 | [docs/01-运行时/README.md](docs/01-运行时/README.md) |
 | User、Profile、ProfileLink 如何建模 | [docs/02-业务模块/01-Identity/README.md](docs/02-业务模块/01-Identity/README.md) |
 | 登录、Session、Token、JWKS 如何工作 | [docs/02-业务模块/02-AuthN/README.md](docs/02-业务模块/02-AuthN/README.md) |
-| 授权模型、Check、Outbox 如何工作 | [docs/02-业务模块/03-AuthZ/README.md](docs/02-业务模块/03-AuthZ/README.md) |
+| 授权模型、Check、事务消息如何工作 | [docs/02-业务模块/03-AuthZ/README.md](docs/02-业务模块/03-AuthZ/README.md) |
 | IDP 与第三方身份源如何协作 | [docs/02-业务模块/04-IDP/README.md](docs/02-业务模块/04-IDP/README.md) |
 | Suggest Profile 联想搜索读模型如何工作 | [docs/02-业务模块/05-Suggest/README.md](docs/02-业务模块/05-Suggest/README.md) |
 | REST/gRPC/SDK 如何接入 | [docs/04-接口与SDK/README.md](docs/04-接口与SDK/README.md) |

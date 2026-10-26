@@ -25,8 +25,8 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
       REVIEWED_WORKFLOW_SHA: ${{ inputs.workflow_sha }}
-      INFRA_SHA: 54b61749d7fb7f8eedebafbb4ed17dd7aa54622d
-      PLAN_SHA256: 588aa3b60db64e939ea2be8503b28e1b4fee10d6020da224fbcdda0ed695d749
+      INFRA_SHA: dd65adabc3de65d863b52d64e5f85d9e5a47bc32
+      PLAN_SHA256: b9db919dafeba3266f5ff7156b8eb219bb955689039cb506060f90cbd56715f9
     steps:
       - name: Require exact reviewed main and preserve production deployment pause
         env:
@@ -39,7 +39,7 @@ jobs:
       - uses: actions/checkout@v6
         with:
           repository: FangcunMount/infra
-          ref: 54b61749d7fb7f8eedebafbb4ed17dd7aa54622d
+          ref: dd65adabc3de65d863b52d64e5f85d9e5a47bc32
           fetch-depth: 0
           path: infra
           persist-credentials: false
@@ -53,7 +53,7 @@ jobs:
           from pathlib import Path
           sys.path.insert(0,'infra/scripts/rocketmq')
           from m4_publish_candidates import load_plan
-          load_plan(Path('infra/docs/server/evidence/rocketmq-m4-image-publication-plan-20261027.json'),os.environ['PLAN_SHA256'])
+          load_plan(Path('infra/docs/server/evidence/rocketmq-m4-image-publication-plan-20261027-v2.json'),os.environ['PLAN_SHA256'])
           PY
       - name: Install registry transport on disposable GitHub runner only
         run: sudo apt-get update -qq && sudo apt-get install -y skopeo
@@ -78,7 +78,7 @@ jobs:
           set -euo pipefail
           umask 077
           python3 infra/scripts/rocketmq/m4_publish_candidates.py \
-            --plan infra/docs/server/evidence/rocketmq-m4-image-publication-plan-20261027.json \
+            --plan infra/docs/server/evidence/rocketmq-m4-image-publication-plan-20261027-v2.json \
             --plan-sha256 "$PLAN_SHA256" --authfile "$RUNNER_TEMP/m4-acr-auth.json" \
             --report candidate-publication.json
           python3 - <<'PY'
