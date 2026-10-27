@@ -17,6 +17,9 @@ var _ operation.ProtocolReader = (*Store)(nil)
 // statement. No producer/client is created and no final confirmation is sent.
 // Broker IDs, wire and execution capabilities never become public query fields.
 func (s *Store) ReadProtocol(ctx context.Context, candidate operation.Candidate) (operation.ProtocolState, error) {
+	if err := s.validateCandidateRoutes(candidate, false); err != nil {
+		return operation.ProtocolState{}, err
+	}
 	if ctx == nil || !candidate.Valid() || candidate.Binding().Owner != s.binding.Owner || candidate.Binding().StoreID != s.binding.StoreID {
 		return operation.ProtocolState{}, operation.ErrInvalid
 	}

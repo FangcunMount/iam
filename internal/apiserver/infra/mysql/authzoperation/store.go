@@ -17,7 +17,9 @@ import (
 
 	operation "github.com/FangcunMount/iam/v5/internal/apiserver/application/authz/operation"
 	change "github.com/FangcunMount/iam/v5/internal/apiserver/application/authz/policychange"
+	"github.com/FangcunMount/iam/v5/internal/apiserver/infra/messaging"
 	"github.com/FangcunMount/reliable-messaging/transaction"
+	"github.com/FangcunMount/reliable-messaging/transport"
 	driver "github.com/go-sql-driver/mysql"
 )
 
@@ -33,6 +35,7 @@ const maxResultBytes = operation.MaxResultBytes
 type Store struct {
 	db      *sql.DB
 	binding transaction.Binding
+	routes  *transport.RouteResolver
 }
 
 // Claim is a one-winner local execution capability. Its token and frozen private
@@ -54,6 +57,34 @@ func New(db *sql.DB, binding transaction.Binding) (*Store, error) {
 		return nil, operation.ErrInvalid
 	}
 	return &Store{db: db, binding: binding}, nil
+}
+
+// NewWithRoutes binds runtime receipt and operation reads to exact active/history
+// evidence. New remains the explicit lower-level storage compatibility adapter.
+func NewWithRoutes(db *sql.DB, binding transaction.Binding, routes *transport.RouteResolver) (*Store, error) {
+	store, err := New(db, binding)
+	if err != nil {
+		return nil, err
+	}
+	if routes == nil {
+		return nil, transaction.ErrBinding
+	}
+	store.routes = routes
+	return store, nil
+}
+
+func (s *Store) validateCandidateRoutes(candidate operation.Candidate, active bool) error {
+	if s.routes == nil || !candidate.Changed() {
+		return nil
+	}
+	plan, err := candidate.Plan()
+	if err != nil {
+		return err
+	}
+	if active {
+		return messaging.ValidateActiveTransactionRoutes(plan, s.routes)
+	}
+	return messaging.ValidateRecordedTransactionRoutes(plan, s.routes)
 }
 
 const columns = `candidate,candidate_hash,owner,store_id,writer_epoch,identity_key,input_hash,operation_id,request_key,state,policy_version,result,result_hash,guard_version,schema_version,DATE_FORMAT(lease_until,'%Y-%m-%d %H:%i:%s.%f'),DATE_FORMAT(created_at,'%Y-%m-%d %H:%i:%s.%f'),DATE_FORMAT(finalized_at,'%Y-%m-%d %H:%i:%s.%f')`
@@ -92,6 +123,9 @@ func (s *Store) scan(row interface{ Scan(...any) error }) (Snapshot, error) {
 		if err != nil || snapshot.FinalizedAt.IsZero() {
 			return Snapshot{}, operation.ErrInvalid
 		}
+	}
+	if err := s.validateCandidateRoutes(candidate, false); err != nil {
+		return Snapshot{}, err
 	}
 	snapshot.Candidate = candidate
 	switch snapshot.State {
@@ -145,6 +179,9 @@ func (s *Store) Read(ctx context.Context, id string) (Snapshot, error) {
 	return s.scan(s.db.QueryRowContext(ctx, "SELECT "+columns+" FROM iam_authz_operations WHERE operation_id=?", id))
 }
 func (s *Store) Reserve(ctx context.Context, candidate operation.Candidate, lease time.Duration) (Reservation, error) {
+	if err := s.validateCandidateRoutes(candidate, true); err != nil {
+		return Reservation{}, err
+	}
 	if ctx == nil || !candidate.Valid() || candidate.Binding() != s.binding || lease < time.Microsecond || lease > 24*time.Hour {
 		return Reservation{}, operation.ErrInvalid
 	}
