@@ -32,12 +32,14 @@ type RevokeCommand struct {
 type Service struct {
 	guard    management.Guard
 	uow      authzuow.UnitOfWork
+	reader   authzuow.ReadOnlyPlanner
 	repo     domain.Repository
 	reloader policychange.RuntimePolicyReloader
 }
 
 func NewService(uow authzuow.UnitOfWork, repo domain.Repository, reloader policychange.RuntimePolicyReloader, guard management.Guard) *Service {
-	return &Service{uow: uow, repo: repo, reloader: reloader, guard: guard}
+	reader, _ := uow.(authzuow.ReadOnlyPlanner)
+	return &Service{uow: uow, reader: reader, repo: repo, reloader: reloader, guard: guard}
 }
 
 func (s *Service) Create(ctx context.Context, cmd CreateCommand) (*domain.Grant, error) {
@@ -178,11 +180,11 @@ func (s *Service) ListByRole(ctx context.Context, roleID meta.ID) ([]*domain.Gra
 	if roleID.IsZero() {
 		return nil, perrors.WithCode(code.ErrInvalidArgument, "role id is required")
 	}
-	if s.uow == nil {
+	if s.reader == nil {
 		return nil, perrors.WithCode(code.ErrInternalServerError, "角色查询不可用")
 	}
 	var result []*domain.Grant
-	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx authzuow.TxRepositories) error {
+	err := s.reader.ReadPlan(ctx, func(txCtx context.Context, tx authzuow.TxRepositories) error {
 		target, err := tx.Roles.FindByID(txCtx, roleID)
 		if err != nil {
 			return err

@@ -292,6 +292,9 @@ func TestM3PlannedPolicyNative(t *testing.T) {
 	t.Run("operation-http-original-root", func(t *testing.T) {
 		testM3OperationHTTPNative(t, host, binding)
 	})
+	t.Run("role-details-read", func(t *testing.T) {
+		testRoleDetailsReadNative(t, host, binding)
+	})
 }
 
 // This proves the host original-root executor against real MySQL. Half receipts
