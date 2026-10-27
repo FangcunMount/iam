@@ -40,7 +40,7 @@ cleanup() {
 trap cleanup EXIT
 
 if sudo -n true 2>/dev/null; then
-  SUDO="sudo"
+  SUDO="sudo -n"
   echo "Using passwordless sudo."
 else
   if [ -z "${SUDO_PASSWORD:-}" ]; then

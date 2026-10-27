@@ -4,13 +4,30 @@
 acquire_image_deploy_lock() {
   command -v python3 >/dev/null
   command -v flock >/dev/null
-  $SUDO mkdir -p /var/lib/fangcun-image-retention
-  $SUDO chmod 0755 /var/lib/fangcun-image-retention
-  # Do not replace/unlink the inode: all deployment users lock the same file.
-  $SUDO touch /var/lib/fangcun-image-retention/deploy.lock
-  $SUDO chmod 0666 /var/lib/fangcun-image-retention/deploy.lock
-  exec 9<>/var/lib/fangcun-image-retention/deploy.lock
-  flock -w 1800 9
+  local lock=/var/lib/fangcun-image-retention/deploy.lock identity
+  # Host provisioning owns this inode and its permissions. A deployment only
+  # borrows it; missing or changed locks require an administrator's diagnosis.
+  if [ -L "$lock" ] || [ ! -f "$lock" ] || \
+      [ "$(readlink -f "$lock")" != "$lock" ] || \
+      [ "$(stat -c '%u:%a' "$(dirname "$lock")")" != '0:755' ] || \
+      [ "$(stat -c '%u:%a' "$lock")" != '0:666' ]; then
+    echo 'Original shared deployment lock unavailable; refusing deployment.' >&2
+    return 1
+  fi
+  identity=$(stat -c '%d:%i' "$lock")
+  # Opening read-only cannot create a missing file. Linux flock permits an
+  # exclusive advisory lock on this descriptor without writing the file.
+  exec 9<"$lock" || return 1
+  if ! flock -w 1800 9; then
+    exec 9<&-
+    return 1
+  fi
+  if [ "$(stat -Lc '%d:%i' /proc/self/fd/9)" != "$identity" ] || \
+      [ "$(stat -c '%d:%i' "$lock")" != "$identity" ]; then
+    exec 9<&-
+    echo 'Original shared deployment lock changed; refusing deployment.' >&2
+    return 1
+  fi
   RETENTION_PREVIOUS_IDS=()
   local container_id image_id container_ids
   container_ids="$($SUDO docker ps -aq)"
