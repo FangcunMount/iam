@@ -50,6 +50,7 @@ type ReservingSender interface {
 }
 type PlanConfig struct {
 	LogicalTopic, PhysicalTopic string
+	NamingScheme                string
 	Sends                       int
 	ProofBudget                 time.Duration
 	Admission                   func() bool
@@ -67,7 +68,7 @@ type PlannedUnitOfWork struct {
 }
 
 func NewPlannedUnitOfWork(original *TransactionUnitOfWork, sender ReservingSender, config PlanConfig) (*PlannedUnitOfWork, error) {
-	expected, err := transport.PhysicalTopicV2(config.LogicalTopic, transport.TransactionMessageType, "iam.mysql", "m3-1")
+	expected, err := transport.ExpectedPhysicalTopic(config.LogicalTopic, transport.TransactionMessageType, "iam.mysql", "m3-1", config.NamingScheme)
 	if original == nil || original.store == nil || sender == nil || err != nil || expected != config.PhysicalTopic || config.Sends < 1 || config.Sends > 1024 || config.ProofBudget <= 0 || config.Admission == nil {
 		return nil, change.ErrInvalidChangePlan
 	}

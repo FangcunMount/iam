@@ -27,11 +27,11 @@ func (c *Container) initRocketMQPolicySync(module *authz.AuthzModule) error {
 	if err = messagefailure.CheckRocketMQAudit(ctx, pool); err != nil {
 		return err
 	}
-	audit, err := messagefailure.New(pool)
+	config, err := c.runtimeOptions.Messaging.RocketMQ([]string{policypublication.Topic}, 16, 5*time.Second)
 	if err != nil {
 		return err
 	}
-	config, err := c.runtimeOptions.Messaging.RocketMQ([]string{policypublication.Topic}, 16, 5*time.Second)
+	audit, err := messagefailure.NewRocketMQ(pool, config.Routes, authz.ChannelPrefix+"."+c.runtimeOptions.Messaging.InstanceID)
 	if err != nil {
 		return err
 	}
