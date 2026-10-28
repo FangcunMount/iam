@@ -9,7 +9,7 @@
 ## 兼容批次
 
 - IAM `iam-maintenance role-model-migrate status|preflight|apply|verify|rollback|archive-inheritance`，使用 MYSQL_* 与 QS_MYSQL_* 环境配置。完成态检查只需 IAM 连接；首次预演和迁移才需 QS。连接信息不得放在命令参数或报告中。
-- 生产入口：GitHub Action `Role Model Migrate`（`.github/workflows/role-model-migrate.yml`）。QS 复用同一 MYSQL HOST/PORT/USERNAME/PASSWORD，另配 Secret `QS_MYSQL_DBNAME`。完整报告在主机 `/opt/backups/iam/database/role-model/`。
+- 生产入口：GitHub Action `Role Model Migrate`（[原 role-model-migrate 工作流](https://github.com/FangcunMount/iam/blob/8f297a77520151d2789671d912bf18cd52e833eb/.github/workflows/role-model-migrate.yml)（2026-10-28 已退役；历史执行记录保留））。QS 复用同一 MYSQL HOST/PORT/USERNAME/PASSWORD，另配 Secret `QS_MYSQL_DBNAME`。完整报告在主机 `/opt/backups/iam/database/role-model/`。
 - schema 33 仅增加迁移清单表；不会自动变更人员权限。
 - Apply / archive 必须 `--writes-stopped` 与一致的 `--fingerprint`；cutover 模式在 Action 内于 preflight 成功后自动串联，不把人员明细打进工作流日志。
 - QS 最终版本始终检查后台专业查询的动作权限与业务范围，不依赖环境开关。进度查询独立返回 DTO。临床身份探测不依赖岗位标记。
