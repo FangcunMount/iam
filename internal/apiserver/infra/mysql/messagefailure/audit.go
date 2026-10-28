@@ -14,9 +14,12 @@ import (
 	mysqldriver "github.com/go-sql-driver/mysql"
 )
 
-// Audit stores terminal NSQ failures in IAM's own MySQL database. A successful
-// Record is the only event that allows the SDK failure consumer to FIN.
-type Audit struct{ db *sql.DB }
+// Audit stores terminal provider-aware failures in IAM's own MySQL database.
+// Successful durable handoff is required before the SDK settles the delivery.
+type Audit struct {
+	db           *sql.DB
+	rocketRoutes map[[3]string]bool
+}
 
 func New(db *sql.DB) (*Audit, error) {
 	if db == nil {

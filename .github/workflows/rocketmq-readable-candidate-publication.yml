@@ -1,0 +1,118 @@
+name: Readable reviewed stable candidate archive publication
+
+on:
+  workflow_dispatch:
+    inputs:
+      workflow_sha:
+        description: Exact reviewed main workflow SHA; no rebuild or deployment
+        type: string
+        required: true
+      infra_sha:
+        description: Exact merged infra transport and frozen publication plan commit
+        type: string
+        required: true
+      plan_path:
+        description: Committed readable image publication plan under docs/server/evidence
+        type: string
+        required: true
+      plan_sha256:
+        description: Independently reviewed SHA256 of the committed publication plan
+        type: string
+        required: true
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: readable-reviewed-candidate-publication
+  cancel-in-progress: false
+
+jobs:
+  publish-reviewed-archives:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    environment: production
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REVIEWED_WORKFLOW_SHA: ${{ inputs.workflow_sha }}
+      INFRA_SHA: ${{ inputs.infra_sha }}
+      PLAN_PATH: ${{ inputs.plan_path }}
+      PLAN_SHA256: ${{ inputs.plan_sha256 }}
+    steps:
+      - name: Require exact reviewed main and paused production deployment
+        env:
+          DEPLOY_PAUSED: ${{ vars.PRODUCTION_DEPLOY_PAUSED }}
+        run: |
+          set -euo pipefail
+          [[ "$REVIEWED_WORKFLOW_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$INFRA_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$PLAN_SHA256" =~ ^[0-9a-f]{64}$ ]]
+          [[ "$PLAN_PATH" =~ ^docs/server/evidence/rocketmq-readable-image-publication-plan-[a-z0-9-]+\.json$ ]]
+          test "$GITHUB_SHA" = "$REVIEWED_WORKFLOW_SHA"
+          test "$DEPLOY_PAUSED" = true
+      - uses: actions/checkout@v6
+        with:
+          repository: FangcunMount/infra
+          ref: ${{ inputs.infra_sha }}
+          fetch-depth: 0
+          path: infra
+          persist-credentials: false
+      - name: Verify merged transport and exact immutable plan before authentication
+        run: |
+          set -euo pipefail
+          test "$(git -C infra rev-parse HEAD)" = "$INFRA_SHA"
+          git -C infra merge-base --is-ancestor "$INFRA_SHA" origin/main
+          python3 - <<'PY'
+          import os,sys
+          from pathlib import Path
+          sys.path.insert(0,'infra/scripts/rocketmq')
+          from readable_publish_candidates import load_plan
+          load_plan(Path('infra')/os.environ['PLAN_PATH'],os.environ['PLAN_SHA256'])
+          PY
+      - name: Install existing registry transport on disposable runner
+        run: sudo apt-get update -qq && sudo apt-get install -y skopeo
+      - name: Authenticate to existing ACR without exposing credential bytes
+        env:
+          ACR_REGISTRY: ${{ secrets.ALIYUN_ACR_REGISTRY }}
+          ACR_USERNAME: ${{ secrets.ALIYUN_ACR_USERNAME }}
+          ACR_PASSWORD: ${{ secrets.ALIYUN_ACR_PASSWORD }}
+        run: |
+          set -euo pipefail
+          umask 077
+          test "$ACR_REGISTRY" = crpi-x3r4i68cpfmwtcll.cn-beijing.personal.cr.aliyuncs.com
+          test -n "$ACR_USERNAME"
+          test -n "$ACR_PASSWORD"
+          test ! -e "$RUNNER_TEMP/readable-acr-auth.json"
+          test ! -L "$RUNNER_TEMP/readable-acr-auth.json"
+          printf '%s' "$ACR_PASSWORD" | skopeo login --authfile "$RUNNER_TEMP/readable-acr-auth.json" \
+            --username "$ACR_USERNAME" --password-stdin "$ACR_REGISTRY" >/dev/null
+      - name: Publish only verified stable archives and reread immutable digests
+        env:
+          ALIYUN_ACR_REGISTRY: ${{ secrets.ALIYUN_ACR_REGISTRY }}
+          ALIYUN_ACR_NAMESPACE: ${{ secrets.ALIYUN_ACR_NAMESPACE }}
+        run: |
+          set -euo pipefail
+          umask 077
+          python3 infra/scripts/rocketmq/readable_publish_candidates.py \
+            --plan "infra/$PLAN_PATH" --plan-sha256 "$PLAN_SHA256" \
+            --authfile "$RUNNER_TEMP/readable-acr-auth.json" --report readable-candidate-publication.json
+          python3 - <<'PY'
+          import json
+          x=json.load(open('readable-candidate-publication.json'))
+          assert (x['passed'],x['failed'],x['skipped']) == (5,0,0)
+          assert x['complete'] and x['all_source_evidence_verified'] and x['private_downloads_removed']
+          assert len(x['published']) == 5 and x['stable_sdk']['tags_match']
+          assert not x['application_started'] and not x['production_business_cutover'] and not x['application_rebuilt']
+          PY
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: readable-candidate-publication-${{ github.run_id }}-${{ github.run_attempt }}
+          path: readable-candidate-publication.json
+          if-no-files-found: warn
+          retention-days: 90
+      - name: Remove only this runner's ACR authentication file
+        if: always()
+        run: rm -f -- "$RUNNER_TEMP/readable-acr-auth.json"

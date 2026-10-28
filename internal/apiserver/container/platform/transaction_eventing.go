@@ -77,7 +77,11 @@ func NewTransactionEventing(deps EventingDeps, catalog *eventcatalog.Catalog, ma
 	if err != nil {
 		return nil, err
 	}
-	operations, err := journal.New(pool, local.Store().Binding())
+	trustedRoutes, err := messaging.TrustedTransactionRoutes(config)
+	if err != nil {
+		return nil, err
+	}
+	operations, err := journal.NewWithRoutes(pool, local.Store().Binding(), trustedRoutes)
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +108,7 @@ func NewTransactionEventing(deps EventingDeps, catalog *eventcatalog.Catalog, ma
 		}
 		return checkTransactionHandoff(check, deps.DB, config.Limits.CheckTimeout)
 	}}
-	owner.Writer, err = hostuow.NewPlannedUnitOfWork(local, runtime, hostuow.PlanConfig{LogicalTopic: topic, PhysicalTopic: config.Routes[0].PhysicalTopic, Sends: config.Limits.Sends, ProofBudget: config.Limits.CheckTimeout, Admission: owner.admitted, MaintenancePrincipal: maintenancePrincipal, Journal: operations, OperationLease: config.Limits.Lease})
+	owner.Writer, err = hostuow.NewPlannedUnitOfWork(local, runtime, hostuow.PlanConfig{LogicalTopic: topic, PhysicalTopic: config.Routes[0].PhysicalTopic, NamingScheme: config.Routes[0].NamingScheme, Routes: trustedRoutes, Sends: config.Limits.Sends, ProofBudget: config.Limits.CheckTimeout, Admission: owner.admitted, MaintenancePrincipal: maintenancePrincipal, Journal: operations, OperationLease: config.Limits.Lease})
 	if err != nil {
 		return nil, err
 	}

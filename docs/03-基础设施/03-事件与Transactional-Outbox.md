@@ -1,6 +1,16 @@
 # 事件、Outbox 交接与投递结果
 
-> 状态：已实现 · 依据 IAM 当前装配及锁定 reliable-messaging v0.5.0 / go-nsq v1.1.0；源码条件、离线测试和运行接受分别标明。
+> 状态：已实现 · 依据 IAM 当前接入源码及锁定 reliable-messaging v0.6.0 / go-nsq v1.1.0；源码条件、离线测试和运行接受分别标明。
+
+## 可读资源命名接入候选（2026-10-27，源码）
+
+本次源码支持 manifest v3 / readable-v1，原 v1/v2 保持。授权事件计划与可选NORMAL短信发布、IAM策略订阅均读取同一固定manifest；原 `iam.mysql`、`m3-1`、writer epoch、业务根事务和witness格式不变。历史映射仅允许精确证据读取，不启动旧消费者或重新发布。幂等请求读取原结果，不能因名称改变重做授权。
+
+授权计划校验所配置的命名方案与精确物理Topic，不能从消息属性推断数据库或从名称猜测版本。失败审计绑定本实例活动订阅，核对实际逻辑Topic、订阅和物理Topic；历史审计保留原身份。IAM与QS仍是独立fanout订阅，只有各自业务验证通过才能记账。
+
+SDK固定稳定版 v0.6.0 已发布（源码559c735，原可读RC实现字节保持）；本节描述待最终镜像验收的接入源码，生产资源、镜像及system验证以[唯一执行总表](https://github.com/FangcunMount/infra/blob/main/docs/server/rocketmq-readable-names-execution.md)为准。构造和启动不执行DDL，不变更凭据或生产路由。以下M3/M4条目保留其批次记录。
+
+历史操作查询和幂等结果恢复也使用同一可信路由：运行时通过`authzoperation.NewWithRoutes`绑定精确活动/历史映射，既有计划、wire及候选字节保持原样；缺映射时拒绝读取其协议结果。历史映射不授予新reservation，普通`Reserve`不能重启旧计划；Prepared/Unknown不因改名重做授权。底层`New`仅保留显式存储夹具/历史测试用途，生产装配走受信版本。
 
 ## 当前生产装配：显式事务owner
 

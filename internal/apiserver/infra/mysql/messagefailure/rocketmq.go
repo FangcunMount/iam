@@ -17,7 +17,7 @@ import (
 // remain in their original table and are never relabelled or silently replayed.
 func (a *Audit) RecordRocketMQ(ctx context.Context, f transport.Failure) error {
 	m := f.Message
-	if a == nil || a.db == nil || f.Provider != "rocketmq" || m.Provider != "rocketmq" || m.Topic == "" || m.Channel == "" || m.TransportID == "" || m.PhysicalTopic != transport.PhysicalTopic(m.Topic) || len(m.Wire) == 0 || m.Attempts < 1 || f.Cause == "" {
+	if a == nil || a.db == nil || f.Provider != "rocketmq" || m.Provider != "rocketmq" || m.Topic == "" || m.Channel == "" || m.TransportID == "" || !a.permitsRocketMQ(m) || len(m.Wire) == 0 || m.Attempts < 1 || f.Cause == "" {
 		return errors.New("invalid RocketMQ terminal failure")
 	}
 	metadata, err := json.Marshal(m.Metadata)
@@ -72,4 +72,38 @@ func CheckRocketMQAudit(ctx context.Context, db *sql.DB) error {
 		return err
 	}
 	return rows.Close()
+}
+
+// NewRocketMQ binds terminal handoff to the exact active logical subscription.
+// Historical route evidence never becomes a new consumer capability.
+func NewRocketMQ(db *sql.DB, routes []transport.RouteBinding, subscription string) (*Audit, error) {
+	if subscription == "" {
+		return nil, errors.New("explicit failure subscription required")
+	}
+	if err := transport.ValidateRoutes(routes); err != nil {
+		return nil, err
+	}
+	audit, err := New(db)
+	if err != nil {
+		return nil, err
+	}
+	audit.rocketRoutes = map[[3]string]bool{}
+	for _, r := range routes {
+		if r.Subscription == subscription {
+			audit.rocketRoutes[[3]string{r.Topic, r.Subscription, r.PhysicalTopic}] = true
+		}
+	}
+	if len(audit.rocketRoutes) == 0 {
+		return nil, errors.New("failure subscription absent from active manifest")
+	}
+	return audit, nil
+}
+func (a *Audit) permitsRocketMQ(m transport.Received) bool {
+	if a == nil {
+		return false
+	}
+	if a.rocketRoutes == nil {
+		return m.PhysicalTopic == transport.PhysicalTopic(m.Topic)
+	} // explicit legacy audit API
+	return a.rocketRoutes[[3]string{m.Topic, m.Channel, m.PhysicalTopic}]
 }

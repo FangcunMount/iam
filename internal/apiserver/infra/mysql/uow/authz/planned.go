@@ -50,6 +50,8 @@ type ReservingSender interface {
 }
 type PlanConfig struct {
 	LogicalTopic, PhysicalTopic string
+	NamingScheme                string
+	Routes                      *transport.RouteResolver
 	Sends                       int
 	ProofBudget                 time.Duration
 	Admission                   func() bool
@@ -64,17 +66,29 @@ type PlannedUnitOfWork struct {
 	sender    ReservingSender
 	config    PlanConfig
 	admission *planAdmission
+	routes    *transport.RouteResolver
 }
 
 func NewPlannedUnitOfWork(original *TransactionUnitOfWork, sender ReservingSender, config PlanConfig) (*PlannedUnitOfWork, error) {
-	expected, err := transport.PhysicalTopicV2(config.LogicalTopic, transport.TransactionMessageType, "iam.mysql", "m3-1")
+	expected, err := transport.ExpectedPhysicalTopic(config.LogicalTopic, transport.TransactionMessageType, "iam.mysql", "m3-1", config.NamingScheme)
 	if original == nil || original.store == nil || sender == nil || err != nil || expected != config.PhysicalTopic || config.Sends < 1 || config.Sends > 1024 || config.ProofBudget <= 0 || config.Admission == nil {
 		return nil, change.ErrInvalidChangePlan
 	}
 	if config.Journal != nil && (config.OperationLease <= 0 || config.OperationLease > 24*time.Hour) {
 		return nil, change.ErrInvalidChangePlan
 	}
-	return &PlannedUnitOfWork{original: original, sender: sender, config: config, admission: newPlanAdmission(config.Sends)}, nil
+	routes := config.Routes
+	if routes == nil {
+		routes, err = transport.NewRouteResolver([]transport.RouteBinding{{Topic: config.LogicalTopic, PhysicalTopic: config.PhysicalTopic, MessageType: transport.TransactionMessageType, Owner: "iam.mysql", RouteRevision: "m3-1", NamingScheme: config.NamingScheme}}, nil)
+		if err != nil {
+			return nil, err
+		}
+	}
+	active, err := routes.PublishRoute(transport.RouteKey{Topic: config.LogicalTopic, MessageType: transport.TransactionMessageType, Owner: "iam.mysql", RouteRevision: "m3-1"})
+	if err != nil || active.PhysicalTopic != config.PhysicalTopic {
+		return nil, change.ErrInvalidChangePlan
+	}
+	return &PlannedUnitOfWork{original: original, sender: sender, config: config, admission: newPlanAdmission(config.Sends), routes: routes}, nil
 }
 func (*PlannedUnitOfWork) WithinTx(context.Context, func(context.Context, app.TxRepositories) error) error {
 	return app.ErrWritePlanRequired
@@ -216,6 +230,9 @@ func (u *PlannedUnitOfWork) within(ctx context.Context, principal string, reques
 	return &UnknownOperation{OperationID: reserved.Execution.Plan.Input().OperationID, Result: result, Cause: sendErr}
 }
 func (u *PlannedUnitOfWork) known(reserved transaction.Reservation) error {
+	if err := messaging.ValidateRecordedTransactionRoutes(reserved.Execution.Plan, u.routes); err != nil {
+		return err
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), u.config.ProofBudget)
 	defer cancel()
 	refs := reserved.Execution.References()
