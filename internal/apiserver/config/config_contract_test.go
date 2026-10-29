@@ -34,7 +34,7 @@ func TestAPIServerYAMLConfigMapsToRuntimeOptions(t *testing.T) {
 				assertEqual(t, "mysql database", opts.MySQLOptions.Database, "iam")
 				assertEqual(t, "redis cache host", opts.RedisOptions.Cache.Host, "127.0.0.1")
 				assertEqual(t, "redis cache port", opts.RedisOptions.Cache.Port, 6379)
-				assertEqual(t, "migration enabled", opts.MigrationOptions.Enabled, true)
+				assertEqual(t, "development automatic migration disabled", opts.MigrationOptions.Enabled, false)
 				assertEqual(t, "server mode", opts.GenericServerRunOptions.Mode, "debug")
 				assertEqual(t, "auth issuer", opts.Auth.JWTIssuer, "https://iam.fangcunmount.cn")
 				assertEqual(t, "auth access ttl", opts.Auth.AccessTokenTTL, 15*time.Minute)
@@ -72,11 +72,11 @@ func TestAPIServerYAMLConfigMapsToRuntimeOptions(t *testing.T) {
 				assertBoolPtr(t, "debug cache governance enabled", opts.Debug.CacheGovernance.Enabled, true)
 				assertBoolPtr(t, "debug cache governance require admin", opts.Debug.CacheGovernance.RequireAdmin, false)
 				assertEqual(t, "seed mock disabled by default", opts.SeedMockAuth.Enabled, false)
-				assertEqual(t, "events catalog path", opts.Events.CatalogPath, "configs/events.yaml")
+				assertEqual(t, "events catalog path", opts.Events.CatalogPath, "configs/events-m3.yaml")
 				assertEqual(t, "reliable messaging remains disabled", opts.Events.ReliableMessaging.Enabled, false)
 				assertEqual(t, "events relay interval", opts.Events.OutboxRelayInterval, 2*time.Second)
-				assertEqual(t, "events relay batch size", opts.Events.OutboxRelayBatchSize, 50)
-				assertEqual(t, "events relay retry delay", opts.Events.OutboxRelayRetryDelay, 10*time.Second)
+				assertEqual(t, "retired relay batch omitted", opts.Events.OutboxRelayBatchSize, 0)
+				assertEqual(t, "retired relay retry omitted", opts.Events.OutboxRelayRetryDelay, time.Duration(0))
 			},
 		},
 		{
@@ -337,8 +337,8 @@ func loadOptionsFromConfigFile(t *testing.T, file string) *apiserveroptions.Opti
 	if err := reader.ReadInConfig(); err != nil {
 		t.Fatalf("ReadInConfig(%s) error = %v", file, err)
 	}
-	if err := reader.Unmarshal(opts); err != nil {
-		t.Fatalf("Unmarshal(%s) error = %v", file, err)
+	if err := opts.DecodeConfig(reader); err != nil {
+		t.Fatalf("DecodeConfig(%s) error = %v", file, err)
 	}
 	return opts
 }
