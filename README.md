@@ -115,6 +115,10 @@ make deps
 make build
 ```
 
+### 开发消息前置
+
+`configs/apiserver.dev.yaml` 使用 RocketMQ 的 `iam.mysql` 事务 owner，事件目录为 `configs/events-m3.yaml`。先在隔离环境安装迁移和数据库 binding，再配置 `configs/rocketmq/credentials.json`、`ca.crt`、`routes.json`。默认 `iam-dev-mysql` / `dev-1` 仅用于新的开发数据库；已有环境沿用实际 binding。常驻进程关闭自动迁移，不再启动 NSQ 或发布型 Outbox Relay。
+
 ### 运行
 
 ```bash

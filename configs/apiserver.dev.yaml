@@ -150,7 +150,7 @@ mysql:
 # 3.2 数据库迁移配置
 # ----------------------------------------------------------------------------
 migration:
-  enabled: true  # 开发环境启用自动迁移
+  enabled: false # Transaction schemas and bindings are installed offline.
   database: "iam"
 
 # ----------------------------------------------------------------------------
@@ -216,8 +216,8 @@ idp:
 # ----------------------------------------------------------------------------
 # 4.4 短信登录 OTP（发码）
 # ----------------------------------------------------------------------------
-# provider: log（仅打日志）| mq（经 NSQ 发布 iam.notify.sms，由下游真正发短信）| aliyun（直连阿里云短信）
-# mq 需同时开启下方 nsq.enabled
+# provider: log（仅打日志）| mq（经 RocketMQ NORMAL 消息发布）| aliyun（直连短信）
+# mq 使用下方 RocketMQ 配置中的通知路由
 sms:
   provider: log
   login_otp_ttl: 5m
@@ -312,26 +312,28 @@ log:
       - logs/iam-error.log        # ERROR 额外落盘，便于快速定位故障
 
 # ----------------------------------------------------------------------------
-# 5.2 NSQ 消息队列配置（可选，用于事件驱动）
+# 5.2 RocketMQ development transaction runtime
+# Local files and identities must match the installed development binding.
 # ----------------------------------------------------------------------------
-nsq:
-  enabled: false                              # 开发环境默认禁用
-  lookupd-addrs:                              # NSQLookupd 地址
-    - "127.0.0.1:4161"
-  nsqd-addr: "127.0.0.1:4150"                # NSQd 地址
-  max-attempts: 5                             # 消息最大重试次数
-  max-in-flight: 200                          # 最大并发处理数
-  msg-timeout: 60                             # 消息超时时间（秒）
-  requeue-delay: 5                            # 重新入队延迟（秒）
+messaging:
+  provider: rocketmq
+  endpoint: "127.0.0.1:8081"
+  credentials_file: "configs/rocketmq/credentials.json"
+  ca_file: "configs/rocketmq/ca.crt"
+  routes_file: "configs/rocketmq/routes.json"
+  instance_id: "iam-dev"
+  publish_enabled: true
+  transactions:
+    iam.mysql:
+      store_id: "iam-dev-mysql"
+      writer_epoch: "dev-1"
+      route_revision: "m3-1"
 
-# ----------------------------------------------------------------------------
-# 5.3 事件目录与 Transactional Outbox Relay
-# ----------------------------------------------------------------------------
 events:
-  catalog_path: configs/events.yaml
-  outbox_relay_interval: 2s
-  outbox_relay_batch_size: 50
-  outbox_relay_retry_delay: 10s
+  catalog_path: configs/events-m3.yaml
+  reliable_messaging:
+    enabled: false
+    shutdown_timeout: 20s
 
 # Policy confirmation budgets; no database reads occur on the Check path.
 authz:
