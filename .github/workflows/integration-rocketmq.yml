@@ -1,0 +1,33 @@
+name: IAM RocketMQ integration
+run-name: IAM RocketMQ ${{ github.event.pull_request.head.sha || github.sha }} (${{ inputs.profile || 'development' }})
+
+on:
+  pull_request:
+    paths:
+      - internal/**
+      - configs/events*.yaml
+      - go.mod
+      - go.sum
+      - .github/workflows/integration-rocketmq.yml
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: Development runs one MySQL version; full runs the existing matrix
+        type: choice
+        options: [development, full]
+        default: full
+
+permissions:
+  contents: read
+
+concurrency:
+  group: iam-mq-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  original-host:
+    uses: FangcunMount/infra/.github/workflows/rocketmq-iam.yml@f1b058fc16be82a759f317f260e459944a9a29f3
+    with:
+      infra_ref: f1b058fc16be82a759f317f260e459944a9a29f3
+      iam_ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      profile: ${{ inputs.profile || 'development' }}
