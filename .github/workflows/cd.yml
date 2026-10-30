@@ -200,6 +200,26 @@ jobs:
             "${ALIYUN_ACR_REGISTRY}" "${ACR_AUTH}" "${GHCR_REGISTRY}" "${GHCR_AUTH}" \
             > "${DOCKER_CONFIG_DIR}/config.json"
           echo "DOCKER_CONFIG=${DOCKER_CONFIG_DIR}" >> "${GITHUB_ENV}"
+          python3 - "${DOCKER_CONFIG_DIR}" <<'PYPLUGIN'
+          import json, os, pathlib, subprocess, sys
+          directory = pathlib.Path(sys.argv[1])
+          def available():
+              return subprocess.run(['docker', '--config', str(directory), 'buildx', 'version'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0
+          if not available():
+              # Reuse the runner's installed binary without importing its credentials/keychain.
+              raw = subprocess.check_output(['docker', '--config', str(pathlib.Path.home() / '.docker'), 'info', '--format', '{{json .ClientInfo.Plugins}}'], stderr=subprocess.DEVNULL)
+              plugins = json.loads(raw) or []
+              candidates = [pathlib.Path(p['Path']) for p in plugins if p.get('Name') == 'buildx' and p.get('Path')]
+              candidates = [p for p in candidates if p.is_file() and os.access(p, os.X_OK)]
+              if len(candidates) != 1:
+                  raise SystemExit('Required Buildx plugin unavailable; image not exported')
+              target = directory / 'cli-plugins'
+              target.mkdir(mode=0o700, exist_ok=True)
+              (target / 'docker-buildx').symlink_to(candidates[0])
+          if not available():
+              raise SystemExit('Buildx unavailable in isolated Docker configuration; image not exported')
+          print('Buildx available with isolated registry authentication')
+          PYPLUGIN
 
       - name: Export the verified frozen candidate without rebuilding
         if: needs.plan.outputs.reuse == 'true'
@@ -227,7 +247,9 @@ jobs:
               candidates = [raw, raw[:-1]] if raw.endswith(b'\n') else [raw]
               require(any('sha256:' + hashlib.sha256(b).hexdigest() == digest for b in candidates))
               return json.loads(raw)
+          phase = 'registry_manifest'
           def main():
+              global phase
               document = manifest(expected_digest)
               graph = {expected_digest}
               if 'manifests' in document:
@@ -236,20 +258,25 @@ jobs:
                   selected = choices[0]['digest']
                   graph.add(selected)
                   document = manifest(selected)
+              phase = 'config_digest'
               require(document['config']['digest'] == expected_config)
+              phase = 'local_identity'
               local = json.loads(subprocess.check_output(['docker', 'image', 'inspect', ref], stderr=subprocess.DEVNULL))[0]
               require(local['Os'] == 'linux' and local['Architecture'] == 'amd64')
               require(local['Id'] in graph | {expected_config})
+              phase = 'repository_digest'
               require(set(local.get('RepoDigests') or []) & {repo + '@' + d for d in graph})
+              phase = 'local_descriptor'
               descriptor = (local.get('Descriptor') or {}).get('digest')
               require(descriptor is None or descriptor in graph)
+              phase = 'source_revision'
               revision = (local.get('Config', {}).get('Labels') or {}).get('org.opencontainers.image.revision')
               require(revision is None or revision == os.environ['DEPLOY_SHA'])
               print('Immutable registry/config/platform/local-descriptor binding verified')
           try:
               main()
-          except Exception:
-              raise SystemExit('Immutable image binding verification failed; image not exported') from None
+          except Exception as error:
+              raise SystemExit('Immutable image binding verification failed at ' + phase + ' (' + type(error).__name__ + '); image not exported') from None
           PYIMAGE
           docker tag "$image" "$alias"
           docker save "$alias" | gzip > "${DEPLOY_IMAGE_PACKAGE:-deploy-image-${PACKAGE_SUFFIX}.tar.gz}"
