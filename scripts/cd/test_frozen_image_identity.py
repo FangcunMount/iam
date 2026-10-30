@@ -142,3 +142,44 @@ elif args[0] not in ('pull','tag'):raise SystemExit(3)
             assert any(a[0] == "tag" for a in log) == success
             assert any(a[0] == "save" for a in log) == success
             print(json.dumps({"repo": repo, "case": name, "passed": True}))
+
+
+# Execute the actual status script: a frozen-image reuse skips the build job,
+# while a successful deployment and plan are still mandatory.
+import re
+import textwrap
+
+workflow = (ROOT / ".github/workflows/cd.yml").read_text()
+start = workflow.index("      - name: Log deployment status\n")
+start = workflow.index("        run: |\n", start) + len("        run: |\n")
+lines = []
+for line in workflow[start:].splitlines():
+    if line.strip() and not line.startswith("          "):
+        break
+    lines.append(line)
+status_script = textwrap.dedent("\n".join(lines))
+for paused, reuse, plan, build, deployment, expected in [
+    ("false", "false", "success", "success", "success", True),
+    ("false", "true", "success", "skipped", "success", True),
+    ("false", "true", "failure", "skipped", "success", False),
+    ("false", "false", "success", "skipped", "success", False),
+    ("false", "true", "success", "failure", "success", False),
+    ("false", "true", "success", "cancelled", "success", False),
+    ("false", "true", "success", "skipped", "skipped", False),
+    ("false", "true", "success", "skipped", "failure", False),
+    ("true", "false", "success", "success", "skipped", True),
+    ("true", "true", "success", "skipped", "skipped", True),
+    ("true", "false", "success", "failure", "skipped", False),
+    ("true", "true", "failure", "skipped", "skipped", False),
+]:
+    inputs = {
+        "vars.PRODUCTION_DEPLOY_PAUSED": paused,
+        "needs.plan.outputs.reuse": reuse,
+        "needs.plan.result": plan,
+        "needs.docker.result": build,
+        "needs.deploy.result": deployment,
+    }
+    rendered = re.sub(r"\$\{\{\s*(.*?)\s*\}\}", lambda m: inputs[m[1]], status_script)
+    result = subprocess.run(["bash", "-c", rendered], capture_output=True, text=True)
+    assert (result.returncode == 0) == expected, (repo, inputs, result.stdout)
+    print(repo, "status", inputs, "passed")

@@ -352,10 +352,6 @@ jobs:
     steps:
       - name: Log deployment status
         run: |
-          if [ "${{ vars.PRODUCTION_DEPLOY_PAUSED }}" = "true" ]; then
-            echo "Production deployment is paused for a coordinated release; inspect image build results separately."
-            exit 0
-          fi
           echo "=========================================="
           echo "Deployment Summary"
           echo "=========================================="
@@ -364,7 +360,15 @@ jobs:
           echo "Ref: ${DEPLOY_REF}"
           echo "SHA: ${DEPLOY_SHA}"
           echo "Service: ${SERVICE}"
-          if [ "${{ needs.docker.result }}" != "success" ] || [ "${{ needs.deploy.result }}" != "success" ]; then
+          image_ready=false
+          if [ "${{ needs.plan.result }}" = "success" ] && { [ "${{ needs.docker.result }}" = "success" ] || { [ "${{ needs.plan.outputs.reuse }}" = "true" ] && [ "${{ needs.docker.result }}" = "skipped" ]; }; }; then
+            image_ready=true
+          fi
+          if [ "${{ vars.PRODUCTION_DEPLOY_PAUSED }}" = "true" ] && [ "$image_ready" = "true" ] && [ "${{ needs.deploy.result }}" = "skipped" ]; then
+            echo "Production deployment is intentionally paused."
+            exit 0
+          fi
+          if [ "$image_ready" != "true" ] || [ "${{ needs.deploy.result }}" != "success" ]; then
             echo "Production deploy failed or was skipped."
             exit 1
           fi
