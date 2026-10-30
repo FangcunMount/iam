@@ -19,9 +19,20 @@ on:
     types: [completed]
     branches: [main]
   workflow_dispatch:
+    inputs:
+      revision:
+        description: 'Frozen full main ancestor SHA with successful push CI; supply all three fields to reuse'
+        required: false
+      candidate_digest:
+        description: 'Verified immutable ACR digest; skips image building'
+        required: false
+      candidate_config_id:
+        description: 'Verified linux/amd64 image config ID'
+        required: false
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: iam-production-deploy
@@ -33,21 +44,52 @@ env:
   DOCKER_REPOSITORY: fangcunmount
   SERVICE: apiserver
   DEPLOY_REF: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_branch || github.ref_name }}
-  DEPLOY_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+  DEPLOY_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || inputs.revision || github.sha }}
   BUILD_TIME: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.updated_at || github.event.repository.updated_at }}
   DEPLOY_EXPORT_REGISTRY: ${{ vars.QS_DEPLOY_EXPORT_REGISTRY || 'acr' }}
 
 jobs:
+  plan:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
+    runs-on: ubuntu-latest
+    outputs:
+      reuse: ${{ steps.plan.outputs.reuse }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: main
+      - id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REQUESTED_REVISION: ${{ inputs.revision }}
+          CANDIDATE_DIGEST: ${{ inputs.candidate_digest }}
+          CANDIDATE_CONFIG_ID: ${{ inputs.candidate_config_id }}
+        run: |
+          set -Eeuo pipefail
+          if [ -n "$REQUESTED_REVISION$CANDIDATE_DIGEST$CANDIDATE_CONFIG_ID" ]; then
+            [[ "$GITHUB_EVENT_NAME" == workflow_dispatch && "$GITHUB_REF" == refs/heads/main ]]
+            [[ "$REQUESTED_REVISION" =~ ^[0-9a-f]{40}$ ]]
+            [[ "$CANDIDATE_DIGEST" =~ ^sha256:[0-9a-f]{64}$ && "$CANDIDATE_CONFIG_ID" =~ ^sha256:[0-9a-f]{64}$ ]]
+            [[ "$DEPLOY_EXPORT_REGISTRY" == acr ]]
+            git merge-base --is-ancestor "$REQUESTED_REVISION" origin/main
+            gh run list --repo "$GITHUB_REPOSITORY" --workflow ci.yml --commit "$REQUESTED_REVISION" --event push --json conclusion --jq 'any(.[]; .conclusion == "success")' | grep -qx true
+            echo 'reuse=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'reuse=false' >> "$GITHUB_OUTPUT"
+          fi
+
   docker:
+    needs: plan
     name: Build and Push Docker Image
     runs-on: ubuntu-latest
     environment:
       name: production
-    if: |
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'workflow_run' &&
-       github.event.workflow_run.conclusion == 'success' &&
-       github.event.workflow_run.head_branch == 'main')
+    if: >-
+      needs.plan.result == 'success' && needs.plan.outputs.reuse != 'true' &&
+      (github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main'))
     env:
       WWW_UID: ${{ secrets.WWW_UID }}
       WWW_GID: ${{ secrets.WWW_GID }}
@@ -99,7 +141,7 @@ jobs:
 
   deploy:
     name: Deploy to Production
-    needs: [docker]
+    needs: [plan, docker]
     runs-on:
       group: qlume
       labels: [self-hosted, macOS, ARM64]
@@ -109,7 +151,9 @@ jobs:
     if: |
       always() &&
       vars.PRODUCTION_DEPLOY_PAUSED != 'true' &&
-      needs.docker.result == 'success'
+      needs.plan.result == 'success' &&
+      (needs.docker.result == 'success' ||
+       (needs.plan.outputs.reuse == 'true' && needs.docker.result == 'skipped'))
     env:
       WWW_UID: ${{ secrets.WWW_UID }}
       WWW_GID: ${{ secrets.WWW_GID }}
@@ -155,8 +199,26 @@ jobs:
             > "${DOCKER_CONFIG_DIR}/config.json"
           echo "DOCKER_CONFIG=${DOCKER_CONFIG_DIR}" >> "${GITHUB_ENV}"
 
+      - name: Export the verified frozen candidate without rebuilding
+        if: needs.plan.outputs.reuse == 'true'
+        env:
+          CANDIDATE_DIGEST: ${{ inputs.candidate_digest }}
+          CANDIDATE_CONFIG_ID: ${{ inputs.candidate_config_id }}
+          ALIYUN_ACR_REGISTRY: ${{ secrets.ALIYUN_ACR_REGISTRY }}
+          ALIYUN_ACR_NAMESPACE: ${{ secrets.ALIYUN_ACR_NAMESPACE }}
+        run: |
+          set -Eeuo pipefail
+          . scripts/cd/image-metadata.sh
+          image="$ALIYUN_ACR_REGISTRY/$ALIYUN_ACR_NAMESPACE/$IMAGE_NAME@$CANDIDATE_DIGEST"
+          alias="$ALIYUN_ACR_REGISTRY/$ALIYUN_ACR_NAMESPACE/$IMAGE_NAME:${IMAGE_TAG:-$DEPLOY_SHA}"
+          docker pull --platform linux/amd64 "$image"
+          actual=$(docker image inspect --format '{{.Id}} {{.Os}}/{{.Architecture}}' "$image")
+          [[ "$actual" == "$CANDIDATE_CONFIG_ID linux/amd64" ]]
+          docker tag "$image" "$alias"
+          docker save "$alias" | gzip > "${DEPLOY_IMAGE_PACKAGE:-deploy-image-${PACKAGE_SUFFIX}.tar.gz}"
+
       - name: Export deployment image tarball
-        if: env.DEPLOY_EXPORT_REGISTRY == 'acr'
+        if: env.DEPLOY_EXPORT_REGISTRY == 'acr' && needs.plan.outputs.reuse != 'true'
         env:
           DEPLOY_SHA: ${{ env.DEPLOY_SHA }}
           EXPORT_IMAGE_REGISTRY: acr
@@ -241,7 +303,7 @@ jobs:
 
   notify:
     name: Deployment Summary
-    needs: [docker, deploy]
+    needs: [plan, docker, deploy]
     runs-on: ubuntu-latest
     if: |
       always() && (
