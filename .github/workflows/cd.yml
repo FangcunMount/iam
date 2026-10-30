@@ -212,8 +212,43 @@ jobs:
           image="$ALIYUN_ACR_REGISTRY/$ALIYUN_ACR_NAMESPACE/$IMAGE_NAME@$CANDIDATE_DIGEST"
           alias="$ALIYUN_ACR_REGISTRY/$ALIYUN_ACR_NAMESPACE/$IMAGE_NAME:${IMAGE_TAG:-$DEPLOY_SHA}"
           docker pull --platform linux/amd64 "$image"
-          actual=$(docker image inspect --format '{{.Id}} {{.Os}}/{{.Architecture}}' "$image")
-          [[ "$actual" == "$CANDIDATE_CONFIG_ID linux/amd64" ]]
+          python3 - "$image" "$CANDIDATE_DIGEST" "$CANDIDATE_CONFIG_ID" <<'PYIMAGE'
+          import hashlib, json, os, re, subprocess, sys
+          ref, expected_digest, expected_config = sys.argv[1:]
+          repo = ref.rsplit('@', 1)[0]
+          def require(value):
+              if not value:
+                  raise ValueError('Immutable image binding mismatch')
+          def manifest(digest):
+              require(re.fullmatch('sha256:[0-9a-f]{64}', digest))
+              raw = subprocess.check_output(['docker', 'buildx', 'imagetools', 'inspect', '--raw', repo + '@' + digest], stderr=subprocess.DEVNULL)
+              candidates = [raw, raw[:-1]] if raw.endswith(b'\n') else [raw]
+              require(any('sha256:' + hashlib.sha256(b).hexdigest() == digest for b in candidates))
+              return json.loads(raw)
+          def main():
+              document = manifest(expected_digest)
+              graph = {expected_digest}
+              if 'manifests' in document:
+                  choices = [d for d in document['manifests'] if d.get('platform', {}).get('os') == 'linux' and d.get('platform', {}).get('architecture') == 'amd64']
+                  require(len(choices) == 1)
+                  selected = choices[0]['digest']
+                  graph.add(selected)
+                  document = manifest(selected)
+              require(document['config']['digest'] == expected_config)
+              local = json.loads(subprocess.check_output(['docker', 'image', 'inspect', ref], stderr=subprocess.DEVNULL))[0]
+              require(local['Os'] == 'linux' and local['Architecture'] == 'amd64')
+              require(local['Id'] in graph | {expected_config})
+              require(set(local.get('RepoDigests') or []) & {repo + '@' + d for d in graph})
+              descriptor = (local.get('Descriptor') or {}).get('digest')
+              require(descriptor is None or descriptor in graph)
+              revision = (local.get('Config', {}).get('Labels') or {}).get('org.opencontainers.image.revision')
+              require(revision is None or revision == os.environ['DEPLOY_SHA'])
+              print('Immutable registry/config/platform/local-descriptor binding verified')
+          try:
+              main()
+          except Exception:
+              raise SystemExit('Immutable image binding verification failed; image not exported') from None
+          PYIMAGE
           docker tag "$image" "$alias"
           docker save "$alias" | gzip > "${DEPLOY_IMAGE_PACKAGE:-deploy-image-${PACKAGE_SUFFIX}.tar.gz}"
 
