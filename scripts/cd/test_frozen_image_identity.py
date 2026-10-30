@@ -183,3 +183,79 @@ for paused, reuse, plan, build, deployment, expected in [
     result = subprocess.run(["bash", "-c", rendered], capture_output=True, text=True)
     assert (result.returncode == 0) == expected, (repo, inputs, result.stdout)
     print(repo, "status", inputs, "passed")
+
+# Exercise the actual isolated-authentication setup, including plugin discovery.
+auth_anchor = workflow.index(
+    'echo "DOCKER_CONFIG=${DOCKER_CONFIG_DIR}" >> "${GITHUB_ENV}"'
+)
+setup_start = workflow.rfind("        run: |\n", 0, auth_anchor) + len(
+    "        run: |\n"
+)
+setup_end = workflow.index("\n      - name:", setup_start)
+setup = textwrap.dedent(workflow[setup_start:setup_end])
+for mode in ["global", "user-only", "missing", "broken-path", "info-failure"]:
+    with tempfile.TemporaryDirectory() as temporary:
+        directory = pathlib.Path(temporary)
+        plugin = directory / "installed plugin with spaces"
+        if mode != "broken-path":
+            plugin.write_text("#!/bin/sh\nexit 0\n")
+            plugin.chmod(0o755)
+        docker = directory / "docker"
+        docker.write_text("""#!/usr/bin/env python3
+import json,os,pathlib,sys
+args=sys.argv[1:];config=pathlib.Path(args[1]);args=args[2:]
+with open(os.environ['PLUGIN_CALLS'],'a') as f:f.write(json.dumps(args)+'\\n')
+mode=os.environ['PLUGIN_MODE']
+if args==['buildx','version']:
+ ready=mode=='global' or (config/'cli-plugins/docker-buildx').is_file()
+ raise SystemExit(0 if ready else 1)
+if args==['info','--format','{{json .ClientInfo.Plugins}}']:
+ if mode=='info-failure':raise SystemExit(1)
+ print(json.dumps([] if mode=='missing' else [{'Name':'buildx','Path':os.environ['PLUGIN_PATH']}]))
+else:raise SystemExit(2)
+""")
+        docker.chmod(0o755)
+        env = dict(
+            os.environ,
+            PATH=str(directory) + os.pathsep + os.environ["PATH"],
+            RUNNER_TEMP=str(directory),
+            GITHUB_RUN_ID="case",
+            GITHUB_ENV=str(directory / "github-env"),
+            PLUGIN_MODE=mode,
+            PLUGIN_PATH=str(plugin),
+            PLUGIN_CALLS=str(directory / "calls"),
+            ALIYUN_ACR_REGISTRY="registry.test",
+            ALIYUN_ACR_USERNAME="fixture-user",
+            ALIYUN_ACR_PASSWORD="private-plugin-fixture",
+            GHCR_REGISTRY="ghcr.test",
+            GHCR_USERNAME="fixture-user",
+            GHCR_TOKEN="private-plugin-fixture",
+        )
+        result = subprocess.run(
+            ["bash", "-c", setup], env=env, capture_output=True, text=True
+        )
+        assert (result.returncode == 0) == (mode in ["global", "user-only"]), (
+            repo,
+            mode,
+            result.stderr,
+        )
+        assert "private-plugin-fixture" not in result.stdout + result.stderr
+        isolated = directory / "docker-config-case"
+        auth = isolated / "config.json"
+        assert auth.stat().st_mode & 0o077 == 0
+        data = json.loads(auth.read_text())
+        assert set(data) == {"auths"}
+        assert set(data["auths"]) == (
+            {"registry.test", "ghcr.test"} if repo == "iam" else {"registry.test"}
+        )
+        assert (
+            "DOCKER_CONFIG=" + str(isolated) in (directory / "github-env").read_text()
+        )
+        if mode == "user-only":
+            assert (isolated / "cli-plugins/docker-buildx").resolve() == plugin
+        if mode == "global":
+            calls = [
+                json.loads(x) for x in (directory / "calls").read_text().splitlines()
+            ]
+            assert all(c[0] == "buildx" for c in calls)
+        print(repo, "isolated-plugin", mode, "passed")
