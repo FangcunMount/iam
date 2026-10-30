@@ -61,6 +61,8 @@ jobs:
         with:
           fetch-depth: 0
           ref: main
+      - name: Verify frozen image identity contracts
+        run: python3 scripts/cd/test_frozen_image_identity.py
       - id: plan
         env:
           GH_TOKEN: ${{ github.token }}
