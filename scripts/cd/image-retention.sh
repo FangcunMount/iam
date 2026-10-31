@@ -50,7 +50,18 @@ retain_successful_image() {
     echo "::warning::Trusted image retention helper missing, untrusted or differs; skip cleanup." >&2
     return 0
   fi
-  if ! $SUDO python3 "$trusted_helper" \
+  local ancestor
+  ancestor=$(dirname "$trusted_helper")
+  while :; do
+    if [ -L "$ancestor" ] || [ "$(stat -c '%u' "$ancestor")" != 0 ] || \
+        [ -n "$(find "$ancestor" -maxdepth 0 -perm /022 -print)" ]; then
+      echo '::warning::Untrusted image retention parent; skip cleanup.' >&2
+      return 0
+    fi
+    [ "$ancestor" = / ] && break
+    ancestor=$(dirname "$ancestor")
+  done
+  if ! $SUDO /usr/bin/python3 -I "$trusted_helper" \
       --service "${IMAGE_NAME##*/}" --image-ref "$image_ref" --apply --deployment-locked "${RETENTION_PREVIOUS_IDS[@]}"; then
     echo "::warning::Deployment succeeded, but image retention failed; inspect the server retention audit." >&2
   fi
