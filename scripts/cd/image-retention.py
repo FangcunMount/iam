@@ -18,7 +18,7 @@ from pathlib import Path
 STATE = Path("/var/lib/fangcun-image-retention")
 LOCK = STATE / "deploy.lock"
 HOSTS = {
-    "iam": "serverB",
+    "iam": "serverA",
     "qs-operating-system": "serverB",
     "qs-ai": "serverA",
     "qs-apiserver": "serverA",
@@ -54,6 +54,13 @@ def containers():
 
 
 def repo(tag):
+    # Docker load can retain a repository@sha256 alias in RepoTags. The
+    # digest's colon is not a tag separator and must not become part of repo.
+    if "@" in tag:
+        name, digest = tag.split("@", 1)
+        if not re.fullmatch(r"sha256:[0-9a-f]{64}", digest):
+            raise ValueError("Invalid image digest alias")
+        return name
     return tag.rsplit(":", 1)[0]
 
 
@@ -87,7 +94,8 @@ def select(images, refs, service, image_id, image_ref, state, previous=()):
             for tag in x["RepoTags"]
         )
     }
-    keep = set(history) | set(bootstrap) | refs | recovery
+    # Explicit recovery assets remain protected after bootstrap expires too.
+    keep = set(history) | set(bootstrap) | refs | recovery | set(previous)
     candidates = [x for x in scoped if x["Id"] not in keep]
     return {"version": 1, "successful": history, "bootstrap": bootstrap}, keep, candidates
 
@@ -204,7 +212,27 @@ def main():
     try:
         execute(args)
     except Exception as error:
-        print("Image retention failed: " + type(error).__name__)
+        categories = {
+            "Unexpected deployment host": "host_mismatch",
+            "Invalid image digest alias": "invalid_digest_alias",
+            "Current image has unrecognized aliases; refusing cleanup": "unrecognized_image_alias",
+            "Successful image is not running and healthy": "image_not_ready",
+            "Unsupported retention state": "unsupported_state",
+            "Invalid retention state": "invalid_state",
+            "Container state changed during cleanup": "container_changed",
+            "Image aliases changed during cleanup": "image_aliases_changed",
+            "Image tag changed during cleanup": "image_tag_changed",
+            "Protected image missing": "protected_image_missing",
+        }
+        print(
+            json.dumps(
+                {
+                    "status": "failed",
+                    "error_type": type(error).__name__,
+                    "category": categories.get(str(error), "retention_error"),
+                }
+            )
+        )
         raise SystemExit(1) from None
 
 
