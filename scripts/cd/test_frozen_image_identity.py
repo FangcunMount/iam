@@ -173,6 +173,7 @@ for paused, reuse, plan, build, deployment, expected in [
     ("true", "true", "failure", "skipped", "skipped", False),
 ]:
     inputs = {
+        "inputs.operation": "deploy",
         "vars.PRODUCTION_DEPLOY_PAUSED": paused,
         "needs.plan.outputs.reuse": reuse,
         "needs.plan.result": plan,
@@ -183,6 +184,72 @@ for paused, reuse, plan, build, deployment, expected in [
     result = subprocess.run(["bash", "-c", rendered], capture_output=True, text=True)
     assert (result.returncode == 0) == expected, (repo, inputs, result.stdout)
     print(repo, "status", inputs, "passed")
+
+# Evaluate the actual deploy job condition. Build-only must never reach a runner,
+# regardless of whether the repository pause variable is enabled.
+import itertools
+
+condition_start = workflow.index("    if: |\n", workflow.index("\n  deploy:\n"))
+condition_end = workflow.index("\n    env:", condition_start)
+condition = workflow[condition_start:condition_end].split("\n", 1)[1].strip()
+for operation, paused, plan, reuse, build in itertools.product(
+    ["build", "deploy", ""], ["true", "false"],
+    ["success", "failure"], ["true", "false"], ["success", "skipped", "failure"]
+):
+    values = {
+        "inputs.operation": operation,
+        "vars.PRODUCTION_DEPLOY_PAUSED": paused,
+        "needs.plan.result": plan,
+        "needs.plan.outputs.reuse": reuse,
+        "needs.docker.result": build,
+    }
+    expression = condition.replace("always()", "True")
+    for key in sorted(values, key=len, reverse=True):
+        expression = expression.replace(key, repr(values[key]))
+    expression = " ".join(expression.replace("&&", "and").replace("||", "or").split())
+    actual = eval(expression, {"__builtins__": {}})
+    expected = (operation != "build" and paused != "true" and plan == "success"
+                and (build == "success" or (reuse == "true" and build == "skipped")))
+    assert actual == expected, values
+
+for build, reuse, deployment, expected in [
+    ("success", "false", "skipped", True),
+    ("failure", "false", "skipped", False),
+    ("cancelled", "false", "skipped", False),
+    ("skipped", "false", "skipped", False),
+    ("skipped", "true", "skipped", False),
+    ("success", "false", "success", False),
+]:
+    values = {
+        "inputs.operation": "build", "vars.PRODUCTION_DEPLOY_PAUSED": "false",
+        "needs.plan.result": "success", "needs.plan.outputs.reuse": reuse,
+        "needs.docker.result": build, "needs.deploy.result": deployment,
+    }
+    rendered = re.sub(r"\$\{\{\s*(.*?)\s*\}\}", lambda m: values[m[1]], status_script)
+    result = subprocess.run(["bash", "-c", rendered], capture_output=True, text=True)
+    assert (result.returncode == 0) == expected, (values, result.stdout)
+
+# The actual build planner refuses branch builds and mixed reuse arguments.
+planner_start = workflow.index("        run: |\n", workflow.index("      - id: plan\n")) + len("        run: |\n")
+planner_end = workflow.index("\n  docker:", planner_start)
+planner = textwrap.dedent(workflow[planner_start:planner_end])
+for ref, revision, digest, config, expected in [
+    ("refs/heads/main", "", "", "", True),
+    ("refs/heads/topic", "", "", "", False),
+    ("refs/heads/main", "f" * 40, "", "", False),
+    ("refs/heads/main", "", "sha256:" + "a" * 64, "", False),
+    ("refs/heads/main", "", "", "sha256:" + "b" * 64, False),
+]:
+    with tempfile.TemporaryDirectory() as temporary:
+        output = pathlib.Path(temporary) / "output"
+        values = dict(os.environ, DEPLOY_OPERATION="build", GITHUB_EVENT_NAME="workflow_dispatch",
+                      GITHUB_REF=ref, REQUESTED_REVISION=revision, CANDIDATE_DIGEST=digest,
+                      CANDIDATE_CONFIG_ID=config, GITHUB_OUTPUT=str(output))
+        result = subprocess.run(["bash", "-c", planner], env=values, capture_output=True, text=True)
+        assert (result.returncode == 0) == expected, result.stderr
+        if expected:
+            assert output.read_text().strip() == "reuse=false"
+print("IAM build-only deployment refusal and planner cases passed")
 
 # Exercise the actual isolated-authentication setup, including plugin discovery.
 auth_anchor = workflow.index(

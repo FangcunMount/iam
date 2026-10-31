@@ -23,6 +23,8 @@ jobs:
         run: python3 scripts/cd/test_transaction_compose.py -v
       - name: Test image retention policy
         run: python3 scripts/cd/test_image_retention.py
+      - name: Test frozen image identity and build-only deployment refusal
+        run: python3 scripts/cd/test_frozen_image_identity.py
 
       - name: Existing shared deployment lock and restricted sudo
         run: python3 scripts/cd/test_deploy_lock.py -v
