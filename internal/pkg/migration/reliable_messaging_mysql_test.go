@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/FangcunMount/iam/v5/internal/apiserver/infra/mysql/eventoutbox"
+	legacyoutbox "github.com/FangcunMount/iam/v5/internal/testutil/legacyoutbox"
 	sdkmysql "github.com/FangcunMount/reliable-messaging/storage/mysql"
 	"github.com/golang-migrate/migrate/v4"
 	migratemysql "github.com/golang-migrate/migrate/v4/database/mysql"
@@ -61,13 +62,13 @@ func TestReliableMessagingSchemaUpgradeAndRollbackMySQL(t *testing.T) {
 	require.NoError(t, err)
 	_, err = db.Exec("INSERT INTO schema_migrations VALUES(37,FALSE)")
 	require.NoError(t, err)
-	_, err = eventoutbox.NewMaintenanceStager(context.Background(), gormDB, nil, "legacy")
+	_, err = legacyoutbox.NewMaintenanceStager(context.Background(), gormDB, nil, "legacy")
 	require.ErrorContains(t, err, "legacy maintenance writer is retired", "unjournaled table cannot enable legacy maintenance")
 	_, err = db.Exec("UPDATE schema_migrations SET version=38")
 	require.NoError(t, err)
-	_, err = eventoutbox.NewMaintenanceStager(context.Background(), gormDB, nil, "legacy")
+	_, err = legacyoutbox.NewMaintenanceStager(context.Background(), gormDB, nil, "legacy")
 	require.ErrorContains(t, err, "legacy maintenance writer is retired", "schema upgrade cannot reactivate a retired maintenance writer")
-	_, err = eventoutbox.NewMaintenanceStager(context.Background(), gormDB, nil, "standard")
+	_, err = legacyoutbox.NewMaintenanceStager(context.Background(), gormDB, nil, "standard")
 	require.ErrorContains(t, err, "clean migration 39", "new standard writer must not run on schema 38")
 	// Even confirmed standard rows are retained evidence, not disposable data.
 	_, err = db.Exec(`INSERT INTO rm_outbox(producer,message_id,destination,event_type,schema_version,scope,content_type,occurred_at,payload,fingerprint,state,next_attempt_at) VALUES('iam','retained','events','changed','v2','scope:global','application/json','2026-09-22T08:00:00+08:00','{}',UNHEX(REPEAT('ab',32)),'published',UTC_TIMESTAMP(6))`)

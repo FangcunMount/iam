@@ -20,6 +20,12 @@ on:
     branches: [main]
   workflow_dispatch:
     inputs:
+      operation:
+        description: 'Deploy, or only build and publish an immutable image while deployment remains frozen'
+        required: true
+        type: choice
+        options: [deploy, build]
+        default: deploy
       revision:
         description: 'Frozen full main ancestor SHA with successful push CI; supply all three fields to reuse'
         required: false
@@ -69,8 +75,13 @@ jobs:
           REQUESTED_REVISION: ${{ inputs.revision }}
           CANDIDATE_DIGEST: ${{ inputs.candidate_digest }}
           CANDIDATE_CONFIG_ID: ${{ inputs.candidate_config_id }}
+          DEPLOY_OPERATION: ${{ inputs.operation }}
         run: |
           set -Eeuo pipefail
+          if [ "$DEPLOY_OPERATION" = build ]; then
+            [[ "$GITHUB_EVENT_NAME" == workflow_dispatch && "$GITHUB_REF" == refs/heads/main ]]
+            test -z "$REQUESTED_REVISION$CANDIDATE_DIGEST$CANDIDATE_CONFIG_ID"
+          fi
           if [ -n "$REQUESTED_REVISION$CANDIDATE_DIGEST$CANDIDATE_CONFIG_ID" ]; then
             [[ "$GITHUB_EVENT_NAME" == workflow_dispatch && "$GITHUB_REF" == refs/heads/main ]]
             [[ "$REQUESTED_REVISION" =~ ^[0-9a-f]{40}$ ]]
@@ -152,6 +163,7 @@ jobs:
       url: https://iam.fangcunmount.cn
     if: |
       always() &&
+      inputs.operation != 'build' &&
       vars.PRODUCTION_DEPLOY_PAUSED != 'true' &&
       needs.plan.result == 'success' &&
       (needs.docker.result == 'success' ||
@@ -390,6 +402,14 @@ jobs:
           image_ready=false
           if [ "${{ needs.plan.result }}" = "success" ] && { [ "${{ needs.docker.result }}" = "success" ] || { [ "${{ needs.plan.outputs.reuse }}" = "true" ] && [ "${{ needs.docker.result }}" = "skipped" ]; }; }; then
             image_ready=true
+          fi
+          if [ "${{ inputs.operation }}" = build ]; then
+            if [ "$image_ready" = true ] && [ "${{ needs.plan.outputs.reuse }}" != true ] && [ "${{ needs.deploy.result }}" = skipped ]; then
+              echo "Build-only image publication completed; no deployment was requested."
+              exit 0
+            fi
+            echo "Build-only publication failed or deployment was not skipped."
+            exit 1
           fi
           if [ "${{ vars.PRODUCTION_DEPLOY_PAUSED }}" = "true" ] && [ "$image_ready" = "true" ] && [ "${{ needs.deploy.result }}" = "skipped" ]; then
             echo "Production deployment is intentionally paused."

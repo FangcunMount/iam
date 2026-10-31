@@ -8,7 +8,6 @@ import (
 	"github.com/FangcunMount/iam/v5/internal/apiserver/application/authz/policypublication"
 	"github.com/FangcunMount/iam/v5/internal/apiserver/eventing"
 	sdktransport "github.com/FangcunMount/reliable-messaging/transport"
-	"github.com/FangcunMount/reliable-messaging/wire/legacy"
 	"github.com/stretchr/testify/require"
 )
 
@@ -23,14 +22,14 @@ func TestAuthzPolicySyncSubscriberRegistersAndReloadsRuntime(t *testing.T) {
 		runtimeHealth:  recorder,
 	}
 
-	sync := module.newSDKPolicySyncSubscriber(subscriber, policyProvisionerStub{}, ignorePolicyFailure)
+	sync := module.newPolicySyncSubscriber(subscriber, ignorePolicyFailure, ChannelPrefix+".fixture")
 	require.NotNil(t, sync)
 	require.NoError(t, sync.Start(context.Background()))
 
 	require.Equal(t, policypublication.Topic, subscriber.topic)
 	require.Equal(t, sync.Channel(), subscriber.channel)
 	require.Contains(t, subscriber.channel, ChannelPrefix+".")
-	require.Contains(t, subscriber.channel, "#ephemeral")
+	require.NotContains(t, subscriber.channel, "#ephemeral")
 	require.Equal(t, subscriber.channel, recorder.policySyncChannel)
 	msg := sdktransport.Received{ID: "msg-1", Payload: []byte(`{"version":12}`)}
 	msg.Metadata = map[string]string{"event_type": eventing.AuthzVersionChanged}
@@ -50,23 +49,21 @@ type policySyncSubscriberStub struct {
 	stopped bool
 }
 
-func (s *policySyncSubscriberStub) Subscribe(_ context.Context, topic, channel string, handler sdktransport.Handler, _ func(context.Context, legacy.FailedHandoff) error) error {
+func (s *policySyncSubscriberStub) Subscribe(_ context.Context, topic, channel string, handler sdktransport.Handler, _ func(context.Context, sdktransport.Failure) error) error {
 	s.topic = topic
 	s.channel = channel
 	s.handler = handler
 	return nil
 }
 
+func (s *policySyncSubscriberStub) Ready(time.Duration) bool { return true }
+
 func (s *policySyncSubscriberStub) Close(context.Context) error {
 	s.stopped = true
 	return nil
 }
 
-type policyProvisionerStub struct{}
-
-func (policyProvisionerStub) EnsureTopic(context.Context, string) error           { return nil }
-func (policyProvisionerStub) EnsureChannel(context.Context, string, string) error { return nil }
-func ignorePolicyFailure(context.Context, legacy.FailedHandoff) error             { return nil }
+func ignorePolicyFailure(context.Context, sdktransport.Failure) error { return nil }
 
 type policyDeliveryStub struct{ value sdktransport.Received }
 

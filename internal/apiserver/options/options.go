@@ -37,7 +37,7 @@ type Options struct {
 // NewOptions 创建一个 Options 对象，包含默认参数
 func NewOptions() *Options {
 	return &Options{
-		Messaging:               MessagingOptions{Provider: "nsq", PublishEnabled: true},
+		Messaging:               MessagingOptions{Provider: "rocketmq", PublishEnabled: true},
 		Authz:                   NewAuthzOptions(),
 		Log:                     newRuntimeLogOptions(),
 		RemovedApp:              &RemovedAppOptions{},
@@ -71,7 +71,6 @@ func (o *Options) Flags() (fss cliflag.NamedFlagSets) {
 	o.SecureServing.AddFlags(fss.FlagSet("secure"))
 	o.MySQLOptions.AddFlags(fss.FlagSet("mysql"))
 	o.RedisOptions.AddFlags(fss.FlagSet("redis"))
-	o.NSQOptions.AddFlags(fss.FlagSet("nsq"))
 	o.Messaging.AddFlags(fss.FlagSet("messaging"))
 	o.MigrationOptions.AddFlags(fss.FlagSet("migration"))
 

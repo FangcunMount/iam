@@ -28,9 +28,6 @@ type MessagingOptions struct {
 }
 
 func (o MessagingOptions) SelectedProvider() string {
-	if o.Provider == "" {
-		return "nsq"
-	}
 	return o.Provider
 }
 func (o MessagingOptions) Validate() error {
@@ -43,8 +40,6 @@ func (o MessagingOptions) Validate() error {
 		}
 	}
 	switch o.SelectedProvider() {
-	case "nsq":
-		return nil
 	case "rocketmq":
 		if o.Endpoint == "" || o.CredentialsFile == "" || o.CAFile == "" || o.RoutesFile == "" || o.InstanceID == "" {
 			return errors.New("RocketMQ requires endpoint, private credential/CA/route files and stable instance_id")
@@ -109,11 +104,11 @@ func (o MessagingOptions) RocketMQ(topics []string, concurrency int, timeout tim
 }
 
 func (o *MessagingOptions) AddFlags(fs *pflag.FlagSet) {
-	fs.StringVar(&o.Provider, "messaging.provider", o.Provider, "Explicit broker provider: nsq or rocketmq")
+	fs.StringVar(&o.Provider, "messaging.provider", o.Provider, "Explicit broker provider: rocketmq")
 	fs.StringVar(&o.Endpoint, "messaging.endpoint", o.Endpoint, "RocketMQ Proxy endpoint")
 	fs.StringVar(&o.CredentialsFile, "messaging.credentials_file", o.CredentialsFile, "Host-owned credential file")
 	fs.StringVar(&o.CAFile, "messaging.ca_file", o.CAFile, "Host-owned RocketMQ CA file")
 	fs.StringVar(&o.RoutesFile, "messaging.routes_file", o.RoutesFile, "Reviewed route manifest")
 	fs.StringVar(&o.InstanceID, "messaging.instance_id", o.InstanceID, "Stable fanout instance identity")
-	fs.BoolVar(&o.PublishEnabled, "messaging.publish_enabled", o.PublishEnabled, "Admit direct publishing and Relay claims")
+	fs.BoolVar(&o.PublishEnabled, "messaging.publish_enabled", o.PublishEnabled, "Admit current transaction and NORMAL publishing")
 }

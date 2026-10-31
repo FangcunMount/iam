@@ -189,7 +189,7 @@ func (r *ReliablePreflightReport) inspectStandard(row standardPreflightRow, topi
 	}
 	intent, err := message.New(message.Input{Producer: row.Producer, ID: row.MessageID, Destination: row.Destination, EventType: row.EventType, SchemaVersion: row.SchemaVersion, Scope: row.Scope, ContentType: row.ContentType, OccurredAt: row.OccurredAt, Payload: row.Payload})
 	hash := intent.Fingerprint()
-	_, payloadErr := policyPayloadVersion(row.Payload)
+	_, payloadErr := eventing.PolicyPayloadVersion(row.Payload)
 	valid := err == nil && payloadErr == nil && bytes.Equal(row.Fingerprint, hash[:]) && row.Producer == "iam" && row.Destination == topic && row.EventType == eventing.AuthzVersionChanged && row.Scope == "scope:global" && row.SchemaVersion == "v2" && row.ContentType == "application/json"
 	if !valid {
 		if row.State == "published" {

@@ -7,7 +7,7 @@ import (
 )
 
 func TestOptionsStringOmitsSecrets(t *testing.T) {
-	opts := NewOptions()
+	opts := newSecurityValidationOptions()
 	opts.MySQLOptions.Password = "mysql-password-sentinel"
 	opts.RedisOptions.Cache.Password = "redis-password-sentinel"
 	opts.IDP.EncryptionKey = "idp-encryption-key-sentinel"
@@ -60,7 +60,7 @@ func TestOptionsValidateSeedMockAuth(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			opts := NewOptions()
+			opts := newSecurityValidationOptions()
 			opts.GenericServerRunOptions.Mode = "debug"
 			opts.SeedMockAuth.Enabled = tt.enabled
 			opts.SeedMockAuth.SharedSecret = tt.secret
@@ -99,7 +99,7 @@ func TestOptionsValidatePasswordLockout(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			opts := NewOptions()
+			opts := newSecurityValidationOptions()
 			opts.GenericServerRunOptions.Mode = "debug"
 			opts.Auth.PasswordLockout = PasswordLockoutOptions{
 				Enabled:      tt.enabled,
@@ -124,7 +124,7 @@ func TestOptionsValidatePasswordLockout(t *testing.T) {
 }
 
 func TestOptionsDefaultsToReleaseProductionProfile(t *testing.T) {
-	opts := NewOptions()
+	opts := newSecurityValidationOptions()
 	if err := opts.GenericServerRunOptions.Complete(); err != nil {
 		t.Fatal(err)
 	}
@@ -158,7 +158,7 @@ func TestOptionsValidateProductionLogging(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			opts := NewOptions()
+			opts := newSecurityValidationOptions()
 			opts.JWKS.KeysDir = "/var/lib/iam/keys"
 			opts.SMS.Provider = "aliyun"
 			if tt.mutate != nil {
@@ -185,7 +185,7 @@ func TestOptionsValidateProductionLogging(t *testing.T) {
 }
 
 func TestOptionsValidateDevelopmentLogging(t *testing.T) {
-	opts := NewOptions()
+	opts := newSecurityValidationOptions()
 	opts.GenericServerRunOptions.Mode = "debug"
 	opts.MySQLOptions.LogLevel = 4
 	opts.Log.Format = "console"
@@ -229,7 +229,7 @@ func TestOptionsValidateJWKSRotation(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			opts := NewOptions()
+			opts := newSecurityValidationOptions()
 			tt.mutate(opts)
 			errs := opts.Validate()
 			if tt.wantErr == "" {
@@ -270,7 +270,7 @@ func TestOptionsValidateReadiness(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			opts := NewOptions()
+			opts := newSecurityValidationOptions()
 			opts.GenericServerRunOptions.Mode = "debug"
 			if tt.mutate != nil {
 				tt.mutate(&opts.Health.Readiness)
@@ -306,7 +306,7 @@ func TestOptionsValidateRejectsRemovedAppKeysWithoutValues(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			opts := NewOptions()
+			opts := newSecurityValidationOptions()
 			tt.set(opts.RemovedApp)
 			errs := opts.Validate()
 			assertValidationErrorWithoutValue(t, errs, tt.key, sentinel)
@@ -331,7 +331,7 @@ func TestOptionsValidateRejectsRemovedEnvironmentVariablesWithoutValues(t *testi
 	} {
 		t.Run(key, func(t *testing.T) {
 			t.Setenv(key, sentinel)
-			errs := NewOptions().Validate()
+			errs := newSecurityValidationOptions().Validate()
 			assertValidationErrorWithoutValue(t, errs, key, sentinel)
 		})
 	}
@@ -348,4 +348,12 @@ func assertValidationErrorWithoutValue(t *testing.T, errs []error, key, value st
 		}
 	}
 	t.Fatalf("validation errors = %v, want one containing %q", errs, key)
+}
+
+// Security validation fixtures supply the independently required transport
+// configuration. Validation is pure: these paths are never opened here.
+func newSecurityValidationOptions() *Options {
+	opts := NewOptions()
+	opts.Messaging = MessagingOptions{Provider: "rocketmq", Endpoint: "127.0.0.1:1", CredentialsFile: "/unused-fixture/credentials.json", CAFile: "/unused-fixture/ca.crt", RoutesFile: "/unused-fixture/routes.json", InstanceID: "security-fixture"}
+	return opts
 }

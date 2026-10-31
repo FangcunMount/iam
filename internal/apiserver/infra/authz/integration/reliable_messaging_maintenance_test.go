@@ -13,6 +13,7 @@ import (
 	"github.com/FangcunMount/iam/v5/internal/apiserver/infra/mysql/eventoutbox"
 	"github.com/FangcunMount/iam/v5/internal/apiserver/testfixtures/authzdb"
 	dbmysql "github.com/FangcunMount/iam/v5/internal/pkg/database/mysql"
+	legacyoutbox "github.com/FangcunMount/iam/v5/internal/testutil/legacyoutbox"
 	"github.com/FangcunMount/iam/v5/pkg/event"
 	"github.com/FangcunMount/iam/v5/pkg/eventcatalog"
 	"github.com/stretchr/testify/require"
@@ -29,7 +30,7 @@ func TestReliableMessagingMaintenanceStager(t *testing.T) {
 	require.NoError(t, db.Exec("CREATE TABLE schema_migrations(version BIGINT PRIMARY KEY,dirty BOOLEAN NOT NULL)").Error)
 	require.NoError(t, db.Exec("INSERT INTO schema_migrations VALUES(37,FALSE)").Error)
 	selectStager := func(mode string) (event.Stager, error) {
-		return eventoutbox.NewMaintenanceStager(ctx, db, catalog, mode)
+		return legacyoutbox.NewMaintenanceStager(ctx, db, catalog, mode)
 	}
 	for _, mode := range []string{"", "legacy", "STANDARD"} {
 		_, err = selectStager(mode)
@@ -63,7 +64,7 @@ func TestReliableMessagingMaintenanceStager(t *testing.T) {
 	require.ErrorContains(t, err, "explicit --outbox-mode", "schema alone cannot select the live Relay")
 	standard, err := selectStager("standard")
 	require.NoError(t, err)
-	require.IsType(t, &eventoutbox.StandardStager{}, standard)
+	require.IsType(t, &legacyoutbox.StandardStager{}, standard)
 	_, err = selectStager("legacy")
 	require.ErrorContains(t, err, "legacy maintenance writer is retired")
 	// Historical fixture writes model old responsibility; current maintenance
@@ -117,7 +118,7 @@ func TestReliableMessagingMaintenanceStager(t *testing.T) {
 	require.NoError(t, err, "standard maintenance remains available after published receipts")
 	canceled, stop := context.WithCancel(ctx)
 	stop()
-	_, err = eventoutbox.NewMaintenanceStager(canceled, db, catalog, "standard")
+	_, err = legacyoutbox.NewMaintenanceStager(canceled, db, catalog, "standard")
 	require.ErrorIs(t, err, context.Canceled)
 	// A dropped table on a migrated database cannot reactivate an implicit writer.
 	require.NoError(t, db.Exec("RENAME TABLE rm_outbox TO retained_rm_outbox").Error)

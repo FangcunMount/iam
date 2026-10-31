@@ -17,7 +17,11 @@ ROOT = Path(__file__).resolve().parent.parent
 ACTIVE_STATUS_PATTERN = re.compile(
     r"^> 状态：(已实现|规划改造|历史记录)(?: · .+)?$", re.MULTILINE
 )
-HISTORICAL_DOCS = ("docs/_data/reviews/2026-10-06-docs-refactor.md",)
+HISTORICAL_DOCS = (
+    "docs/_data/reviews/2026-10-06-docs-refactor.md",
+    # Dated source analysis at 3a12cd4b; its NSQ/Outbox timing is not current wiring.
+    "docs/06-专题设计/02-事务缓存与事件一致性.md",
+)
 PERSONAL_GO_PATH_PATTERN = re.compile(
     r"/Users/[^/\s]+/\.gvm/gos/[^/\s]+/bin/go"
 )

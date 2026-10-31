@@ -27,14 +27,14 @@ func TestReliableMessagingDefaultsAndBounds(t *testing.T) {
 	require.NoError(t, opts.Validate(), "disabled compatibility path ignores unused settings")
 }
 
-func TestSDKPolicyConsumerRequiresExplicitNSQPreparation(t *testing.T) {
+func TestRetiredNSQConsumerCannotBeEnabledByPreparation(t *testing.T) {
 	opts := NewOptions()
 	opts.NSQOptions.ConsumerSDKEnabled = true
-	require.ErrorContains(t, errors.Join(opts.Validate()...), "requires nsq.enabled")
+	require.ErrorContains(t, errors.Join(opts.Validate()...), "NSQ publisher and policy consumer are retired")
 	opts.NSQOptions.Enabled = true
-	require.ErrorContains(t, errors.Join(opts.Validate()...), "requires explicit nsq.nsqd-http-addrs")
 	opts.NSQOptions.NSQdHTTPAddrs = []string{"http://127.0.0.1:4151"}
-	for _, err := range opts.Validate() {
-		require.NotContains(t, err.Error(), "nsq.consumer-sdk-enabled")
+	require.ErrorContains(t, errors.Join(opts.Validate()...), "NSQ publisher and policy consumer are retired")
+	for _, provider := range []string{"", "nsq", "unknown"} {
+		require.Error(t, (MessagingOptions{Provider: provider}).Validate())
 	}
 }
