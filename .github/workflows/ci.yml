@@ -86,6 +86,18 @@ jobs:
       - name: Test reserved reviewer provisioning
         run: python3 -m unittest discover -s scripts/ops -p 'test_provision*.py' -v
 
+      - name: Verify production has no retired messaging runtime
+        run: |
+          go list -deps ./cmd/apiserver > "$RUNNER_TEMP/iam-production-dependencies.txt"
+          python3 - "$RUNNER_TEMP/iam-production-dependencies.txt" <<'PY'
+          import pathlib,sys
+          deps=pathlib.Path(sys.argv[1]).read_text().splitlines()
+          assert deps, 'empty production dependency graph'
+          forbidden={'github.com/nsqio/go-nsq', 'github.com/FangcunMount/reliable-messaging/transport/nsq', 'github.com/FangcunMount/reliable-messaging/relay'}
+          assert not forbidden.intersection(deps), sorted(forbidden.intersection(deps))
+          assert not any('/internal/testutil/' in dep for dep in deps), 'test fixture linked into production'
+          PY
+
       - name: Run tests
         run: go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
 

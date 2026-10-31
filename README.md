@@ -370,3 +370,9 @@ cutover, maintenance clients and rollback. Automatic production deployment stays
 手动 `cd.yml` 同时提供 `revision`（main 祖先的完整 SHA）、`candidate_digest`（ACR digest）和 `candidate_config_id`（linux/amd64 config ID）时，工作流核验该 SHA 的 push CI，跳过构建并按不可变 digest 拉取、检查平台和 config ID 后导出既有部署包。三项必须完整，工作流从 main 执行；`PRODUCTION_DEPLOY_PAUSED=true` 仍会阻止部署。服务源码 SHA 与控制工作流提交分别记录。未提供三项时使用既有构建发布路径。
 
 镜像核验读取并校验不可变 manifest 原始摘要，按需选择唯一 linux/amd64 子 manifest，将 config digest 与预期值比较，再核对本地 RepoDigest、平台、descriptor 和已证明的引擎 ID。Docker Desktop 的 manifest/index ID 与经典引擎的 config ID 采用明确映射，不将任意不同 ID 直接视为等价。
+
+### 宿主工程退役 M4/M5
+
+当前策略同步只构造 RocketMQ 订阅器，按固定实例身份订阅，保留版本回读、订阅重试、真实 receive 就绪与有界关闭。生产构建的依赖图禁止 NSQ 驱动、SDK NSQ 和发布型 Relay；旧 ephemeral-channel 合同适配仅位于测试文件，不进入服务。默认提供者为 RocketMQ；缺少/指定旧提供者以及启用旧 NSQ 消费配置均拒绝，常规命令行不再提供旧 NSQ 连接选项。SDK 的通用兼容包不删除。纯策略消息映射位于 `internal/apiserver/eventing/policy_intent.go`；旧 Standard/Maintenance Stager 仅保留为历史测试夹具，新建库迁移所需 BootstrapStager 使用该纯映射。
+
+此处 M4/M5 是宿主工程退役，与 infra 先前迁移阶段同名编号不同。`domain_event_outbox` 与 `rm_outbox` 当前仍承担历史责任启动/就绪检查及维护审计；M4 去除 NSQ 编译依赖不解除这些保留责任。M5 必须逐对象验证无未结束责任、无当前/回退读取依赖，完成隔离升级/新建库与回退验证后再审查生产删除。会话撤销任务、原事务凭证、Inbox、业务历史与 ACK/调度记录始终保留。

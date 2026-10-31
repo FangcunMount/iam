@@ -14,6 +14,7 @@ import (
 	"github.com/FangcunMount/iam/v5/internal/apiserver/infra/mysql/eventoutbox"
 	authzuow "github.com/FangcunMount/iam/v5/internal/apiserver/infra/mysql/uow/authz"
 	"github.com/FangcunMount/iam/v5/internal/apiserver/testfixtures/authzdb"
+	legacyoutbox "github.com/FangcunMount/iam/v5/internal/testutil/legacyoutbox"
 	"github.com/FangcunMount/iam/v5/pkg/eventcatalog"
 	"github.com/FangcunMount/reliable-messaging/message"
 	sdkmysql "github.com/FangcunMount/reliable-messaging/storage/mysql"
@@ -33,7 +34,7 @@ func TestReliableMessagingStandardPreflight(t *testing.T) {
 	require.NoError(t, db.Exec("INSERT INTO schema_migrations VALUES(39,FALSE)").Error)
 	catalog, err := eventcatalog.Load(os.Getenv("RM_IAM_EVENTS_CATALOG"))
 	require.NoError(t, err)
-	stager, err := eventoutbox.NewStandardStager(eventcatalog.NewCatalog(catalog))
+	stager, err := legacyoutbox.NewStandardStager(eventcatalog.NewCatalog(catalog))
 	require.NoError(t, err)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()

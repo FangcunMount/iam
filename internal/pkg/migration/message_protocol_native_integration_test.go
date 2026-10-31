@@ -10,10 +10,10 @@ import (
 
 	appuow "github.com/FangcunMount/iam/v5/internal/apiserver/application/authz/uow"
 	policy "github.com/FangcunMount/iam/v5/internal/apiserver/domain/authz/policy"
-	"github.com/FangcunMount/iam/v5/internal/apiserver/infra/mysql/eventoutbox"
 	"github.com/FangcunMount/iam/v5/internal/apiserver/infra/mysql/messageprotocol"
 	hostuow "github.com/FangcunMount/iam/v5/internal/apiserver/infra/mysql/uow/authz"
 	database "github.com/FangcunMount/iam/v5/internal/pkg/database/mysql"
+	eventoutbox "github.com/FangcunMount/iam/v5/internal/testutil/legacyoutbox"
 	"github.com/FangcunMount/iam/v5/pkg/eventcatalog"
 	"github.com/FangcunMount/reliable-messaging/transaction"
 	driver "github.com/go-sql-driver/mysql"

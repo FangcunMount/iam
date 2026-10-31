@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/FangcunMount/iam/v5/internal/apiserver/eventing"
 	dbmysql "github.com/FangcunMount/iam/v5/internal/pkg/database/mysql"
 	"github.com/FangcunMount/iam/v5/pkg/event"
 	"github.com/FangcunMount/iam/v5/pkg/eventcatalog"
@@ -12,13 +13,13 @@ import (
 // BootstrapStager is the insert-only historical-schema adapter for fresh
 // migration 33/35, before migration 38 creates the SDK table. It shares the
 // current policy/SDK message mapper and has no delivery or recovery methods.
-// Current runtime and maintenance must use StandardStager instead.
-type BootstrapStager struct{ mapper *StandardStager }
+// Current runtime and maintenance require explicit transaction owners instead.
+type BootstrapStager struct{ mapper *eventing.PolicyIntentMapper }
 
 var _ event.Stager = (*BootstrapStager)(nil)
 
 func NewBootstrapStager(catalog *eventcatalog.Catalog) (*BootstrapStager, error) {
-	mapper, err := NewStandardStager(catalog)
+	mapper, err := eventing.NewPolicyIntentMapper(catalog)
 	if err != nil {
 		return nil, err
 	}
@@ -36,7 +37,7 @@ func (s *BootstrapStager) Stage(ctx context.Context, events ...event.DomainEvent
 	now := time.Now()
 	rows := make([]*OutboxPO, 0, len(events))
 	for _, evt := range events {
-		intent, err := s.mapper.intent(evt)
+		intent, err := s.mapper.Message(evt)
 		if err != nil {
 			return err
 		}

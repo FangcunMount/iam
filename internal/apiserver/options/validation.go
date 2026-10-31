@@ -30,18 +30,11 @@ func (o *Options) Validate() []error {
 		if err := o.Events.ReliableMessaging.Validate(); err != nil {
 			errs = append(errs, err)
 		}
-		if o.Messaging.SelectedProvider() == "nsq" && o.Events.ReliableMessaging.Enabled && (o.NSQOptions == nil || !o.NSQOptions.Enabled) {
-			errs = append(errs, errors.New("reliable messaging requires nsq.enabled"))
-		}
 	}
-	if o.Messaging.SelectedProvider() == "nsq" && o.NSQOptions != nil && o.NSQOptions.ConsumerSDKEnabled {
-		if !o.NSQOptions.Enabled {
-			errs = append(errs, errors.New("nsq.consumer-sdk-enabled requires nsq.enabled"))
-		}
-		if len(o.NSQOptions.NSQdHTTPAddrs) == 0 {
-			errs = append(errs, errors.New("nsq.consumer-sdk-enabled requires explicit nsq.nsqd-http-addrs"))
-		}
+	if o.NSQOptions != nil && (o.NSQOptions.Enabled || o.NSQOptions.ConsumerSDKEnabled) {
+		errs = append(errs, errors.New("NSQ publisher and policy consumer are retired; configure RocketMQ transaction ownership"))
 	}
+
 	if o.Auth != nil {
 		cfg := tokendomain.IssuanceConfig{Issuer: o.Auth.JWTIssuer, Audience: o.Auth.AccessTokenAudience, AccessTTL: o.Auth.AccessTokenTTL}
 		if err := cfg.Validate(); err != nil {
