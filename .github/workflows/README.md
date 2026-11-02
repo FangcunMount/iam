@@ -13,12 +13,16 @@
 | `ci.yml` | 保留 | push `main`/`develop`、PR 到 `main`、手动 | lint、test、build、coverage、短期构建 artifact |
 | `cd.yml` | 保留 | `CI` 在 `main` 成功后自动；手动 | 发布镜像、生成部署包、部署 `iam-apiserver` 到 serverA |
 | `concurrency-tests.yml` | 保留 | 手动；相关 MySQL/测试路径变更时 push/PR 到 `main` | MySQL-backed 并发仓储测试 |
+| `integration-redis.yml` | 新增 | Redis/AuthN 或模块变更的 PR；手动 | GitHub Ubuntu 临时 Redis 7.4；验证真实 Session、Challenge、RefreshToken 适配器及精确键清理 |
+| `integration-rocketmq.yml` | 新增 | 业务代码、消息配置或模块变更的 PR；手动 | 固定 infra SHA 调用临时 MySQL/RocketMQ 测试；PR 使用 development，手动默认 full |
 | `db-ops.yml` | 保留，已移除通用 `migrate` | 每天 17:00 UTC；手动数据库操作 | 数据库备份、恢复、状态检查及受控遗留表退役 |
 | `role-model-migrate.yml` | 保留 | 手动 | 独立业务角色 preflight / cutover（apply+verify+archive）；不跑 000034 |
 | `server-check.yml` | 保留 | 每 30 分钟；手动 | 生产容器、内部健康检查、依赖连通性 |
 | `test-ssh.yml` | 保留 | 手动 | 生产主机 SSH 和基础环境诊断 |
 
 ## CI/CD 拆分
+
+云环境负责编辑、编译和自足单测。真实基础设施测试由 GitHub Ubuntu job 创建临时依赖，按 job 回收，不默认跨网访问 Mac mini。Redis 使用显式 owned/loopback 测试入口，缺少配置时的 skip 不能计为集成通过；workflow 要求三个真实适配器测试和精确键清理全部通过。RocketMQ 可复用工作流显式检出固定 infra 与 IAM SHA，记录测试工具 SDK SHA，验收原生 host receipt、源码未变和 fixture 清理。PR 的单版本 development 结果与完整 MySQL 矩阵分别报告，发布前使用 full。它们验证当前提交，不触发部署；生产发布仍由原 `CI`/`cd.yml` 链路控制。
 
 IAM 的发布流程已按 `qs-server` 项目的方式拆分：
 
