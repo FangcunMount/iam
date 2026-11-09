@@ -65,4 +65,20 @@ func TestFreshTenantPreparationRollsBackBeforeReceiptMySQL(t *testing.T) {
 	require.EqualValues(t, 32, version)
 	require.True(t, changed)
 	require.False(t, db.Migrator().HasTable("iam_authorization_retirement_preparation"))
+
+	for _, stage := range freshStagesForTest(t, db)[1:] {
+		migrator = NewMigrator(openMigrationMySQL(t), &Config{Enabled: true, Database: "iam_test"})
+		version, changed, err = migrator.RunTo(stage.Version)
+		require.NoError(t, err)
+		require.Equal(t, stage.Version, version)
+		require.True(t, changed)
+		require.NoError(t, stage.Prepare())
+	}
+	migrator = NewMigrator(openMigrationMySQL(t), &Config{Enabled: true, Database: "iam_test"})
+	version, changed, err = migrator.Run()
+	require.NoError(t, err)
+	require.EqualValues(t, 45, version)
+	require.True(t, changed)
+	require.NoError(t, read.QueryRowContext(ctx, "SELECT COUNT(*) FROM domain_event_outbox WHERE status='pending'").Scan(&count))
+	require.Equal(t, 2, count)
 }
