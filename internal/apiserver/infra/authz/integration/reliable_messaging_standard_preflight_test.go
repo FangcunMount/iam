@@ -19,9 +19,11 @@ import (
 	"github.com/FangcunMount/reliable-messaging/message"
 	sdkmysql "github.com/FangcunMount/reliable-messaging/storage/mysql"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
 
-func TestReliableMessagingStandardPreflight(t *testing.T) {
+func openStandardPreflightDB(t *testing.T) *gorm.DB {
+	t.Helper()
 	require.NotEmpty(t, os.Getenv("IAM_AUTHZ_TEST_MYSQL_DSN"))
 	db := authzdb.Open(t, true)
 	ddl, err := os.ReadFile(os.Getenv("RM_IAM_OUTBOX_UPGRADE"))
@@ -32,6 +34,11 @@ func TestReliableMessagingStandardPreflight(t *testing.T) {
 	require.NoError(t, db.Exec(string(failureDDL)).Error)
 	require.NoError(t, db.Exec("CREATE TABLE schema_migrations(version BIGINT PRIMARY KEY,dirty BOOLEAN NOT NULL)").Error)
 	require.NoError(t, db.Exec("INSERT INTO schema_migrations VALUES(39,FALSE)").Error)
+	return db
+}
+
+func TestReliableMessagingStandardPreflight(t *testing.T) {
+	db := openStandardPreflightDB(t)
 	catalog, err := eventcatalog.Load(os.Getenv("RM_IAM_EVENTS_CATALOG"))
 	require.NoError(t, err)
 	stager, err := legacyoutbox.NewStandardStager(eventcatalog.NewCatalog(catalog))
@@ -137,4 +144,79 @@ func TestReliableMessagingStandardPreflight(t *testing.T) {
 	invalid := inspect(10)
 	require.EqualValues(t, 1, invalid.InvalidUnfinishedIntents)
 	require.False(t, invalid.SDKDataReady || invalid.LegacyRollbackDataReady)
+}
+
+func TestIAMStandardOutboxRetainedHistory(t *testing.T) {
+	db := openStandardPreflightDB(t)
+	ctx, cancel := context.WithTimeout(t.Context(), 40*time.Second)
+	defer cancel()
+	catalog, err := eventcatalog.Load(os.Getenv("RM_IAM_EVENTS_CATALOG"))
+	require.NoError(t, err)
+	stager, err := legacyoutbox.NewStandardStager(eventcatalog.NewCatalog(catalog))
+	require.NoError(t, err)
+	uow := authzuow.NewUnitOfWork(db, nil, stager)
+	evt := policy.NewVersionChangedEvent(2)
+	require.NoError(t, uow.WithinTx(ctx, func(txctx context.Context, repos appuow.TxRepositories) error {
+		return repos.Events.Stage(txctx, evt)
+	}))
+	reader := eventoutbox.NewStandardStatusReader(db)
+	now := time.Now()
+	const topic = "iam.authz.version.v2"
+
+	require.ErrorIs(t, eventoutbox.CheckTransactionHandoff(ctx, db), eventoutbox.ErrUnsafeMessagingHandoff)
+	require.NoError(t, db.Exec("UPDATE rm_outbox SET state='published', transport_confirmed_at=UTC_TIMESTAMP(6)").Error)
+	require.NoError(t, eventoutbox.CheckTransactionHandoff(ctx, db))
+	original, err := eventoutbox.InspectReliableOutbox(ctx, db, topic, 10)
+	require.NoError(t, err)
+	require.Equal(t, "rm_outbox", original.StandardSource)
+	require.EqualValues(t, 1, original.Published)
+
+	var before []string
+	require.NoError(t, db.Raw("SELECT CONCAT_WS(':', id, HEX(message_id), HEX(payload), HEX(fingerprint), state, transport_confirmed_at) FROM rm_outbox").Scan(&before).Error)
+	require.Len(t, before, 1)
+	require.NoError(t, db.Exec("RENAME TABLE rm_outbox TO iam_rm_outbox_history").Error)
+	var after []string
+	require.NoError(t, db.Raw("SELECT CONCAT_WS(':', id, HEX(message_id), HEX(payload), HEX(fingerprint), state, transport_confirmed_at) FROM iam_rm_outbox_history").Scan(&after).Error)
+	require.Equal(t, before, after)
+	require.NoError(t, eventoutbox.CheckTransactionHandoff(ctx, db))
+	require.Error(t, eventoutbox.CheckReliableSchema(ctx, db), "history never grants SDK write ownership")
+	snapshot, err := reader.OutboxStatusSnapshot(ctx, now)
+	require.NoError(t, err)
+	require.Empty(t, snapshot.Buckets)
+	history, err := eventoutbox.InspectReliableOutbox(ctx, db, topic, 10)
+	require.NoError(t, err)
+	require.Equal(t, "iam_rm_outbox_history", history.StandardSource)
+	require.Equal(t, original.Published, history.Published)
+	require.False(t, history.SDKDataReady || history.LegacyRollbackDataReady || history.UnusedSchemaCanBeRemoved ||
+		history.WriterExclusionVerified || history.CutoverAuthorized)
+
+	for state, bucket := range map[string]string{"pending": "history_pending", "Published": "history_unknown", "unknown": "history_unknown"} {
+		require.NoError(t, db.Exec("UPDATE iam_rm_outbox_history SET state=?", state).Error)
+		require.ErrorIs(t, eventoutbox.CheckTransactionHandoff(ctx, db), eventoutbox.ErrUnsafeMessagingHandoff)
+		snapshot, err = reader.OutboxStatusSnapshot(ctx, now)
+		require.NoError(t, err)
+		require.Len(t, snapshot.Buckets, 1)
+		require.EqualValues(t, 1, snapshot.Buckets[0].Count)
+		require.Equal(t, bucket, snapshot.Buckets[0].Status)
+	}
+	require.NoError(t, db.Exec("UPDATE iam_rm_outbox_history SET state='published'").Error)
+
+	assertRefused := func() {
+		t.Helper()
+		require.Error(t, eventoutbox.CheckTransactionHandoff(ctx, db))
+		_, err := reader.OutboxStatusSnapshot(ctx, now)
+		require.Error(t, err)
+		_, err = eventoutbox.InspectReliableOutbox(ctx, db, topic, 10)
+		require.Error(t, err)
+	}
+	require.NoError(t, db.Exec("CREATE TABLE rm_outbox LIKE iam_rm_outbox_history").Error)
+	assertRefused()
+	require.NoError(t, db.Exec("DROP TABLE rm_outbox").Error)
+	require.NoError(t, db.Exec("RENAME TABLE iam_rm_outbox_history TO saved_standard_history").Error)
+	assertRefused()
+	require.NoError(t, db.Exec("CREATE VIEW iam_rm_outbox_history AS SELECT * FROM saved_standard_history").Error)
+	assertRefused()
+	require.NoError(t, db.Exec("DROP VIEW iam_rm_outbox_history").Error)
+	require.NoError(t, db.Exec("CREATE TABLE iam_rm_outbox_history (id BIGINT PRIMARY KEY, state VARCHAR(24))").Error)
+	assertRefused()
 }
