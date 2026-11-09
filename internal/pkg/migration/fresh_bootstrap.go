@@ -351,9 +351,9 @@ func (m *Migrator) runFresh(ctx context.Context, delivery, expectedServer string
 }
 
 func (s *migrationSession) requireEmptyTransactionBootstrap(ctx context.Context) error {
-	// Metadata visibility in MySQL follows privileges. Require direct access
-	// to tables, routines and events before accepting an empty result.
-	var visible int
+	// Check the direct grants used by the immutable migration chain and
+	// the visibility required to prove the selected database is empty.
+	var granted int
 	err := s.conn.QueryRowContext(ctx, `WITH principal AS (
 		SELECT CONCAT(QUOTE(LEFT(CURRENT_USER(),CHAR_LENGTH(CURRENT_USER())-CHAR_LENGTH(SUBSTRING_INDEX(CURRENT_USER(),'@',-1))-1)),
 			'@',QUOTE(SUBSTRING_INDEX(CURRENT_USER(),'@',-1))) AS grantee
@@ -361,12 +361,14 @@ func (s *migrationSession) requireEmptyTransactionBootstrap(ctx context.Context)
 		SELECT PRIVILEGE_TYPE FROM information_schema.SCHEMA_PRIVILEGES JOIN principal USING (GRANTEE) WHERE TABLE_SCHEMA=DATABASE()
 		UNION
 		SELECT PRIVILEGE_TYPE FROM information_schema.USER_PRIVILEGES JOIN principal USING (GRANTEE)
-	) SELECT COUNT(*) FROM visible_grants WHERE PRIVILEGE_TYPE IN ('SELECT','EXECUTE','EVENT')`).Scan(&visible)
+	) SELECT COUNT(*) FROM visible_grants WHERE PRIVILEGE_TYPE IN (
+		'SELECT','INSERT','UPDATE','DELETE','CREATE','ALTER','DROP','INDEX','REFERENCES',
+		'TRIGGER','EXECUTE','EVENT','CREATE TEMPORARY TABLES','SHOW VIEW')`).Scan(&granted)
 	if err != nil {
 		return err
 	}
-	if visible != 3 {
-		return errors.New("fresh database emptiness requires direct SELECT, EXECUTE and EVENT scope")
+	if granted != 14 {
+		return errors.New("fresh bootstrap requires direct migration and metadata grants on the selected database")
 	}
 	var occupied bool
 	err = s.conn.QueryRowContext(ctx, `SELECT
