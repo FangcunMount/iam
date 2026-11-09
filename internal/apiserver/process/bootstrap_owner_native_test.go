@@ -20,6 +20,7 @@ import (
 	"github.com/FangcunMount/iam/v5/internal/apiserver/domain/authz/authorization"
 	"github.com/FangcunMount/iam/v5/internal/apiserver/eventing"
 	authzruntime "github.com/FangcunMount/iam/v5/internal/apiserver/infra/authz/runtime"
+	"github.com/FangcunMount/iam/v5/internal/apiserver/maintenance/freshbootstrap"
 	"github.com/FangcunMount/iam/v5/internal/apiserver/options"
 	"github.com/FangcunMount/iam/v5/internal/pkg/migration"
 	"github.com/FangcunMount/iam/v5/pkg/eventcatalog"
@@ -80,8 +81,10 @@ func TestF05BootstrapOwnerNativeMySQL(t *testing.T) {
 	require.NoError(t, err)
 	var consumerRuntime *authzruntime.Runtime
 	migrator := migration.NewMigrator(pool, &migration.Config{Enabled: true, Database: "iam_test"})
-	version, _, err := migrator.RunFreshForTransactionDelivery(ctx, func(conn *sql.Conn) (migration.FreshBootstrapHooks, error) {
-		hooks, err := bindFreshBootstrapDelivery(ctx, conn, readDB, "../../../configs/events.yaml", true)
+	var serverUUID string
+	require.NoError(t, pool.QueryRowContext(ctx, "SELECT @@server_uuid").Scan(&serverUUID))
+	version, _, err := migrator.RunFreshForTransactionDelivery(ctx, serverUUID, func(conn *sql.Conn) (migration.FreshBootstrapHooks, error) {
+		hooks, err := freshbootstrap.Bind(ctx, conn, readDB, "../../../configs/events.yaml", true)
 		if err != nil {
 			return hooks, err
 		}
@@ -126,7 +129,7 @@ func TestF05BootstrapOwnerNativeMySQL(t *testing.T) {
 	newOwner := func() *platform.TransactionEventing {
 		t.Helper()
 		owner, err := platform.NewTransactionEventing(platform.EventingDeps{DB: readDB, Messaging: options.MessagingOptions{
-			Provider: "rocketmq", Endpoint: material.Endpoint, CAFile: material.CAFile, CredentialsFile: creds, RoutesFile: routes, InstanceID: "f05-native", PublishEnabled: true,
+			Provider: "rocketmq", Endpoint: material.Endpoint, CAFile: material.CAFile, CredentialsFile: creds, RoutesFile: routes, InstanceID: "f05-native", PublishEnabled: true, RequireFreshBootstrap: true,
 			Transactions: map[string]options.TransactionOptions{binding.Owner: {StoreID: binding.StoreID, WriterEpoch: binding.WriterEpoch, RouteRevision: "m3-1", Limits: &options.TransactionLimits{
 				Sends: 2, Branches: 2, CheckWorkers: 2, CheckQueue: 4, ReconcileBatch: 6,
 				CheckTimeout: 2 * time.Second, RPCTimeout: 5 * time.Second, Lease: 20 * time.Second, ReconcileInterval: 300 * time.Millisecond,

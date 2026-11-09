@@ -6,11 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/FangcunMount/iam/v5/internal/apiserver/infra/mysql/bootstrapdelivery"
-	"github.com/FangcunMount/iam/v5/internal/apiserver/infra/mysql/eventoutbox"
-	"github.com/FangcunMount/iam/v5/internal/apiserver/maintenance/conditionretire"
-	"github.com/FangcunMount/iam/v5/internal/apiserver/maintenance/rolemodel"
-	"github.com/FangcunMount/iam/v5/pkg/eventcatalog"
+	"github.com/FangcunMount/iam/v5/internal/apiserver/maintenance/freshbootstrap"
 
 	redis "github.com/redis/go-redis/v9"
 	gormmysql "gorm.io/driver/mysql"
@@ -178,43 +174,7 @@ func (dm *DatabaseManager) runMigrations() error {
 }
 
 func bindFreshBootstrap(ctx context.Context, conn *sql.Conn, original *gorm.DB, catalogPath string) (migration.FreshBootstrapHooks, error) {
-	return bindFreshBootstrapDelivery(ctx, conn, original, catalogPath, false)
-}
-
-func bindFreshBootstrapDelivery(ctx context.Context, conn *sql.Conn, original *gorm.DB, catalogPath string, transactional bool) (migration.FreshBootstrapHooks, error) {
-	bound, err := gorm.Open(gormmysql.New(gormmysql.Config{Conn: conn}), &gorm.Config{
-		Logger: original.Logger, NamingStrategy: original.NamingStrategy,
-	})
-	if err != nil {
-		return migration.FreshBootstrapHooks{}, err
-	}
-	catalog, err := eventcatalog.Load(catalogPath)
-	if err != nil {
-		return migration.FreshBootstrapHooks{}, err
-	}
-	events := eventcatalog.NewCatalog(catalog)
-	hooks := migration.FreshBootstrapHooks{
-		PrepareTenant: func(checkpoint func(*sql.Tx) error) error {
-			return rolemodel.PrepareBootstrapTenantWithCheckpoint(ctx, bound, checkpoint)
-		},
-	}
-	if transactional {
-		notifications, err := bootstrapdelivery.Prepare(ctx, conn, events)
-		if err != nil {
-			return migration.FreshBootstrapHooks{}, err
-		}
-		hooks.IndependentRoles = func() error { return rolemodel.BootstrapIndependentRoles(ctx, bound, notifications.Stage(33)) }
-		hooks.RetireConditions = func() error { return conditionretire.Bootstrap(ctx, bound, notifications.Stage(35)) }
-		hooks.VerifyNotification = func(phase uint) error { return notifications.Verify(ctx, phase) }
-		return hooks, nil
-	}
-	stager, err := eventoutbox.NewBootstrapStager(events)
-	if err != nil {
-		return migration.FreshBootstrapHooks{}, err
-	}
-	hooks.IndependentRoles = func() error { return rolemodel.BootstrapIndependentRoles(ctx, bound, stager) }
-	hooks.RetireConditions = func() error { return conditionretire.Bootstrap(ctx, bound, stager) }
-	return hooks, nil
+	return freshbootstrap.Bind(ctx, conn, original, catalogPath, false)
 }
 
 // ensureDatabase 确保数据库存在

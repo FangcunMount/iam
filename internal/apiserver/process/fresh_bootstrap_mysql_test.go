@@ -10,6 +10,7 @@ import (
 
 	componentdb "github.com/FangcunMount/component-base/pkg/database"
 	"github.com/FangcunMount/iam/v5/internal/apiserver/config"
+	"github.com/FangcunMount/iam/v5/internal/apiserver/maintenance/freshbootstrap"
 	"github.com/FangcunMount/iam/v5/internal/apiserver/options"
 	"github.com/FangcunMount/iam/v5/internal/pkg/migration"
 	"github.com/stretchr/testify/require"
@@ -36,6 +37,8 @@ func TestStartupMigrationResumesFreshBootstrapMySQL(t *testing.T) {
 		return db
 	}
 	admin := pool(t, "iam_test")
+	var serverUUID string
+	require.NoError(t, admin.QueryRowContext(ctx, "SELECT @@server_uuid").Scan(&serverUUID))
 	fixture := func(t *testing.T) (*DatabaseManager, *sql.DB, *migration.Migrator) {
 		t.Helper()
 		name := "iam_m5_entry_" + rand.Text()
@@ -205,9 +208,9 @@ func TestStartupMigrationResumesFreshBootstrapMySQL(t *testing.T) {
 			original, err := dm.GetMySQLDB()
 			require.NoError(t, err)
 			bind := func(conn *sql.Conn) (migration.FreshBootstrapHooks, error) {
-				return bindFreshBootstrapDelivery(ctx, conn, original, dm.config.Events.CatalogPath, true)
+				return freshbootstrap.Bind(ctx, conn, original, dm.config.Events.CatalogPath, true)
 			}
-			_, _, err = migrator.RunFreshForTransactionDelivery(ctx, func(conn *sql.Conn) (migration.FreshBootstrapHooks, error) {
+			_, _, err = migrator.RunFreshForTransactionDelivery(ctx, serverUUID, func(conn *sql.Conn) (migration.FreshBootstrapHooks, error) {
 				hooks, err := bind(conn)
 				if err != nil {
 					return hooks, err
@@ -234,7 +237,7 @@ func TestStartupMigrationResumesFreshBootstrapMySQL(t *testing.T) {
 				FROM iam_bootstrap_policy_notification WHERE phase=? AND delivery_committed=0`
 			var before, after string
 			require.NoError(t, db.QueryRowContext(ctx, snapshot, phase).Scan(&before))
-			version, _, err := migrator.RunFreshForTransactionDelivery(ctx, bind)
+			version, _, err := migrator.RunFreshForTransactionDelivery(ctx, serverUUID, bind)
 			require.NoError(t, err)
 			require.EqualValues(t, 45, version)
 			require.NoError(t, db.QueryRowContext(ctx, snapshot, phase).Scan(&after))
@@ -242,15 +245,15 @@ func TestStartupMigrationResumesFreshBootstrapMySQL(t *testing.T) {
 			require.Equal(t, 2, count(t, db, "SELECT COUNT(*) FROM iam_bootstrap_policy_notification WHERE delivery_committed=0"))
 			require.Zero(t, count(t, db, "SELECT COUNT(*) FROM domain_event_outbox"))
 			require.Zero(t, count(t, db, "SELECT COUNT(*) FROM rm_outbox"))
-			_, _, err = migrator.RunFreshForTransactionDelivery(ctx, bind)
+			_, _, err = migrator.RunFreshForTransactionDelivery(ctx, serverUUID, bind)
 			require.NoError(t, err)
 			_, err = db.ExecContext(ctx, "UPDATE iam_bootstrap_policy_notification SET input_bytes=CONCAT(input_bytes,' ') WHERE phase=?", phase)
 			require.NoError(t, err)
-			_, _, err = migrator.RunFreshForTransactionDelivery(ctx, bind)
+			_, _, err = migrator.RunFreshForTransactionDelivery(ctx, serverUUID, bind)
 			require.ErrorContains(t, err, "notification fields differ")
 			_, err = db.ExecContext(ctx, "RENAME TABLE iam_bootstrap_policy_notification TO isolated_missing_notification")
 			require.NoError(t, err)
-			_, _, err = migrator.RunFreshForTransactionDelivery(ctx, bind)
+			_, _, err = migrator.RunFreshForTransactionDelivery(ctx, serverUUID, bind)
 			require.ErrorContains(t, err, "invalid fresh bootstrap notification layout")
 			require.Zero(t, count(t, db, "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='iam_bootstrap_policy_notification'"))
 		})
@@ -260,7 +263,9 @@ func TestStartupMigrationResumesFreshBootstrapMySQL(t *testing.T) {
 		version, _, err := migrator.RunTo(31)
 		require.NoError(t, err)
 		require.EqualValues(t, 31, version)
-		_, _, err = migrator.RunFreshForTransactionDelivery(ctx, nil)
+		_, _, err = migrator.RunFreshForTransactionDelivery(ctx, serverUUID, func(*sql.Conn) (migration.FreshBootstrapHooks, error) {
+			return migration.FreshBootstrapHooks{}, errors.New("fixture must not bind an existing installation")
+		})
 		require.ErrorContains(t, err, "requires a fresh database claim")
 		require.Equal(t, 31, count(t, db, "SELECT version FROM schema_migrations WHERE dirty=0"))
 		require.Zero(t, count(t, db, "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='iam_bootstrap_policy_notification'"))

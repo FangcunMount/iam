@@ -112,7 +112,7 @@ func NewTransactionEventing(deps EventingDeps, catalog *eventcatalog.Catalog, ma
 	}}
 	owner.bootstrap = &bootstrapDelivery{
 		delivery: bootstrapdelivery.NewDelivery(pool, local.Store(), runtime, topic, config.Routes[0].PhysicalTopic, config.Routes[0].Revision),
-		interval: config.Limits.ReconcileInterval, budget: config.Limits.Lease,
+		interval: config.Limits.ReconcileInterval, budget: config.Limits.Lease, required: deps.Messaging.RequireFreshBootstrap,
 		stop: make(chan struct{}), done: make(chan struct{}),
 	}
 	owner.Writer, err = hostuow.NewPlannedUnitOfWork(local, runtime, hostuow.PlanConfig{LogicalTopic: topic, PhysicalTopic: config.Routes[0].PhysicalTopic, NamingScheme: config.Routes[0].NamingScheme, Routes: trustedRoutes, Sends: config.Limits.Sends, ProofBudget: config.Limits.CheckTimeout, Admission: owner.admitted, MaintenancePrincipal: maintenancePrincipal, Journal: operations, OperationLease: config.Limits.Lease})

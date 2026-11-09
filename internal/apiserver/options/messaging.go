@@ -17,20 +17,24 @@ import (
 // MessagingOptions selects an explicit provider. Files belong to IAM's runtime
 // configuration; the SDK never discovers production credentials or resources.
 type MessagingOptions struct {
-	Transactions    map[string]TransactionOptions `json:"transactions,omitempty" mapstructure:"transactions"`
-	Provider        string                        `json:"provider" mapstructure:"provider"`
-	Endpoint        string                        `json:"endpoint" mapstructure:"endpoint"`
-	CredentialsFile string                        `json:"credentials_file" mapstructure:"credentials_file"`
-	CAFile          string                        `json:"ca_file" mapstructure:"ca_file"`
-	RoutesFile      string                        `json:"routes_file" mapstructure:"routes_file"`
-	InstanceID      string                        `json:"instance_id" mapstructure:"instance_id"`
-	PublishEnabled  bool                          `json:"publish_enabled" mapstructure:"publish_enabled"`
+	Transactions          map[string]TransactionOptions `json:"transactions,omitempty" mapstructure:"transactions"`
+	Provider              string                        `json:"provider" mapstructure:"provider"`
+	Endpoint              string                        `json:"endpoint" mapstructure:"endpoint"`
+	CredentialsFile       string                        `json:"credentials_file" mapstructure:"credentials_file"`
+	CAFile                string                        `json:"ca_file" mapstructure:"ca_file"`
+	RoutesFile            string                        `json:"routes_file" mapstructure:"routes_file"`
+	InstanceID            string                        `json:"instance_id" mapstructure:"instance_id"`
+	PublishEnabled        bool                          `json:"publish_enabled" mapstructure:"publish_enabled"`
+	RequireFreshBootstrap bool                          `json:"require_fresh_bootstrap" mapstructure:"require_fresh_bootstrap"`
 }
 
 func (o MessagingOptions) SelectedProvider() string {
 	return o.Provider
 }
 func (o MessagingOptions) Validate() error {
+	if o.RequireFreshBootstrap && len(o.Transactions) != 1 {
+		return errors.New("fresh bootstrap requires the IAM transaction owner")
+	}
 	for owner, binding := range o.Transactions {
 		if o.SelectedProvider() != "rocketmq" {
 			return errors.New("transactions require explicit RocketMQ provider")
@@ -104,6 +108,7 @@ func (o MessagingOptions) RocketMQ(topics []string, concurrency int, timeout tim
 }
 
 func (o *MessagingOptions) AddFlags(fs *pflag.FlagSet) {
+	fs.BoolVar(&o.RequireFreshBootstrap, "messaging.require_fresh_bootstrap", o.RequireFreshBootstrap, "Require original cold bootstrap notification claim")
 	fs.StringVar(&o.Provider, "messaging.provider", o.Provider, "Explicit broker provider: rocketmq")
 	fs.StringVar(&o.Endpoint, "messaging.endpoint", o.Endpoint, "RocketMQ Proxy endpoint")
 	fs.StringVar(&o.CredentialsFile, "messaging.credentials_file", o.CredentialsFile, "Host-owned credential file")
