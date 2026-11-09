@@ -20,7 +20,20 @@ import (
 // migrator proves the database is empty before running any historical SQL.
 // Existing databases must use the reviewed offline upgrade workflow.
 func PrepareBootstrapTenant(ctx context.Context, db *gorm.DB) error {
-	return db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	db = db.WithContext(ctx)
+	// MySQL commits an active transaction around CREATE TABLE, even when the
+	// table already exists. Prepare it before changing authorization data.
+	if err := db.Exec("CREATE TABLE IF NOT EXISTS iam_authorization_retirement_preparation (id TINYINT UNSIGNED PRIMARY KEY,source_hash VARCHAR(64) NOT NULL,prepared_hash VARCHAR(64) NOT NULL,initial_version BIGINT NOT NULL,prepared_at DATETIME(3) NOT NULL) ENGINE=InnoDB").Error; err != nil {
+		return err
+	}
+	var engine string
+	if err := db.Raw("SELECT ENGINE FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='iam_authorization_retirement_preparation'").Scan(&engine).Error; err != nil {
+		return err
+	}
+	if !strings.EqualFold(engine, "InnoDB") {
+		return fmt.Errorf("fresh bootstrap preparation receipt requires InnoDB")
+	}
+	return db.Transaction(func(tx *gorm.DB) error {
 		var unexpected int64
 		if err := tx.Raw("SELECT COUNT(*) FROM authz_assignments a JOIN authz_roles r ON r.id=a.role_id WHERE r.name IN ('platform:admin','iam:admin') AND a.deleted_at IS NULL").Scan(&unexpected).Error; err != nil {
 			return err
@@ -52,9 +65,6 @@ func PrepareBootstrapTenant(ctx context.Context, db *gorm.DB) error {
 			if err = tx.Table("authz_permission_grants").Where("id = ?", row.ID).Update("grant_key", grant.GrantKey).Error; err != nil {
 				return err
 			}
-		}
-		if err := tx.Exec("CREATE TABLE IF NOT EXISTS iam_authorization_retirement_preparation (id TINYINT UNSIGNED PRIMARY KEY,source_hash VARCHAR(64) NOT NULL,prepared_hash VARCHAR(64) NOT NULL,initial_version BIGINT NOT NULL,prepared_at DATETIME(3) NOT NULL)").Error; err != nil {
-			return err
 		}
 		digest := fmt.Sprintf("%x", sha256.Sum256([]byte(encode(grants))))
 		return tx.Exec("INSERT INTO iam_authorization_retirement_preparation(id,source_hash,prepared_hash,initial_version,prepared_at) SELECT 1,?,?,COALESCE(MAX(policy_version),0)+1,NOW(3) FROM authz_policy_versions", digest, digest).Error

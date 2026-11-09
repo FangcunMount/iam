@@ -59,4 +59,10 @@ func TestFreshTenantPreparationRollsBackBeforeReceiptMySQL(t *testing.T) {
 	require.NoError(t, read.QueryRowContext(ctx, receiptCount).Scan(&count))
 	require.Equal(t, 1, count)
 	require.NotEqual(t, before, state())
+	migrator = NewMigrator(openMigrationMySQL(t), &Config{Enabled: true, Database: "iam_test"})
+	version, changed, err = migrator.RunTo(32)
+	require.NoError(t, err)
+	require.EqualValues(t, 32, version)
+	require.True(t, changed)
+	require.False(t, db.Migrator().HasTable("iam_authorization_retirement_preparation"))
 }
