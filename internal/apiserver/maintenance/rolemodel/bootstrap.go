@@ -3,6 +3,7 @@ package rolemodel
 import (
 	"context"
 	"crypto/sha256"
+	"database/sql"
 	"fmt"
 	"strings"
 	"time"
@@ -20,6 +21,12 @@ import (
 // migrator proves the database is empty before running any historical SQL.
 // Existing databases must use the reviewed offline upgrade workflow.
 func PrepareBootstrapTenant(ctx context.Context, db *gorm.DB) error {
+	return PrepareBootstrapTenantWithCheckpoint(ctx, db, nil)
+}
+
+// PrepareBootstrapTenantWithCheckpoint records progress in the transaction
+// containing the preparation receipt.
+func PrepareBootstrapTenantWithCheckpoint(ctx context.Context, db *gorm.DB, checkpoint func(*sql.Tx) error) error {
 	db = db.WithContext(ctx)
 	// MySQL commits an active transaction around CREATE TABLE, even when the
 	// table already exists. Prepare it before changing authorization data.
@@ -67,7 +74,17 @@ func PrepareBootstrapTenant(ctx context.Context, db *gorm.DB) error {
 			}
 		}
 		digest := fmt.Sprintf("%x", sha256.Sum256([]byte(encode(grants))))
-		return tx.Exec("INSERT INTO iam_authorization_retirement_preparation(id,source_hash,prepared_hash,initial_version,prepared_at) SELECT 1,?,?,COALESCE(MAX(policy_version),0)+1,NOW(3) FROM authz_policy_versions", digest, digest).Error
+		if err := tx.Exec("INSERT INTO iam_authorization_retirement_preparation(id,source_hash,prepared_hash,initial_version,prepared_at) SELECT 1,?,?,COALESCE(MAX(policy_version),0)+1,NOW(3) FROM authz_policy_versions", digest, digest).Error; err != nil {
+			return err
+		}
+		if checkpoint == nil {
+			return nil
+		}
+		bound, ok := tx.Statement.ConnPool.(*sql.Tx)
+		if !ok {
+			return fmt.Errorf("fresh bootstrap checkpoint requires the preparation SQL transaction")
+		}
+		return checkpoint(bound)
 	})
 }
 

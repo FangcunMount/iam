@@ -12,6 +12,7 @@ import (
 	"github.com/FangcunMount/iam/v5/pkg/eventcatalog"
 
 	redis "github.com/redis/go-redis/v9"
+	gormmysql "gorm.io/driver/mysql"
 	"gorm.io/gorm"
 
 	"github.com/FangcunMount/component-base/pkg/database"
@@ -152,35 +153,13 @@ func (dm *DatabaseManager) runMigrations() error {
 	migrator := migration.NewMigrator(sqlDB, &migration.Config{
 		Enabled:  dm.config.MigrationOptions.Enabled,
 		Database: dm.config.MigrationOptions.Database,
-		FreshStages: []migration.FreshStage{
-			{Version: 31, Prepare: func() error { return rolemodel.PrepareBootstrapTenant(context.Background(), gormDB) }},
-			{Version: 33, Prepare: func() error {
-				catalog, err := eventcatalog.Load(dm.config.Options.Events.CatalogPath)
-				if err != nil {
-					return err
-				}
-				stager, err := eventoutbox.NewBootstrapStager(eventcatalog.NewCatalog(catalog))
-				if err != nil {
-					return err
-				}
-				return rolemodel.BootstrapIndependentRoles(context.Background(), gormDB, stager)
-			}},
-			{Version: 35, Prepare: func() error {
-				catalog, err := eventcatalog.Load(dm.config.Options.Events.CatalogPath)
-				if err != nil {
-					return err
-				}
-				stager, err := eventoutbox.NewBootstrapStager(eventcatalog.NewCatalog(catalog))
-				if err != nil {
-					return err
-				}
-				return conditionretire.Bootstrap(context.Background(), gormDB, stager)
-			}},
-		},
 	})
 
 	// 执行迁移
-	version, applied, err := migrator.Run()
+	ctx := context.Background()
+	version, applied, err := migrator.RunFresh(ctx, func(conn *sql.Conn) (migration.FreshBootstrapHooks, error) {
+		return bindFreshBootstrap(ctx, conn, gormDB, dm.config.Options.Events.CatalogPath)
+	})
 	if err != nil {
 		return fmt.Errorf("migration failed: %w", err)
 	}
@@ -195,6 +174,30 @@ func (dm *DatabaseManager) runMigrations() error {
 	}
 
 	return nil
+}
+
+func bindFreshBootstrap(ctx context.Context, conn *sql.Conn, original *gorm.DB, catalogPath string) (migration.FreshBootstrapHooks, error) {
+	bound, err := gorm.Open(gormmysql.New(gormmysql.Config{Conn: conn}), &gorm.Config{
+		Logger: original.Logger, NamingStrategy: original.NamingStrategy,
+	})
+	if err != nil {
+		return migration.FreshBootstrapHooks{}, err
+	}
+	catalog, err := eventcatalog.Load(catalogPath)
+	if err != nil {
+		return migration.FreshBootstrapHooks{}, err
+	}
+	stager, err := eventoutbox.NewBootstrapStager(eventcatalog.NewCatalog(catalog))
+	if err != nil {
+		return migration.FreshBootstrapHooks{}, err
+	}
+	return migration.FreshBootstrapHooks{
+		PrepareTenant: func(checkpoint func(*sql.Tx) error) error {
+			return rolemodel.PrepareBootstrapTenantWithCheckpoint(ctx, bound, checkpoint)
+		},
+		IndependentRoles: func() error { return rolemodel.BootstrapIndependentRoles(ctx, bound, stager) },
+		RetireConditions: func() error { return conditionretire.Bootstrap(ctx, bound, stager) },
+	}, nil
 }
 
 // ensureDatabase 确保数据库存在
