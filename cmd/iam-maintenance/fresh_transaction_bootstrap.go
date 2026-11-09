@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"flag"
+	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -12,6 +13,8 @@ import (
 
 	"github.com/FangcunMount/iam/v5/internal/apiserver/maintenance/freshbootstrap"
 	"github.com/FangcunMount/iam/v5/internal/pkg/migration"
+	driver "github.com/go-sql-driver/mysql"
+	migratedb "github.com/golang-migrate/migrate/v4/database"
 	"github.com/google/uuid"
 )
 
@@ -49,6 +52,14 @@ func runFreshTransactionBootstrap(args []string, output io.Writer) error {
 		return freshbootstrap.Bind(ctx, conn, db, authzV3ConvergeCatalog, true)
 	})
 	if err != nil {
+		var migrationErr migratedb.Error
+		if errors.As(err, &migrationErr) && migrationErr.OrigErr != nil {
+			err = migrationErr.OrigErr
+		}
+		var mysqlErr *driver.MySQLError
+		if errors.As(err, &mysqlErr) {
+			return fmt.Errorf("fresh transaction bootstrap stopped with MySQL error %d; inspect the migration journal", mysqlErr.Number)
+		}
 		return errors.New("fresh transaction bootstrap refused or interrupted; inspect the reviewed database identity and migration journal")
 	}
 	return writeJSON(output, struct {

@@ -351,8 +351,25 @@ func (m *Migrator) runFresh(ctx context.Context, delivery, expectedServer string
 }
 
 func (s *migrationSession) requireEmptyTransactionBootstrap(ctx context.Context) error {
+	// Metadata visibility in MySQL follows privileges. Require direct access
+	// to tables, routines and events before accepting an empty result.
+	var visible int
+	err := s.conn.QueryRowContext(ctx, `WITH principal AS (
+		SELECT CONCAT(QUOTE(LEFT(CURRENT_USER(),CHAR_LENGTH(CURRENT_USER())-CHAR_LENGTH(SUBSTRING_INDEX(CURRENT_USER(),'@',-1))-1)),
+			'@',QUOTE(SUBSTRING_INDEX(CURRENT_USER(),'@',-1))) AS grantee
+	), visible_grants AS (
+		SELECT PRIVILEGE_TYPE FROM information_schema.SCHEMA_PRIVILEGES JOIN principal USING (GRANTEE) WHERE TABLE_SCHEMA=DATABASE()
+		UNION
+		SELECT PRIVILEGE_TYPE FROM information_schema.USER_PRIVILEGES JOIN principal USING (GRANTEE)
+	) SELECT COUNT(*) FROM visible_grants WHERE PRIVILEGE_TYPE IN ('SELECT','EXECUTE','EVENT')`).Scan(&visible)
+	if err != nil {
+		return err
+	}
+	if visible != 3 {
+		return errors.New("fresh database emptiness requires direct SELECT, EXECUTE and EVENT scope")
+	}
 	var occupied bool
-	err := s.conn.QueryRowContext(ctx, `SELECT
+	err = s.conn.QueryRowContext(ctx, `SELECT
 		EXISTS(SELECT 1 FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE()) OR
 		EXISTS(SELECT 1 FROM information_schema.ROUTINES WHERE ROUTINE_SCHEMA=DATABASE()) OR
 		EXISTS(SELECT 1 FROM information_schema.EVENTS WHERE EVENT_SCHEMA=DATABASE())`).Scan(&occupied)

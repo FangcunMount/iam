@@ -9,7 +9,6 @@ import (
 	"github.com/FangcunMount/iam/v5/internal/apiserver/maintenance/freshbootstrap"
 
 	redis "github.com/redis/go-redis/v9"
-	gormmysql "gorm.io/driver/mysql"
 	"gorm.io/gorm"
 
 	"github.com/FangcunMount/component-base/pkg/database"

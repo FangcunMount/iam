@@ -177,6 +177,15 @@ func TestF05BootstrapOwnerNativeMySQL(t *testing.T) {
 	}, func(context.Context, transport.Failure) error {
 		return errors.New("fixture unexpected failed delivery")
 	}))
+	_, err = pool.ExecContext(ctx, `RENAME TABLE iam_fresh_bootstrap_journal TO isolated_bootstrap_journal,
+		iam_bootstrap_policy_notification TO isolated_bootstrap_notifications`)
+	require.NoError(t, err)
+	claimMissing := newOwner()
+	require.ErrorContains(t, claimMissing.Start(ctx), "no original claim")
+	require.Zero(t, count("SELECT COUNT(*) FROM rm_tx_request"))
+	_, err = pool.ExecContext(ctx, `RENAME TABLE isolated_bootstrap_journal TO iam_fresh_bootstrap_journal,
+		isolated_bootstrap_notifications TO iam_bootstrap_policy_notification`)
+	require.NoError(t, err)
 	plans := map[int]transaction.FrozenPlan{}
 	for _, phase := range []int{33, 35} {
 		var inputBytes []byte
