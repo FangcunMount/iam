@@ -5,6 +5,7 @@ package messageprotocol
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"math"
 
@@ -45,10 +46,14 @@ func read(ctx context.Context, db *gorm.DB, lock bool) (selection, error) {
 	if err != nil {
 		return row, errors.Join(ErrSelection, err)
 	}
-	if row.Owner != "iam.mysql" || row.SchemaVersion != 1 || row.Generation < 1 || row.Generation > math.MaxInt64 {
+	if !row.valid() {
 		return row, ErrSelection
 	}
 	return row, nil
+}
+
+func (s selection) valid() bool {
+	return s.Owner == "iam.mysql" && s.SchemaVersion == 1 && s.Generation >= 1 && s.Generation <= math.MaxInt64
 }
 
 // RequireOutbox permits the historical pre-43 schema, but never a missing gate
@@ -79,7 +84,26 @@ func RequireTransaction(ctx context.Context, db *gorm.DB, binding transaction.Bi
 	if err != nil {
 		return errors.Join(ErrSelection, err)
 	}
-	if binding.Owner != "iam.mysql" || row.ProtocolType != "transaction" || row.StoreID != binding.StoreID || row.WriterEpoch != binding.WriterEpoch || revision != "m3-1" || row.RouteRevision != revision {
+	return requireTransaction(row, binding, revision)
+}
+
+// RequireTransactionRoot checks and holds the same host selection in a
+// database/sql delivery transaction until its local witness is committed.
+func RequireTransactionRoot(ctx context.Context, tx *sql.Tx, binding transaction.Binding, revision string) error {
+	if ctx == nil || tx == nil {
+		return ErrSelection
+	}
+	var row selection
+	err := tx.QueryRowContext(ctx, "SELECT owner,protocol_type,store_id,writer_epoch,route_revision,generation,schema_version FROM "+Table+" WHERE owner='iam.mysql' FOR SHARE").
+		Scan(&row.Owner, &row.ProtocolType, &row.StoreID, &row.WriterEpoch, &row.RouteRevision, &row.Generation, &row.SchemaVersion)
+	if err != nil {
+		return errors.Join(ErrSelection, err)
+	}
+	return requireTransaction(row, binding, revision)
+}
+
+func requireTransaction(row selection, binding transaction.Binding, revision string) error {
+	if !row.valid() || binding.Owner != "iam.mysql" || row.ProtocolType != "transaction" || row.StoreID != binding.StoreID || row.WriterEpoch != binding.WriterEpoch || revision != "m3-1" || row.RouteRevision != revision {
 		return ErrSelection
 	}
 	return nil
