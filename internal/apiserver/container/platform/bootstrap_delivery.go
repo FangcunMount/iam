@@ -7,6 +7,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/FangcunMount/component-base/pkg/log"
 	"github.com/FangcunMount/iam/v5/internal/apiserver/infra/mysql/bootstrapdelivery"
 	"github.com/FangcunMount/reliable-messaging/transaction"
 )
@@ -23,7 +24,7 @@ type bootstrapDelivery struct {
 	started          bool // written by Start, read only after the owner's startDone
 }
 
-func (b *bootstrapDelivery) start(ctx context.Context) error {
+func (b *bootstrapDelivery) check(ctx context.Context) error {
 	if b == nil {
 		return nil
 	}
@@ -35,17 +36,23 @@ func (b *bootstrapDelivery) start(ctx context.Context) error {
 	}
 	if !claimed {
 		b.complete.Store(true)
-		return nil
+	}
+	return nil
+}
+
+func (b *bootstrapDelivery) start() {
+	if b == nil || b.ready() {
+		return
 	}
 	b.started = true
 	go b.run()
-	return nil
 }
 
 func (b *bootstrapDelivery) run() {
 	defer close(b.done)
 	ticker := time.NewTicker(b.interval)
 	defer ticker.Stop()
+	failed := false
 	for {
 		select {
 		case <-b.stop:
@@ -57,6 +64,10 @@ func (b *bootstrapDelivery) run() {
 		check, cancel := context.WithTimeout(context.Background(), b.budget)
 		complete, err := b.delivery.Advance(check)
 		cancel()
+		if err != nil && !failed && !errors.Is(err, ErrTransactionAdmissionClosed) {
+			log.Warnw("fresh bootstrap notification handoff failed", "error", err)
+		}
+		failed = err != nil
 		if err == nil && complete {
 			b.complete.Store(true)
 			return

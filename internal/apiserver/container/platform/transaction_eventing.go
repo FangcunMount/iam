@@ -161,6 +161,9 @@ func (o *TransactionEventing) Start(ctx context.Context) error {
 		err = o.preflight(ctx)
 	}
 	if err == nil {
+		err = o.bootstrap.check(ctx)
+	}
+	if err == nil {
 		err = o.runtime.Start(ctx)
 	}
 	o.mu.Lock()
@@ -173,7 +176,7 @@ func (o *TransactionEventing) Start(ctx context.Context) error {
 		err = o.maintenance.start()
 	}
 	if err == nil && !interrupted {
-		err = o.bootstrap.start(ctx)
+		o.bootstrap.start()
 	}
 	o.mu.Lock()
 	stopped := o.stopping

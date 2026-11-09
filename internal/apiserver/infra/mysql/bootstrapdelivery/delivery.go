@@ -9,6 +9,7 @@ import (
 	"fmt"
 
 	"github.com/FangcunMount/iam/v5/internal/apiserver/eventing"
+	"github.com/FangcunMount/iam/v5/internal/apiserver/infra/mysql/messageprotocol"
 	txmysql "github.com/FangcunMount/reliable-messaging/storage/transaction/mysql"
 	"github.com/FangcunMount/reliable-messaging/transaction"
 	"github.com/FangcunMount/reliable-messaging/wire/legacy"
@@ -199,6 +200,9 @@ func (d *Delivery) commit(ctx context.Context, phase uint, n notification, e tra
 	defer tx.Rollback()
 	guard, err := d.store.Bind(ctx, tx, e)
 	if err != nil {
+		return transaction.LocalAborted, err
+	}
+	if err := messageprotocol.RequireTransactionRoot(ctx, tx, d.store.Binding(), d.revision); err != nil {
 		return transaction.LocalAborted, err
 	}
 	current, err := readNotification(ctx, tx, d.topic, phase, true)

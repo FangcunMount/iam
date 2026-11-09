@@ -214,11 +214,33 @@ func TestF05BootstrapOwnerNativeMySQL(t *testing.T) {
 	require.Equal(t, transaction.Unknown, (transaction.StoreChecker{Store: store}).Check(ctx, old))
 	require.Zero(t, count("SELECT COUNT(*) FROM rm_tx_execution WHERE prepare_started=TRUE"))
 	require.NoError(t, paused.Stop(ctx))
+	// Keep the second delivery inside its original SQL root while stopping.
+	held, err := pool.BeginTx(ctx, nil)
+	require.NoError(t, err)
+	defer held.Rollback()
+	var lockedPhase int
+	require.NoError(t, held.QueryRowContext(ctx, "SELECT phase FROM iam_bootstrap_policy_notification WHERE phase=35 FOR UPDATE").Scan(&lockedPhase))
+	require.Equal(t, 35, lockedPhase)
 	owner := newOwner()
 	require.NoError(t, owner.Start(ctx))
 	for _, phase := range []int{33, 35} {
 		plan := plans[phase]
 		branch := plan.Input().Branches[0]
+		if phase == 35 {
+			key := transaction.RequestFor(plan).KeyDigest()
+			require.Eventually(t, func() bool {
+				var prepared int
+				err := pool.QueryRowContext(ctx, `SELECT COUNT(*) FROM rm_tx_witness w JOIN rm_tx_request r ON r.active_execution=w.execution_key
+					WHERE r.request_key=? AND w.state='prepared' AND w.half_outcome='prepared'`, key[:]).Scan(&prepared)
+				return err == nil && prepared == 1
+			}, 7*time.Second, 50*time.Millisecond)
+			deadline, cancel := context.WithTimeout(ctx, 150*time.Millisecond)
+			err := owner.Stop(deadline)
+			cancel()
+			require.ErrorIs(t, err, transaction.ErrShutdownIncomplete)
+			require.Equal(t, 1, count("SELECT COUNT(*) FROM iam_bootstrap_policy_notification WHERE delivery_committed=1"))
+			require.NoError(t, held.Rollback())
+		}
 		select {
 		case got := <-received:
 			in := branch.Message.Input()
@@ -240,7 +262,6 @@ func TestF05BootstrapOwnerNativeMySQL(t *testing.T) {
 	}
 	require.True(t, consumerRuntime.PolicyVersionLoaded(4))
 	require.Equal(t, transaction.Rollback, (transaction.StoreChecker{Store: store}).Check(ctx, old))
-	require.Eventually(t, func() bool { return owner.CheckReady(ctx) == nil }, 4*time.Second, 50*time.Millisecond)
 	require.NoError(t, owner.Stop(ctx))
 	owner = newOwner()
 	require.NoError(t, owner.Start(ctx))
