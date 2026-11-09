@@ -193,7 +193,7 @@ func (m *Migrator) RunFresh(ctx context.Context, bind func(*sql.Conn) (FreshBoot
 		return before, false, errors.New("migration ledger conflicts with fresh bootstrap")
 	}
 	if state == nil && before != 0 || state != nil && state.completed == 35 {
-		return finishFreshMigrations(instance, before, false)
+		return finishUp(instance, before, false)
 	}
 	if bind == nil {
 		return before, false, errors.New("fresh bootstrap hooks are required")
@@ -293,15 +293,18 @@ func (m *Migrator) RunFresh(ctx context.Context, bind func(*sql.Conn) (FreshBoot
 		}
 		completed, changed = phase, true
 	}
-	return finishFreshMigrations(instance, before, changed)
+	return finishUp(instance, before, changed)
 }
 
-func finishFreshMigrations(instance *migrate.Migrate, before uint, changed bool) (uint, bool, error) {
+func finishUp(instance *migrate.Migrate, before uint, changed bool) (uint, bool, error) {
 	if err := instance.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
-		return before, changed, err
+		return before, changed, fmt.Errorf("migration failed: %w", err)
 	}
 	head, dirty, err := instance.Version()
-	if err == nil && dirty {
+	if err != nil {
+		return before, changed, fmt.Errorf("failed to get new version: %w", err)
+	}
+	if dirty {
 		err = errors.New("migration finished with dirty schema")
 	}
 	return head, changed || head != before, err

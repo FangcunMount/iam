@@ -107,26 +107,7 @@ func (m *Migrator) Run() (uint, bool, error) {
 		}
 	}
 
-	// 执行迁移
-	if err := instance.Up(); err != nil {
-		if err == migrate.ErrNoChange {
-			// Fresh preparation may already have advanced to the latest schema.
-			current, _, versionErr := instance.Version()
-			if versionErr != nil {
-				return versionBefore, false, versionErr
-			}
-			return current, current != versionBefore, nil
-		}
-		return versionBefore, false, fmt.Errorf("migration failed: %w", err)
-	}
-
-	// 获取新版本
-	newVersion, _, verr := instance.Version()
-	if verr != nil {
-		return versionBefore, true, fmt.Errorf("failed to get new version: %w", verr)
-	}
-
-	return newVersion, true, nil
+	return finishUp(instance, versionBefore, false)
 }
 
 // RunTo migrates to an explicit schema version. It is used by the maintenance

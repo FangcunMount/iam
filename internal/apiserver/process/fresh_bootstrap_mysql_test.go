@@ -118,6 +118,14 @@ func TestStartupMigrationResumesFreshBootstrapMySQL(t *testing.T) {
 				require.ErrorIs(t, err, interrupted)
 				_, _, err = migrator.RunTo(45)
 				require.ErrorContains(t, err, "fresh bootstrap is unfinished")
+				if phase == 0 {
+					_, err = db.ExecContext(ctx, "UPDATE iam_fresh_bootstrap_journal SET server_uuid='00000000-0000-0000-0000-000000000000'")
+					require.NoError(t, err)
+					require.ErrorContains(t, dm.runMigrations(), "claim does not match")
+					require.Zero(t, count(t, db, "SELECT COUNT(*) FROM schema_migrations"))
+					_, err = db.ExecContext(ctx, "UPDATE iam_fresh_bootstrap_journal SET server_uuid=@@server_uuid")
+					require.NoError(t, err)
+				}
 				require.NoError(t, dm.runMigrations())
 				assertComplete(t, db, true)
 				dm.config.Events.CatalogPath = "/fixture/missing-catalog"
@@ -126,6 +134,45 @@ func TestStartupMigrationResumesFreshBootstrapMySQL(t *testing.T) {
 			})
 		}
 	}
+	t.Run("session_lost_after_condition_commit", func(t *testing.T) {
+		dm, db, migrator := fixture(t)
+		original, err := dm.GetMySQLDB()
+		require.NoError(t, err)
+		_, _, err = migrator.RunFresh(ctx, func(conn *sql.Conn) (migration.FreshBootstrapHooks, error) {
+			hooks, err := bindFreshBootstrap(ctx, conn, original, dm.config.Events.CatalogPath)
+			if err != nil {
+				return hooks, err
+			}
+			apply := hooks.RetireConditions
+			hooks.RetireConditions = func() error {
+				if err := apply(); err != nil {
+					return err
+				}
+				var connectionID uint64
+				if err := conn.QueryRowContext(ctx, "SELECT CONNECTION_ID()").Scan(&connectionID); err != nil {
+					return err
+				}
+				var selected string
+				require.NoError(t, admin.QueryRowContext(ctx, "SELECT DB FROM information_schema.PROCESSLIST WHERE ID=?", connectionID).Scan(&selected))
+				require.Equal(t, dm.config.MigrationOptions.Database, selected)
+				_, err := admin.ExecContext(ctx, fmt.Sprintf("KILL CONNECTION %d", connectionID))
+				require.NoError(t, err)
+				return nil
+			}
+			return hooks, nil
+		})
+		require.Error(t, err)
+		require.Equal(t, 35, count(t, db, "SELECT version FROM schema_migrations WHERE dirty=0"))
+		require.Equal(t, 33, count(t, db, "SELECT completed FROM iam_fresh_bootstrap_journal WHERE id=1"))
+		require.Equal(t, 2, count(t, db, "SELECT COUNT(*) FROM domain_event_outbox WHERE status='pending'"))
+		var before, after string
+		query := "SELECT GROUP_CONCAT(CONCAT(event_id,':',SHA2(payload_json,256)) ORDER BY id) FROM domain_event_outbox"
+		require.NoError(t, db.QueryRowContext(ctx, query).Scan(&before))
+		require.NoError(t, dm.runMigrations())
+		assertComplete(t, db, true)
+		require.NoError(t, db.QueryRowContext(ctx, query).Scan(&after))
+		require.Equal(t, before, after)
+	})
 	t.Run("existing_unclaimed_upgrade", func(t *testing.T) {
 		dm, db, migrator := fixture(t)
 		original, err := dm.GetMySQLDB()
