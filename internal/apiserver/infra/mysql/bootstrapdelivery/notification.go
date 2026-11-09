@@ -44,8 +44,19 @@ func Prepare(ctx context.Context, conn *sql.Conn, catalog *eventcatalog.Catalog)
 			return nil, err
 		}
 	}
+	if err := verifyLayout(ctx, conn); err != nil {
+		return nil, err
+	}
+	return &Notifications{conn: conn, mapper: mapper, topic: topic}, nil
+}
+
+type queryRow interface {
+	QueryRowContext(context.Context, string, ...any) *sql.Row
+}
+
+func verifyLayout(ctx context.Context, db queryRow) error {
 	var valid bool
-	if err := conn.QueryRowContext(ctx, `SELECT
+	if err := db.QueryRowContext(ctx, `SELECT
 		(SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE()
 		 AND TABLE_NAME='iam_bootstrap_policy_notification' AND ENGINE='InnoDB')=1
 		AND (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE()
@@ -62,12 +73,12 @@ func Prepare(ctx context.Context, conn *sql.Conn, catalog *eventcatalog.Catalog)
 		 AND TABLE_NAME='iam_bootstrap_policy_notification')=2
 		AND NOT EXISTS (SELECT 1 FROM information_schema.TRIGGERS WHERE EVENT_OBJECT_SCHEMA=DATABASE()
 		 AND EVENT_OBJECT_TABLE='iam_bootstrap_policy_notification')`).Scan(&valid); err != nil {
-		return nil, err
+		return err
 	}
 	if !valid {
-		return nil, errors.New("invalid fresh bootstrap notification layout")
+		return errors.New("invalid fresh bootstrap notification layout")
 	}
-	return &Notifications{conn: conn, mapper: mapper, topic: topic}, nil
+	return nil
 }
 
 func (n *Notifications) Stage(phase uint) event.Stager {
@@ -102,34 +113,49 @@ func (s notificationStager) Stage(ctx context.Context, events ...event.DomainEve
 }
 
 func (n *Notifications) Verify(ctx context.Context, phase uint) error {
+	_, err := readNotification(ctx, n.conn, n.topic, phase, false)
+	return err
+}
+
+type notification struct {
+	inputBytes []byte
+	message    message.Message
+	version    int64
+	committed  bool
+}
+
+func readNotification(ctx context.Context, db queryRow, topic string, phase uint, lock bool) (notification, error) {
+	query := `SELECT event_id,input_bytes,fingerprint,delivery_committed FROM iam_bootstrap_policy_notification WHERE phase=?`
+	if lock {
+		query += ` FOR UPDATE`
+	}
 	var id string
 	var raw, fingerprint []byte
 	var committed uint
-	err := n.conn.QueryRowContext(ctx, `SELECT event_id,input_bytes,fingerprint,delivery_committed
-		FROM iam_bootstrap_policy_notification WHERE phase=?`, phase).Scan(&id, &raw, &fingerprint, &committed)
-	if err != nil {
-		return fmt.Errorf("read fresh bootstrap notification for stage %d: %w", phase, err)
+	if err := db.QueryRowContext(ctx, query, phase).Scan(&id, &raw, &fingerprint, &committed); err != nil {
+		return notification{}, fmt.Errorf("read fresh bootstrap notification for stage %d: %w", phase, err)
 	}
 	var in message.Input
 	if err := json.Unmarshal(raw, &in); err != nil {
-		return errors.New("invalid stored fresh bootstrap notification")
+		return notification{}, errors.New("invalid stored fresh bootstrap notification")
 	}
 	canonical, err := json.Marshal(in)
-	if err != nil || !bytes.Equal(raw, canonical) || in.ID != id || in.Producer != "iam" || in.Destination != n.topic ||
+	if err != nil || !bytes.Equal(raw, canonical) || in.ID != id || in.Producer != "iam" || in.Destination != topic ||
 		in.EventType != eventing.AuthzVersionChanged || in.SchemaVersion != "v2" || in.Scope != "scope:global" ||
 		in.ContentType != "application/json" || committed > 1 {
-		return errors.New("fresh bootstrap notification fields differ from their original format")
+		return notification{}, errors.New("fresh bootstrap notification fields differ from their original format")
 	}
-	if _, err := eventing.PolicyPayloadVersion(in.Payload); err != nil {
-		return err
+	version, err := eventing.PolicyPayloadVersion(in.Payload)
+	if err != nil {
+		return notification{}, err
 	}
 	msg, err := message.New(in)
 	if err != nil {
-		return err
+		return notification{}, err
 	}
 	sum := msg.Fingerprint()
 	if !bytes.Equal(fingerprint, sum[:]) {
-		return errors.New("fresh bootstrap notification fingerprint differs")
+		return notification{}, errors.New("fresh bootstrap notification fingerprint differs")
 	}
-	return nil
+	return notification{inputBytes: raw, message: msg, version: version, committed: committed == 1}, nil
 }
