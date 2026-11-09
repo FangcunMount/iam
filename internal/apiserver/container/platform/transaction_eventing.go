@@ -9,6 +9,7 @@ import (
 	"github.com/FangcunMount/iam/v5/internal/apiserver/eventing"
 	"github.com/FangcunMount/iam/v5/internal/apiserver/infra/messaging"
 	journal "github.com/FangcunMount/iam/v5/internal/apiserver/infra/mysql/authzoperation"
+	"github.com/FangcunMount/iam/v5/internal/apiserver/infra/mysql/eventoutbox"
 	"github.com/FangcunMount/iam/v5/internal/apiserver/infra/mysql/messageprotocol"
 	hostuow "github.com/FangcunMount/iam/v5/internal/apiserver/infra/mysql/uow/authz"
 	"github.com/FangcunMount/iam/v5/pkg/eventcatalog"
@@ -106,7 +107,7 @@ func NewTransactionEventing(deps EventingDeps, catalog *eventcatalog.Catalog, ma
 		if err := operations.CheckReady(check); err != nil {
 			return err
 		}
-		return checkTransactionHandoff(check, deps.DB, config.Limits.CheckTimeout)
+		return eventoutbox.CheckTransactionHandoff(check, deps.DB)
 	}}
 	owner.Writer, err = hostuow.NewPlannedUnitOfWork(local, runtime, hostuow.PlanConfig{LogicalTopic: topic, PhysicalTopic: config.Routes[0].PhysicalTopic, NamingScheme: config.Routes[0].NamingScheme, Routes: trustedRoutes, Sends: config.Limits.Sends, ProofBudget: config.Limits.CheckTimeout, Admission: owner.admitted, MaintenancePrincipal: maintenancePrincipal, Journal: operations, OperationLease: config.Limits.Lease})
 	if err != nil {

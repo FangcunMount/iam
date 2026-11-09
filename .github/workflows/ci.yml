@@ -171,6 +171,20 @@ jobs:
             grep -q -- "--- PASS: $test_name " "$RUNNER_TEMP/m3-schema.log"
           done
           if grep -q -- '--- SKIP:' "$RUNNER_TEMP/m3-schema.log"; then exit 1; fi
+      - name: Verify retained IAM standard Outbox reads on isolated MySQL
+        env:
+          IAM_AUTHZ_TEST_MYSQL_DSN: root:owned-ci-only@tcp(127.0.0.1:3306)/mysql?parseTime=true&multiStatements=true
+          RM_IAM_OUTBOX_UPGRADE: ${{ github.workspace }}/internal/pkg/migration/migrations/000038_standard_message_outbox.up.sql
+          RM_IAM_OUTBOX_FAILURE_UPGRADE: ${{ github.workspace }}/internal/pkg/migration/migrations/000039_reliable_messaging_failure_state.up.sql
+          RM_IAM_EVENTS_CATALOG: ${{ github.workspace }}/configs/events.yaml
+        run: |
+          set -euo pipefail
+          go test -race -tags=reliable_messaging -count=1 -timeout=3m -v \
+            ./internal/apiserver/infra/authz/integration \
+            -run '^(TestReliableMessagingStandardPreflight|TestIAMStandardOutboxRetainedHistory)$' | tee "$RUNNER_TEMP/m5-standard-history.log"
+          for test_name in TestReliableMessagingStandardPreflight TestIAMStandardOutboxRetainedHistory; do
+            grep -q -- "--- PASS: $test_name " "$RUNNER_TEMP/m5-standard-history.log"
+          done
       - name: Retired cutover tools and publishing modes refuse before resources
         run: |
           set -euo pipefail
@@ -216,6 +230,7 @@ jobs:
         with:
           name: m3-schema-mysql-${{ matrix.mysql }}
           path: |
+            ${{ runner.temp }}/m5-standard-history.log
             ${{ runner.temp }}/m4-retired-tools.log
             ${{ runner.temp }}/m3-schema.log
             ${{ runner.temp }}/m3-maintenance.log
