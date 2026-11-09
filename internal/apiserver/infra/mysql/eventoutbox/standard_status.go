@@ -69,11 +69,13 @@ func (s *StandardStatusReader) OutboxStatusSnapshot(ctx context.Context, now tim
 	}
 	// Explicit text decoding keeps standard UTC dates independent of driver loc.
 	// Group unknown states too, rather than silently omitting future/corrupt work.
+	var source string
 	err := readOutboxSnapshot(ctx, s.db, func(tx *gorm.DB) error {
 		table, err := standardReadTable(tx)
 		if err != nil {
 			return err
 		}
+		source = table
 		return tx.Raw(`SELECT
  CASE WHEN BINARY state IN ('pending','retry_wait','publishing','quarantined') THEN CONCAT('standard_',state) ELSE 'standard_unknown' END AS status,
  COUNT(*) AS count, DATE_FORMAT(MIN(created_at),'%Y-%m-%d %H:%i:%s.%f') AS oldest
@@ -90,6 +92,8 @@ func (s *StandardStatusReader) OutboxStatusSnapshot(ctx context.Context, now tim
 		location := time.UTC
 		if strings.HasPrefix(group.Status, "legacy_") {
 			location = timezone.Location
+		} else if source == standardHistoryTable {
+			group.Status = "history_" + strings.TrimPrefix(group.Status, "standard_")
 		}
 		oldest, err := time.ParseInLocation("2006-01-02 15:04:05.000000", group.Oldest, location)
 		if err != nil {

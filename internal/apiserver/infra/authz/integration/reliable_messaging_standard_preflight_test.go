@@ -190,13 +190,14 @@ func TestIAMStandardOutboxRetainedHistory(t *testing.T) {
 	require.False(t, history.SDKDataReady || history.LegacyRollbackDataReady || history.UnusedSchemaCanBeRemoved ||
 		history.WriterExclusionVerified || history.CutoverAuthorized)
 
-	for _, state := range []string{"pending", "Published", "unknown"} {
+	for state, bucket := range map[string]string{"pending": "history_pending", "Published": "history_unknown", "unknown": "history_unknown"} {
 		require.NoError(t, db.Exec("UPDATE iam_rm_outbox_history SET state=?", state).Error)
 		require.ErrorIs(t, eventoutbox.CheckTransactionHandoff(ctx, db), eventoutbox.ErrUnsafeMessagingHandoff)
 		snapshot, err = reader.OutboxStatusSnapshot(ctx, now)
 		require.NoError(t, err)
 		require.Len(t, snapshot.Buckets, 1)
 		require.EqualValues(t, 1, snapshot.Buckets[0].Count)
+		require.Equal(t, bucket, snapshot.Buckets[0].Status)
 	}
 	require.NoError(t, db.Exec("UPDATE iam_rm_outbox_history SET state='published'").Error)
 
