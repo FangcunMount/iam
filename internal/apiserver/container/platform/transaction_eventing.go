@@ -10,6 +10,7 @@ import (
 	"github.com/FangcunMount/iam/v5/internal/apiserver/infra/messaging"
 	journal "github.com/FangcunMount/iam/v5/internal/apiserver/infra/mysql/authzoperation"
 	"github.com/FangcunMount/iam/v5/internal/apiserver/infra/mysql/bootstrapdelivery"
+	"github.com/FangcunMount/iam/v5/internal/apiserver/infra/mysql/eventoutbox"
 	"github.com/FangcunMount/iam/v5/internal/apiserver/infra/mysql/messageprotocol"
 	hostuow "github.com/FangcunMount/iam/v5/internal/apiserver/infra/mysql/uow/authz"
 	"github.com/FangcunMount/iam/v5/pkg/eventcatalog"
@@ -108,7 +109,7 @@ func NewTransactionEventing(deps EventingDeps, catalog *eventcatalog.Catalog, ma
 		if err := operations.CheckReady(check); err != nil {
 			return err
 		}
-		return checkTransactionHandoff(check, deps.DB, config.Limits.CheckTimeout)
+		return eventoutbox.CheckTransactionHandoff(check, deps.DB)
 	}}
 	owner.bootstrap = &bootstrapDelivery{
 		delivery: bootstrapdelivery.NewDelivery(pool, local.Store(), runtime, topic, config.Routes[0].PhysicalTopic, config.Routes[0].Revision),

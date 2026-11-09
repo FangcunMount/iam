@@ -69,14 +69,20 @@ func (s *StandardStatusReader) OutboxStatusSnapshot(ctx context.Context, now tim
 	}
 	// Explicit text decoding keeps standard UTC dates independent of driver loc.
 	// Group unknown states too, rather than silently omitting future/corrupt work.
-	err := s.db.WithContext(ctx).Raw(`SELECT
+	err := readOutboxSnapshot(ctx, s.db, func(tx *gorm.DB) error {
+		table, err := standardReadTable(tx)
+		if err != nil {
+			return err
+		}
+		return tx.Raw(`SELECT
  CASE WHEN BINARY state IN ('pending','retry_wait','publishing','quarantined') THEN CONCAT('standard_',state) ELSE 'standard_unknown' END AS status,
  COUNT(*) AS count, DATE_FORMAT(MIN(created_at),'%Y-%m-%d %H:%i:%s.%f') AS oldest
- FROM rm_outbox WHERE BINARY state <> 'published' GROUP BY 1
+ FROM ` + table + ` WHERE state IS NULL OR BINARY state <> 'published' GROUP BY 1
  UNION ALL SELECT
  CASE WHEN BINARY status IN ('pending','failed','publishing','quarantined') THEN CONCAT('legacy_',status) ELSE 'legacy_unknown' END AS status,
  COUNT(*) AS count, DATE_FORMAT(MIN(created_at),'%Y-%m-%d %H:%i:%s.%f') AS oldest
  FROM domain_event_outbox WHERE BINARY status <> 'published' GROUP BY 1`).Scan(&groups).Error
+	})
 	if err != nil {
 		return result, err
 	}
