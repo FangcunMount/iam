@@ -21,6 +21,7 @@ type bootstrapDelivery struct {
 	done             chan struct{}
 	stopOnce         sync.Once
 	complete         atomic.Bool
+	required         bool
 	started          bool // written by Start, read only after the owner's startDone
 }
 
@@ -29,7 +30,7 @@ func (b *bootstrapDelivery) check(ctx context.Context) error {
 		return nil
 	}
 	check, cancel := context.WithTimeout(ctx, b.budget)
-	claimed, err := b.delivery.CheckClaim(check)
+	claimed, err := b.delivery.CheckClaim(check, b.required)
 	cancel()
 	if err != nil {
 		return err

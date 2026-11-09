@@ -37,7 +37,7 @@ func NewDelivery(db *sql.DB, store *txmysql.Store, sender Sender, topic, physica
 
 // CheckClaim is a read-only startup check. Existing databases without a fresh
 // transaction claim have no bootstrap publication work.
-func (d *Delivery) CheckClaim(ctx context.Context) (bool, error) {
+func (d *Delivery) CheckClaim(ctx context.Context, required bool) (bool, error) {
 	var claim, spool bool
 	err := d.db.QueryRowContext(ctx, `SELECT
 		EXISTS(SELECT 1 FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='iam_fresh_bootstrap_journal'),
@@ -45,7 +45,7 @@ func (d *Delivery) CheckClaim(ctx context.Context) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	if !claim && !spool {
+	if !required && !claim && !spool {
 		return false, nil
 	}
 	if !claim {
@@ -65,7 +65,7 @@ func (d *Delivery) CheckClaim(ctx context.Context) (bool, error) {
 	if count != 1 || !identity || completed != 35 {
 		return false, errors.New("bootstrap claim is incomplete or belongs to another database")
 	}
-	if delivery == "legacy" && !spool {
+	if !required && delivery == "legacy" && !spool {
 		return false, nil
 	}
 	if delivery != "transaction-v1" || !spool {
