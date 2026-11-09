@@ -78,4 +78,11 @@ func TestFreshRoleBootstrapResumesAfterCommittedApplyMySQL(t *testing.T) {
 	require.Equal(t, notice, after)
 	advance(34)
 	require.False(t, db.Migrator().HasTable("authz_role_inheritances"))
+	advance(35)
+	require.NoError(t, stages[2].Prepare())
+	version = count(policy)
+	require.NoError(t, stages[2].Prepare())
+	require.Equal(t, version, count(policy))
+	require.Equal(t, 2, count(pending))
+	require.Equal(t, 1, count("SELECT COUNT(*) FROM iam_condition_retirement_migrations WHERE status='applied'"))
 }

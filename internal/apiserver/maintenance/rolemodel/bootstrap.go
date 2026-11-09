@@ -78,6 +78,20 @@ func BootstrapIndependentRoles(ctx context.Context, db *gorm.DB, stager event.St
 		if err != nil {
 			return err
 		}
+		if err := lockPolicy(tx); err != nil {
+			return err
+		}
+		// The original policy changes, notification and receipt commit together.
+		// A retry can finish the separately verified archive from that receipt.
+		var applied Receipt
+		existing := tx.Select("fingerprint").Where("migration_id = ?", MigrationID).Limit(1).Find(&applied)
+		if existing.Error != nil {
+			return existing.Error
+		}
+		if existing.RowsAffected != 0 {
+			fingerprint = applied.Fingerprint
+			return nil
+		}
 		before, err := LoadState(txCtx, tx)
 		if err != nil {
 			return err
