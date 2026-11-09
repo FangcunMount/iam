@@ -199,4 +199,70 @@ func TestStartupMigrationResumesFreshBootstrapMySQL(t *testing.T) {
 		require.NoError(t, dm.runMigrations())
 		assertComplete(t, db, false)
 	})
+	for _, phase := range []uint{33, 35} {
+		t.Run(fmt.Sprintf("transaction_notification_after_stage_%d", phase), func(t *testing.T) {
+			dm, db, migrator := fixture(t)
+			original, err := dm.GetMySQLDB()
+			require.NoError(t, err)
+			bind := func(conn *sql.Conn) (migration.FreshBootstrapHooks, error) {
+				return bindFreshBootstrapDelivery(ctx, conn, original, dm.config.Events.CatalogPath, true)
+			}
+			_, _, err = migrator.RunFreshForTransactionDelivery(ctx, func(conn *sql.Conn) (migration.FreshBootstrapHooks, error) {
+				hooks, err := bind(conn)
+				if err != nil {
+					return hooks, err
+				}
+				apply := &hooks.IndependentRoles
+				if phase == 35 {
+					apply = &hooks.RetireConditions
+				}
+				run := *apply
+				*apply = func() error {
+					if err := run(); err != nil {
+						return err
+					}
+					return interrupted
+				}
+				return hooks, nil
+			})
+			require.ErrorIs(t, err, interrupted)
+			require.Equal(t, int(phase), count(t, db, "SELECT version FROM schema_migrations WHERE dirty=0"))
+			require.ErrorContains(t, dm.runMigrations(), "delivery does not match")
+			_, _, err = migrator.RunTo(45)
+			require.ErrorContains(t, err, "fresh bootstrap is unfinished")
+			const snapshot = `SELECT CONCAT(HEX(event_id),':',SHA2(input_bytes,256),':',HEX(fingerprint))
+				FROM iam_bootstrap_policy_notification WHERE phase=? AND delivery_committed=0`
+			var before, after string
+			require.NoError(t, db.QueryRowContext(ctx, snapshot, phase).Scan(&before))
+			version, _, err := migrator.RunFreshForTransactionDelivery(ctx, bind)
+			require.NoError(t, err)
+			require.EqualValues(t, 45, version)
+			require.NoError(t, db.QueryRowContext(ctx, snapshot, phase).Scan(&after))
+			require.Equal(t, before, after)
+			require.Equal(t, 2, count(t, db, "SELECT COUNT(*) FROM iam_bootstrap_policy_notification WHERE delivery_committed=0"))
+			require.Zero(t, count(t, db, "SELECT COUNT(*) FROM domain_event_outbox"))
+			require.Zero(t, count(t, db, "SELECT COUNT(*) FROM rm_outbox"))
+			_, _, err = migrator.RunFreshForTransactionDelivery(ctx, bind)
+			require.NoError(t, err)
+			_, err = db.ExecContext(ctx, "UPDATE iam_bootstrap_policy_notification SET input_bytes=CONCAT(input_bytes,' ') WHERE phase=?", phase)
+			require.NoError(t, err)
+			_, _, err = migrator.RunFreshForTransactionDelivery(ctx, bind)
+			require.ErrorContains(t, err, "notification fields differ")
+			_, err = db.ExecContext(ctx, "RENAME TABLE iam_bootstrap_policy_notification TO isolated_missing_notification")
+			require.NoError(t, err)
+			_, _, err = migrator.RunFreshForTransactionDelivery(ctx, bind)
+			require.ErrorContains(t, err, "invalid fresh bootstrap notification layout")
+			require.Zero(t, count(t, db, "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='iam_bootstrap_policy_notification'"))
+		})
+	}
+	t.Run("transaction_delivery_cannot_claim_an_existing_installation", func(t *testing.T) {
+		_, db, migrator := fixture(t)
+		version, _, err := migrator.RunTo(31)
+		require.NoError(t, err)
+		require.EqualValues(t, 31, version)
+		_, _, err = migrator.RunFreshForTransactionDelivery(ctx, nil)
+		require.ErrorContains(t, err, "requires a fresh database claim")
+		require.Equal(t, 31, count(t, db, "SELECT version FROM schema_migrations WHERE dirty=0"))
+		require.Zero(t, count(t, db, "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='iam_bootstrap_policy_notification'"))
+	})
 }

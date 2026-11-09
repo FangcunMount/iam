@@ -16,13 +16,19 @@ import (
 
 const freshBootstrapTable = "iam_fresh_bootstrap_journal"
 
+const (
+	legacyBootstrapDelivery      = "legacy"
+	transactionBootstrapDelivery = "transaction-v1"
+)
+
 // FreshBootstrapHooks are bound to the same SQL session as the migration
 // driver. PrepareTenant must record its checkpoint in its business transaction.
 // The other two hooks must be safe to retry from their existing receipts.
 type FreshBootstrapHooks struct {
-	PrepareTenant    func(func(*sql.Tx) error) error
-	IndependentRoles func() error
-	RetireConditions func() error
+	PrepareTenant      func(func(*sql.Tx) error) error
+	IndependentRoles   func() error
+	RetireConditions   func() error
+	VerifyNotification func(uint) error
 }
 
 type migrationSession struct {
@@ -101,8 +107,8 @@ func (s *migrationSession) open(ctx context.Context) (*migrate.Migrate, error) {
 }
 
 type bootstrapJournal struct {
-	database, server string
-	completed        uint
+	database, server, delivery string
+	completed                  uint
 }
 
 func (s *migrationSession) journal(ctx context.Context) (*bootstrapJournal, error) {
@@ -118,7 +124,7 @@ func (s *migrationSession) journal(ctx context.Context) (*bootstrapJournal, erro
 	if engine != "InnoDB" {
 		return nil, errors.New("fresh bootstrap journal requires InnoDB")
 	}
-	rows, err := s.conn.QueryContext(ctx, "SELECT id,db_name,server_uuid,completed FROM iam_fresh_bootstrap_journal LIMIT 2")
+	rows, err := s.conn.QueryContext(ctx, "SELECT id,db_name,server_uuid,delivery,completed FROM iam_fresh_bootstrap_journal LIMIT 2")
 	if err != nil {
 		return nil, err
 	}
@@ -131,10 +137,11 @@ func (s *migrationSession) journal(ctx context.Context) (*bootstrapJournal, erro
 		}
 		return nil, errors.New("fresh bootstrap journal has no claim")
 	}
-	if err := rows.Scan(&id, &state.database, &state.server, &state.completed); err != nil {
+	if err := rows.Scan(&id, &state.database, &state.server, &state.delivery, &state.completed); err != nil {
 		return nil, err
 	}
-	if id != 1 || state.database == "" || state.server == "" || rows.Next() {
+	if id != 1 || state.database == "" || state.server == "" ||
+		(state.delivery != legacyBootstrapDelivery && state.delivery != transactionBootstrapDelivery) || rows.Next() {
 		return nil, errors.New("invalid fresh bootstrap journal")
 	}
 	switch state.completed {
@@ -167,6 +174,16 @@ func (s *migrationSession) openWithoutPendingBootstrap(ctx context.Context) (*mi
 // RunFresh runs the existing startup migration path. An existing unclaimed
 // installation follows the normal upgrade path without bootstrap hooks.
 func (m *Migrator) RunFresh(ctx context.Context, bind func(*sql.Conn) (FreshBootstrapHooks, error)) (uint, bool, error) {
+	return m.runFresh(ctx, legacyBootstrapDelivery, bind)
+}
+
+// RunFreshForTransactionDelivery claims only a fresh database. A previous
+// claim cannot switch delivery paths, even after a hook has committed.
+func (m *Migrator) RunFreshForTransactionDelivery(ctx context.Context, bind func(*sql.Conn) (FreshBootstrapHooks, error)) (uint, bool, error) {
+	return m.runFresh(ctx, transactionBootstrapDelivery, bind)
+}
+
+func (m *Migrator) runFresh(ctx context.Context, delivery string, bind func(*sql.Conn) (FreshBootstrapHooks, error)) (uint, bool, error) {
 	if !m.config.Enabled {
 		return 0, false, nil
 	}
@@ -192,7 +209,16 @@ func (m *Migrator) RunFresh(ctx context.Context, bind func(*sql.Conn) (FreshBoot
 	if dirty || state != nil && before < state.completed {
 		return before, false, errors.New("migration ledger conflicts with fresh bootstrap")
 	}
-	if state == nil && before != 0 || state != nil && state.completed == 35 {
+	if state == nil && before != 0 {
+		if delivery == transactionBootstrapDelivery {
+			return before, false, errors.New("transaction delivery bootstrap requires a fresh database claim")
+		}
+		return finishUp(instance, before, false)
+	}
+	if state != nil && state.delivery != delivery {
+		return before, false, errors.New("fresh bootstrap notification delivery does not match the database claim")
+	}
+	if state != nil && state.completed == 35 && delivery == legacyBootstrapDelivery {
 		return finishUp(instance, before, false)
 	}
 	if bind == nil {
@@ -215,8 +241,9 @@ func (m *Migrator) RunFresh(ctx context.Context, bind func(*sql.Conn) (FreshBoot
 		if _, err := s.conn.ExecContext(ctx, `CREATE TABLE iam_fresh_bootstrap_journal (
 			id TINYINT UNSIGNED PRIMARY KEY CHECK (id=1), db_name VARBINARY(64) NOT NULL,
 			server_uuid CHAR(36) CHARACTER SET ascii NOT NULL,
+			delivery VARBINARY(16) NOT NULL CHECK (delivery IN ('legacy','transaction-v1')),
 			completed TINYINT UNSIGNED NOT NULL CHECK (completed IN (0,31,33,35))
-		) ENGINE=InnoDB AS SELECT 1 AS id, ? AS db_name, ? AS server_uuid, 0 AS completed`, s.database, server); err != nil {
+		) ENGINE=InnoDB AS SELECT 1 AS id, ? AS db_name, ? AS server_uuid, ? AS delivery, 0 AS completed`, s.database, server, delivery); err != nil {
 			return before, false, err
 		}
 		state, err = s.journal(ctx)
@@ -224,7 +251,7 @@ func (m *Migrator) RunFresh(ctx context.Context, bind func(*sql.Conn) (FreshBoot
 			return before, false, err
 		}
 	}
-	if state == nil || state.database != s.database || state.server != server {
+	if state == nil || state.database != s.database || state.server != server || state.delivery != delivery {
 		return before, false, errors.New("fresh bootstrap claim does not match the original database")
 	}
 	hooks, err := bind(s.conn)
@@ -233,6 +260,18 @@ func (m *Migrator) RunFresh(ctx context.Context, bind func(*sql.Conn) (FreshBoot
 	}
 	if hooks.PrepareTenant == nil || hooks.IndependentRoles == nil || hooks.RetireConditions == nil {
 		return before, false, errors.New("incomplete fresh bootstrap hooks")
+	}
+	if delivery == transactionBootstrapDelivery {
+		if hooks.VerifyNotification == nil {
+			return before, false, errors.New("transaction bootstrap notification verification is required")
+		}
+		for _, phase := range []uint{33, 35} {
+			if phase <= state.completed {
+				if err := hooks.VerifyNotification(phase); err != nil {
+					return before, false, err
+				}
+			}
+		}
 	}
 	current, completed, changed := before, state.completed, false
 	for _, phase := range []uint{31, 33, 35} {
@@ -252,7 +291,7 @@ func (m *Migrator) RunFresh(ctx context.Context, bind func(*sql.Conn) (FreshBoot
 			ExecContext(context.Context, string, ...any) (sql.Result, error)
 		}) error {
 			result, err := conn.ExecContext(ctx, `UPDATE iam_fresh_bootstrap_journal SET completed=?
-				WHERE id=1 AND db_name=? AND server_uuid=? AND completed=?`, phase, s.database, server, completed)
+				WHERE id=1 AND db_name=? AND server_uuid=? AND delivery=? AND completed=?`, phase, s.database, server, delivery, completed)
 			if err != nil {
 				return err
 			}
@@ -278,6 +317,9 @@ func (m *Migrator) RunFresh(ctx context.Context, bind func(*sql.Conn) (FreshBoot
 		case 35:
 			err = hooks.RetireConditions()
 		}
+		if err == nil && phase != 31 && delivery == transactionBootstrapDelivery {
+			err = hooks.VerifyNotification(phase)
+		}
 		if err == nil && phase != 31 {
 			err = record(s.conn)
 		}
@@ -288,7 +330,7 @@ func (m *Migrator) RunFresh(ctx context.Context, bind func(*sql.Conn) (FreshBoot
 		if err != nil {
 			return current, true, err
 		}
-		if saved == nil || saved.completed != phase || saved.database != s.database || saved.server != server {
+		if saved == nil || saved.completed != phase || saved.database != s.database || saved.server != server || saved.delivery != delivery {
 			return current, true, errors.New("fresh bootstrap checkpoint was not persisted")
 		}
 		completed, changed = phase, true
