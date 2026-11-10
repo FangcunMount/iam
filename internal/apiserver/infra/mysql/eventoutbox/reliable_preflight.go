@@ -24,6 +24,7 @@ type ReliablePreflightReport struct {
 	LegacyPublished          int64  `json:"legacy_published"`
 	LegacyUnfinished         int64  `json:"legacy_unfinished"`
 	LegacyUnknown            int64  `json:"legacy_unknown"`
+	LegacySource             string `json:"legacy_source"`
 	StandardSource           string `json:"standard_source"`
 	StandardRows             int64  `json:"standard_rows"`
 	Pending                  int64  `json:"pending"`
@@ -82,6 +83,11 @@ func InspectReliableOutbox(ctx context.Context, db *gorm.DB, topic string, maxRo
 				return err
 			}
 		}
+		legacyTable, err := legacyReadTable(tx)
+		if err != nil {
+			return err
+		}
+		report.LegacySource = legacyTable
 		report.StandardSource = standardTable
 		var nowText string
 		if err := tx.Raw("SELECT DATE_FORMAT(UTC_TIMESTAMP(6),'%Y-%m-%d %H:%i:%s.%f')").Row().Scan(&nowText); err != nil {
@@ -92,7 +98,7 @@ func InspectReliableOutbox(ctx context.Context, db *gorm.DB, topic string, maxRo
 			return err
 		}
 		report.DatabaseTime = now.In(timezone.Location).Format(time.RFC3339Nano)
-		for _, table := range []string{"domain_event_outbox", standardTable} {
+		for _, table := range []string{legacyTable, standardTable} {
 			var cursor uint64
 			first := true
 			for {
@@ -102,7 +108,7 @@ func InspectReliableOutbox(ctx context.Context, db *gorm.DB, topic string, maxRo
 					query = query.Where("id > ?", cursor)
 				}
 				first = false
-				if table == "domain_event_outbox" {
+				if table == legacyTable {
 					var rows []struct {
 						ID     uint64
 						Status string
@@ -158,7 +164,7 @@ func InspectReliableOutbox(ctx context.Context, db *gorm.DB, topic string, maxRo
 	report.RecoveryRequired = report.Pending+report.Failed+report.Publishing > 0
 	// Old Relay does not read standard records, so every standard nonterminal
 	// state must be settled before disabling SDK ownership.
-	report.LegacyRollbackDataReady = report.StandardSource == standardOutboxTable && clean && report.StandardRows == report.Published && report.LegacyUnknown == 0
+	report.LegacyRollbackDataReady = report.LegacySource == legacyOutboxTable && report.StandardSource == standardOutboxTable && clean && report.StandardRows == report.Published && report.LegacyUnknown == 0
 	report.UnusedSchemaCanBeRemoved = report.StandardSource == standardOutboxTable && !report.Truncated && report.StandardRows == 0
 	return report, nil
 }
