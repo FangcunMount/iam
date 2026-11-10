@@ -220,3 +220,84 @@ func TestIAMStandardOutboxRetainedHistory(t *testing.T) {
 	require.NoError(t, db.Exec("CREATE TABLE iam_rm_outbox_history (id BIGINT PRIMARY KEY, state VARCHAR(24))").Error)
 	assertRefused()
 }
+
+func TestIAMLegacyOutboxRetainedHistory(t *testing.T) {
+	db := openStandardPreflightDB(t)
+	ctx, cancel := context.WithTimeout(t.Context(), 40*time.Second)
+	defer cancel()
+	now := time.Now()
+	record := eventoutbox.OutboxPO{
+		EventID: "legacy-history-fixture", EventType: "iam.authz.version.changed",
+		AggregateType: "policy", AggregateID: "2", TopicName: "iam.authz.version.v2",
+		PayloadJSON: "{\"version\":2, \"fixture\":true}", Status: "published",
+		NextAttemptAt: now, CreatedAt: now, UpdatedAt: now, PublishedAt: &now,
+	}
+	require.NoError(t, db.Create(&record).Error)
+	inspect := func() (eventoutbox.ReliablePreflightReport, error) {
+		return eventoutbox.InspectReliableOutbox(ctx, db, record.TopicName, 10)
+	}
+	reader := eventoutbox.NewStandardStatusReader(db)
+	baseline, err := inspect()
+	require.NoError(t, err)
+	require.Equal(t, "domain_event_outbox", baseline.LegacySource)
+	require.EqualValues(t, 1, baseline.LegacyPublished)
+	require.True(t, baseline.LegacyRollbackDataReady)
+
+	require.NoError(t, db.Exec("RENAME TABLE domain_event_outbox TO iam_domain_event_outbox_history").Error)
+	var restored eventoutbox.OutboxPO
+	require.NoError(t, db.Table("iam_domain_event_outbox_history").Take(&restored).Error)
+	require.Equal(t, record.EventID, restored.EventID)
+	require.Equal(t, record.PayloadJSON, restored.PayloadJSON)
+	require.Equal(t, record.Status, restored.Status)
+	require.NoError(t, eventoutbox.CheckTransactionHandoff(ctx, db))
+	require.Error(t, eventoutbox.CheckLegacyDrained(ctx, db), "retained history cannot qualify the original writer")
+	snapshot, err := reader.OutboxStatusSnapshot(ctx, now)
+	require.NoError(t, err)
+	require.Empty(t, snapshot.Buckets)
+	history, err := inspect()
+	require.NoError(t, err)
+	require.Equal(t, "iam_domain_event_outbox_history", history.LegacySource)
+	require.Equal(t, baseline.StandardSource, history.StandardSource)
+	require.Equal(t, baseline.LegacyPublished, history.LegacyPublished)
+	require.True(t, history.SDKDataReady)
+	require.False(t, history.LegacyRollbackDataReady || history.WriterExclusionVerified || history.CutoverAuthorized)
+
+	for _, state := range []struct{ stored, bucket string }{
+		{"pending", "legacy_pending"}, {"Published", "legacy_unknown"},
+	} {
+		require.NoError(t, db.Exec("UPDATE iam_domain_event_outbox_history SET status=?", state.stored).Error)
+		require.ErrorIs(t, eventoutbox.CheckTransactionHandoff(ctx, db), eventoutbox.ErrUnsafeMessagingHandoff)
+		snapshot, err = reader.OutboxStatusSnapshot(ctx, now)
+		require.NoError(t, err)
+		require.Len(t, snapshot.Buckets, 1)
+		require.Equal(t, state.bucket, snapshot.Buckets[0].Status)
+		report, err := inspect()
+		require.NoError(t, err)
+		require.EqualValues(t, 1, report.LegacyUnfinished)
+		require.False(t, report.SDKDataReady || report.LegacyRollbackDataReady)
+	}
+	require.NoError(t, db.Exec("UPDATE iam_domain_event_outbox_history SET status='published'").Error)
+
+	assertRefused := func() {
+		t.Helper()
+		require.Error(t, eventoutbox.CheckTransactionHandoff(ctx, db))
+		_, err := reader.OutboxStatusSnapshot(ctx, now)
+		require.Error(t, err)
+		_, err = inspect()
+		require.Error(t, err)
+	}
+	require.NoError(t, db.Exec("CREATE TABLE domain_event_outbox LIKE iam_domain_event_outbox_history").Error)
+	assertRefused()
+	require.NoError(t, db.Exec("DROP TABLE domain_event_outbox").Error)
+	require.NoError(t, db.Exec("RENAME TABLE iam_domain_event_outbox_history TO saved_legacy_history").Error)
+	assertRefused()
+	require.NoError(t, db.Exec("CREATE VIEW iam_domain_event_outbox_history AS SELECT * FROM saved_legacy_history").Error)
+	assertRefused()
+	require.NoError(t, db.Exec("DROP VIEW iam_domain_event_outbox_history").Error)
+	require.NoError(t, db.Exec("CREATE TABLE iam_domain_event_outbox_history (id BIGINT PRIMARY KEY, status VARCHAR(32), created_at DATETIME)").Error)
+	assertRefused()
+	require.NoError(t, db.Exec("DROP TABLE iam_domain_event_outbox_history").Error)
+	require.NoError(t, db.Exec("RENAME TABLE saved_legacy_history TO domain_event_outbox").Error)
+	require.NoError(t, eventoutbox.CheckTransactionHandoff(ctx, db))
+	require.NoError(t, eventoutbox.CheckLegacyDrained(ctx, db))
+}
