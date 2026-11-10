@@ -75,6 +75,10 @@ func (s *StandardStatusReader) OutboxStatusSnapshot(ctx context.Context, now tim
 		if err != nil {
 			return err
 		}
+		legacy, err := legacyReadTable(tx)
+		if err != nil {
+			return err
+		}
 		source = table
 		return tx.Raw(`SELECT
  CASE WHEN BINARY state IN ('pending','retry_wait','publishing','quarantined') THEN CONCAT('standard_',state) ELSE 'standard_unknown' END AS status,
@@ -83,7 +87,7 @@ func (s *StandardStatusReader) OutboxStatusSnapshot(ctx context.Context, now tim
  UNION ALL SELECT
  CASE WHEN BINARY status IN ('pending','failed','publishing','quarantined') THEN CONCAT('legacy_',status) ELSE 'legacy_unknown' END AS status,
  COUNT(*) AS count, DATE_FORMAT(MIN(created_at),'%Y-%m-%d %H:%i:%s.%f') AS oldest
- FROM domain_event_outbox WHERE BINARY status <> 'published' GROUP BY 1`).Scan(&groups).Error
+ FROM ` + legacy + ` WHERE status IS NULL OR BINARY status <> 'published' GROUP BY 1`).Scan(&groups).Error
 	})
 	if err != nil {
 		return result, err
