@@ -57,8 +57,12 @@ env:
 jobs:
   plan:
     if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_repository.full_name == github.repository &&
+       github.event.workflow_run.head_branch == 'main' &&
+       github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest
     outputs:
       reuse: ${{ steps.plan.outputs.reuse }}
@@ -78,12 +82,18 @@ jobs:
           DEPLOY_OPERATION: ${{ inputs.operation }}
         run: |
           set -Eeuo pipefail
+          if [ "$GITHUB_EVENT_NAME" = workflow_run ]; then
+            [[ "$DEPLOY_SHA" =~ ^[0-9a-f]{40}$ ]]
+            git merge-base --is-ancestor "$DEPLOY_SHA" origin/main
+          elif [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then
+            [[ "$GITHUB_REF" == refs/heads/main ]]
+          fi
           if [ "$DEPLOY_OPERATION" = build ]; then
-            [[ "$GITHUB_EVENT_NAME" == workflow_dispatch && "$GITHUB_REF" == refs/heads/main ]]
+            [[ "$GITHUB_EVENT_NAME" == workflow_dispatch ]]
             test -z "$REQUESTED_REVISION$CANDIDATE_DIGEST$CANDIDATE_CONFIG_ID"
           fi
           if [ -n "$REQUESTED_REVISION$CANDIDATE_DIGEST$CANDIDATE_CONFIG_ID" ]; then
-            [[ "$GITHUB_EVENT_NAME" == workflow_dispatch && "$GITHUB_REF" == refs/heads/main ]]
+            [[ "$GITHUB_EVENT_NAME" == workflow_dispatch ]]
             [[ "$REQUESTED_REVISION" =~ ^[0-9a-f]{40}$ ]]
             [[ "$CANDIDATE_DIGEST" =~ ^sha256:[0-9a-f]{64}$ && "$CANDIDATE_CONFIG_ID" =~ ^sha256:[0-9a-f]{64}$ ]]
             [[ "$DEPLOY_EXPORT_REGISTRY" == acr ]]
@@ -381,13 +391,7 @@ jobs:
     name: Deployment Summary
     needs: [plan, docker, deploy]
     runs-on: ubuntu-latest
-    if: |
-      always() && (
-        github.event_name == 'workflow_dispatch' ||
-        (github.event_name == 'workflow_run' &&
-         github.event.workflow_run.conclusion == 'success' &&
-         github.event.workflow_run.head_branch == 'main')
-      )
+    if: always() && needs.plan.result != 'skipped'
     steps:
       - name: Log deployment status
         run: |

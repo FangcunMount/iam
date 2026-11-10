@@ -249,7 +249,67 @@ for ref, revision, digest, config, expected in [
         assert (result.returncode == 0) == expected, result.stderr
         if expected:
             assert output.read_text().strip() == "reuse=false"
+        if ref != "refs/heads/main":
+            values["DEPLOY_OPERATION"] = "deploy"
+            for rejected_ref in (ref, "refs/heads/Main"):
+                values["GITHUB_REF"] = rejected_ref
+                result = subprocess.run(["bash", "-c", planner], env=values, capture_output=True)
+                assert result.returncode != 0 and not output.exists()
 print("IAM build-only deployment refusal and planner cases passed")
+
+# Only the named repository's successful main push CI can start an automatic plan.
+plan_condition = workflow.split("\n  plan:\n    if: >-\n", 1)[1].split("\n    runs-on:", 1)[0]
+same_repository = "FangcunMount/iam"
+for event, ref, source_event, head_repo, branch, conclusion, expected in [
+    ("workflow_dispatch", "refs/heads/main", "", "", "", "", True),
+    ("workflow_dispatch", "refs/heads/topic", "", "", "", "", False),
+    ("workflow_run", "refs/heads/main", "push", same_repository, "main", "success", True),
+    ("workflow_run", "refs/heads/main", "pull_request", same_repository, "main", "success", False),
+    ("workflow_run", "refs/heads/main", "workflow_dispatch", same_repository, "main", "success", False),
+    ("workflow_run", "refs/heads/main", "push", "other/iam", "main", "success", False),
+    ("workflow_run", "refs/heads/main", "push", same_repository, "develop", "success", False),
+    ("workflow_run", "refs/heads/main", "push", same_repository, "main", "failure", False),
+]:
+    values = {
+        "github.event_name": event, "github.ref": ref, "github.repository": same_repository,
+        "github.event.workflow_run.event": source_event,
+        "github.event.workflow_run.head_repository.full_name": head_repo,
+        "github.event.workflow_run.head_branch": branch,
+        "github.event.workflow_run.conclusion": conclusion,
+    }
+    expression = plan_condition
+    for key in sorted(values, key=len, reverse=True):
+        expression = expression.replace(key, repr(values[key]))
+    expression = " ".join(expression.replace("&&", "and").replace("||", "or").split())
+    assert eval(expression, {"__builtins__": {}}) is expected, values
+
+with tempfile.TemporaryDirectory() as temporary:
+    directory = pathlib.Path(temporary)
+    subprocess.run(["git", "init", "-q"], cwd=directory, check=True)
+
+    def fixture_commit(message):
+        subprocess.run(
+            ["git", "-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid",
+             "commit", "--allow-empty", "-qm", message], cwd=directory, check=True,
+        )
+        return subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=directory, text=True).strip()
+
+    approved = fixture_commit("approved main snapshot")
+    subprocess.run(["git", "update-ref", "refs/remotes/origin/main", approved], cwd=directory, check=True)
+    unapproved = fixture_commit("outside the approved main history")
+    for revision, expected in [(approved, True), (unapproved, False), ("not-a-sha", False)]:
+        output = directory / "plan-output"
+        output.unlink(missing_ok=True)
+        values = dict(os.environ, GITHUB_EVENT_NAME="workflow_run", DEPLOY_OPERATION="",
+                      REQUESTED_REVISION="", CANDIDATE_DIGEST="", CANDIDATE_CONFIG_ID="",
+                      DEPLOY_SHA=revision, GITHUB_OUTPUT=str(output))
+        result = subprocess.run(["bash", "-c", planner], cwd=directory, env=values, capture_output=True)
+        assert (result.returncode == 0) is expected
+        if expected:
+            assert output.read_text().strip() == "reuse=false"
+        else:
+            assert not output.exists()
+print("IAM source, event and checked-out main ancestry cases passed")
 
 # Exercise the actual isolated-authentication setup, including plugin discovery.
 auth_anchor = workflow.index(
