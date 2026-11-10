@@ -63,6 +63,8 @@ func run(args []string, output io.Writer) error {
 		return runScopeMigration(args[1:], output)
 	case "condition-authz-retire":
 		return runConditionRetirement(args[1:], output)
+	case "fresh-transaction-bootstrap":
+		return runFreshTransactionBootstrap(args[1:], output)
 	case "role-model-migrate":
 		return runRoleModelMigration(args[1:], output)
 	case "tenant-retirement":

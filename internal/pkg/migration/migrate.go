@@ -1,13 +1,12 @@
 package migration
 
 import (
+	"context"
 	"database/sql"
 	"embed"
 	"fmt"
 
 	"github.com/golang-migrate/migrate/v4"
-	"github.com/golang-migrate/migrate/v4/database/mysql"
-	"github.com/golang-migrate/migrate/v4/source/iofs"
 )
 
 // migrations 嵌入迁移文件
@@ -59,13 +58,16 @@ func (m *Migrator) Run() (uint, bool, error) {
 	}
 
 	// 创建 migrate 实例
-	instance, err := m.createMigrate()
+	ctx := context.Background()
+	session, err := m.lockSession(ctx)
 	if err != nil {
-		return 0, false, fmt.Errorf("failed to create migrate instance: %w", err)
+		return 0, false, err
 	}
-	defer func() {
-		_, _ = instance.Close()
-	}()
+	defer session.close()
+	instance, err := session.openWithoutPendingBootstrap(ctx)
+	if err != nil {
+		return 0, false, err
+	}
 
 	// 获取当前版本
 	currentVersion, dirty, err := instance.Version()
@@ -86,7 +88,7 @@ func (m *Migrator) Run() (uint, bool, error) {
 
 	if versionBefore == 0 && len(m.config.FreshStages) > 0 {
 		var tables int
-		if err := m.db.QueryRow("SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME <> 'schema_migrations'").Scan(&tables); err != nil {
+		if err := session.conn.QueryRowContext(ctx, "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME <> 'schema_migrations'").Scan(&tables); err != nil {
 			return 0, false, err
 		}
 		if tables != 0 {
@@ -105,26 +107,7 @@ func (m *Migrator) Run() (uint, bool, error) {
 		}
 	}
 
-	// 执行迁移
-	if err := instance.Up(); err != nil {
-		if err == migrate.ErrNoChange {
-			// Fresh preparation may already have advanced to the latest schema.
-			current, _, versionErr := instance.Version()
-			if versionErr != nil {
-				return versionBefore, false, versionErr
-			}
-			return current, current != versionBefore, nil
-		}
-		return versionBefore, false, fmt.Errorf("migration failed: %w", err)
-	}
-
-	// 获取新版本
-	newVersion, _, verr := instance.Version()
-	if verr != nil {
-		return versionBefore, true, fmt.Errorf("failed to get new version: %w", verr)
-	}
-
-	return newVersion, true, nil
+	return finishUp(instance, versionBefore, false)
 }
 
 // RunTo migrates to an explicit schema version. It is used by the maintenance
@@ -133,11 +116,16 @@ func (m *Migrator) RunTo(target uint) (uint, bool, error) {
 	if !m.config.Enabled {
 		return 0, false, nil
 	}
-	instance, err := m.createMigrate()
+	ctx := context.Background()
+	session, err := m.lockSession(ctx)
 	if err != nil {
-		return 0, false, fmt.Errorf("failed to create migrate instance: %w", err)
+		return 0, false, err
 	}
-	defer func() { _, _ = instance.Close() }()
+	defer session.close()
+	instance, err := session.openWithoutPendingBootstrap(ctx)
+	if err != nil {
+		return 0, false, err
+	}
 
 	current, dirty, versionErr := instance.Version()
 	if versionErr != nil && versionErr != migrate.ErrNilVersion {
@@ -166,36 +154,4 @@ func (m *Migrator) RunTo(target uint) (uint, bool, error) {
 		return current, true, fmt.Errorf("failed to get new version: %w", err)
 	}
 	return newVersion, true, nil
-}
-
-// createMigrate 创建 migrate 实例
-func (m *Migrator) createMigrate() (*migrate.Migrate, error) {
-	// 1. 从嵌入文件系统创建源驱动
-	sourceDriver, err := iofs.New(migrations, "migrations")
-	if err != nil {
-		return nil, fmt.Errorf("failed to create source driver: %w", err)
-	}
-
-	// 2. 创建 MySQL 数据库驱动
-	databaseDriver, err := mysql.WithInstance(m.db, &mysql.Config{
-		DatabaseName: m.config.Database,
-		// 迁移表名，用于记录版本
-		MigrationsTable: "schema_migrations",
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to create database driver: %w", err)
-	}
-
-	// 3. 创建 migrate 实例
-	instance, err := migrate.NewWithInstance(
-		"iofs",
-		sourceDriver,
-		"mysql",
-		databaseDriver,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create migrate instance: %w", err)
-	}
-
-	return instance, nil
 }

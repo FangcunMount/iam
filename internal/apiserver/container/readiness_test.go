@@ -28,6 +28,16 @@ func TestDomainEventOutboxReadinessRejectsStaleBacklog(t *testing.T) {
 	require.ErrorContains(t, container.checkDomainEventOutboxReady(context.Background()), "backlog exceeded")
 }
 
+func TestDomainEventOutboxReadinessRejectsYoungArchivedWork(t *testing.T) {
+	container := &Container{
+		outboxStore: readinessOutboxSnapshot{buckets: []outbox.StatusBucket{{Status: "history_pending", Count: 1}}},
+		runtimeOptions: RuntimeOptions{Health: apiserveroptions.HealthOptions{
+			Readiness: apiserveroptions.ReadinessOptions{OutboxMaxPendingAge: 5 * time.Minute},
+		}},
+	}
+	require.ErrorContains(t, container.checkDomainEventOutboxReady(t.Context()), "requires intervention: history_pending")
+}
+
 func TestDomainEventOutboxReadinessAcceptsEmptyStore(t *testing.T) {
 	container := &Container{
 		outboxStore: readinessOutboxSnapshot{},
