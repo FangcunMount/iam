@@ -14,12 +14,16 @@ SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 SRC="${DOCKER_REGISTRY}/${DOCKER_REPOSITORY}/${IMAGE_NAME}:${DEPLOY_SHA}"
 DST_BASE="${ALIYUN_ACR_REGISTRY}/${ALIYUN_ACR_NAMESPACE}/${IMAGE_NAME}"
 
-docker pull "$SRC"
-docker tag "$SRC" "${DST_BASE}:latest"
-docker tag "$SRC" "${DST_BASE}:${DEPLOY_SHA}"
-docker push "${DST_BASE}:latest"
-docker push "${DST_BASE}:${DEPLOY_SHA}"
+case "${PUBLISH_LATEST-true}" in
+  true) set -- "${DEPLOY_SHA}" latest ;;
+  false) set -- "${DEPLOY_SHA}" ;;
+  *) echo "PUBLISH_LATEST must be true or false" >&2; exit 1 ;;
+esac
 
-echo "Image pushed to Aliyun ACR:"
-echo "  - ${DST_BASE}:latest"
-echo "  - ${DST_BASE}:${DEPLOY_SHA}"
+docker pull "$SRC"
+for tag do
+  target="${DST_BASE}:$tag"
+  docker tag "$SRC" "$target"
+  docker push "$target"
+  printf 'Image pushed: %s\n' "$target"
+done

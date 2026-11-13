@@ -155,6 +155,8 @@ jobs:
           password: ${{ secrets.ALIYUN_ACR_PASSWORD }}
 
       - name: Build and publish image
+        env:
+          PUBLISH_LATEST: ${{ inputs.operation != 'build' && vars.PRODUCTION_DEPLOY_PAUSED != 'true' && 'true' || 'false' }}
         run: |
           make cd-image \
             SERVICE="${SERVICE}" \

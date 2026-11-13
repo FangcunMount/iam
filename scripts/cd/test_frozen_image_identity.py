@@ -386,3 +386,54 @@ else:raise SystemExit(2)
             ]
             assert all(c[0] == "buildx" for c in calls)
         print(repo, "isolated-plugin", mode, "passed")
+
+# Exercise the complete make cd-image recipe with a fake Docker transport.
+# This covers GHCR, Docker Hub, and ACR without touching any registry.
+build_step = workflow.split("      - name: Build and publish image\n", 1)[1].split("\n  deploy:", 1)[0]
+policy = re.search(r"PUBLISH_LATEST: \$\{\{ (.*?) \}\}", build_step)[1]
+for operation, paused in itertools.product(("build", "deploy", ""), ("true", "false", "")):
+    values = {"inputs.operation": operation, "vars.PRODUCTION_DEPLOY_PAUSED": paused}
+    expression = policy
+    for key, value in values.items():
+        expression = expression.replace(key, repr(value))
+    setting = eval(expression.replace("&&", "and").replace("||", "or"), {"__builtins__": {}})
+    assert setting == ("true" if operation != "build" and paused != "true" else "false")
+
+with tempfile.TemporaryDirectory() as temp:
+    folder = pathlib.Path(temp).resolve()
+    calls = folder / "calls"
+    docker = folder / "docker"
+    docker.write_text(
+        "#!/usr/bin/env python3\n"
+        "import json, os, sys\n"
+        "with open(os.environ['CALLS'], 'a') as out: out.write(json.dumps(sys.argv[1:])+'\\n')\n"
+    )
+    docker.chmod(0o755)
+    env = dict(os.environ, PATH=f"{folder}:{os.environ['PATH']}", CALLS=str(calls),
+               SERVICE="apiserver", DEPLOY_REF="main", DEPLOY_SHA="b" * 40,
+               DOCKER_REGISTRY="ghcr.invalid", DOCKER_REPOSITORY="unit",
+               DOCKERHUB_USERNAME="hub-unit", ALIYUN_ACR_REGISTRY="acr.invalid",
+               ALIYUN_ACR_NAMESPACE="unit", WWW_UID="3000", WWW_GID="3000")
+    env.pop("PUBLISH_LATEST", None)
+    sha = env["DEPLOY_SHA"]
+    for setting, mutable in ((None, True), ("true", True), ("false", False), ("invalid", None)):
+        calls.unlink(missing_ok=True)
+        setting_env = {} if setting is None else {"PUBLISH_LATEST": setting}
+        run = subprocess.run(["make", "-s", "cd-image"], cwd=ROOT, env={**env, **setting_env},
+                             capture_output=True, text=True, timeout=25)
+        if mutable is None:
+            assert run.returncode != 0 and not calls.exists(), run.stderr
+            continue
+        assert run.returncode == 0, run.stderr
+        rows = [json.loads(line) for line in calls.read_text().splitlines()]
+        builds = [a for a in rows if a[:2] == ["buildx", "build"]]
+        build, = builds
+        ghcr = [build[i+1] for i, arg in enumerate(build) if arg == "--tag"]
+        expected_tags = {sha, "latest"} if mutable else {sha}
+        assert set(ghcr) == {"ghcr.invalid/unit/iam:" + tag for tag in expected_tags}
+        pushes = [arg[1] for arg in rows if arg[0] == "push"]
+        assert set(pushes) == {base + "/iam:" + tag for base in ("hub-unit", "acr.invalid/unit")
+                              for tag in expected_tags}
+        assert len(pushes) == 2 * len(expected_tags)
+        assert len([a for a in rows if a[0] == "pull" and a[1] == "ghcr.invalid/unit/iam:" + sha]) == 2
+print("IAM build and publish labels passed for default, frozen, and invalid settings")
