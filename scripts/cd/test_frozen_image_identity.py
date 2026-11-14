@@ -431,6 +431,11 @@ with tempfile.TemporaryDirectory() as temp:
         ghcr = [build[i+1] for i, arg in enumerate(build) if arg == "--tag"]
         expected_tags = {sha, "latest"} if mutable else {sha}
         assert set(ghcr) == {"ghcr.invalid/unit/iam:" + tag for tag in expected_tags}
+        cache_read = [build[i + 1] for i, arg in enumerate(build) if arg == "--cache-from"]
+        cache_write = [build[i + 1] for i, arg in enumerate(build) if arg == "--cache-to"]
+        cache_ref = "type=registry,ref=ghcr.invalid/unit/iam:buildcache"
+        assert cache_read == [cache_ref]
+        assert cache_write == ([cache_ref + ",mode=max,ignore-error=true"] if mutable else [])
         pushes = [arg[1] for arg in rows if arg[0] == "push"]
         assert set(pushes) == {base + "/iam:" + tag for base in ("hub-unit", "acr.invalid/unit")
                               for tag in expected_tags}
