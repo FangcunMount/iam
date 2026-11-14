@@ -8,7 +8,6 @@ import (
 	"errors"
 	"math"
 	"reflect"
-	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -83,14 +82,11 @@ func FreezeVersionPlan(command CommandIntent, expected int64, operationID, event
 	if err != nil {
 		return transaction.FrozenPlan{}, err
 	}
-	wire, err := legacy.Encode(legacy.Envelope{UUID: eventID, Payload: body, Metadata: versionMetadata(expected + 1)}, legacy.Revision1)
+	wire, err := legacy.Encode(legacy.Envelope{UUID: eventID, Payload: body, Metadata: eventing.PolicyVersionWireMetadata(expected + 1)}, legacy.Revision1)
 	if err != nil {
 		return transaction.FrozenPlan{}, err
 	}
 	return transaction.NewPlan(transaction.PlanInput{Owner: "iam.mysql", Scope: PolicyScope, OperationID: operationID, IdempotencyKey: command.key, InputHash: command.hash, Branches: []transaction.BranchInput{{ID: PolicyBranch, Message: m, Wire: wire, PhysicalTopic: physical, RouteRevision: "m3-1"}}})
-}
-func versionMetadata(version int64) map[string]string {
-	return map[string]string{"event_type": eventing.AuthzVersionChanged, "aggregate_type": "PolicyVersion", "aggregate_id": strconv.FormatInt(version, 10), "source": "iam-outbox-relay"}
 }
 
 // VersionPlan reads the reservation WINNER without allocating an event or
@@ -129,7 +125,7 @@ func DecodeVersionPlan(plan transaction.FrozenPlan) (VersionPlan, error) {
 		return VersionPlan{}, ErrInvalidChangePlan
 	}
 	outer, ok, err := legacy.Decode(b.Wire)
-	if err != nil || !ok || outer.UUID != in.ID || !bytes.Equal(outer.Payload, eventPayload) || !reflect.DeepEqual(outer.Metadata, versionMetadata(body.Version)) {
+	if err != nil || !ok || outer.UUID != in.ID || !bytes.Equal(outer.Payload, eventPayload) || !reflect.DeepEqual(outer.Metadata, eventing.PolicyVersionWireMetadata(body.Version)) {
 		return VersionPlan{}, ErrInvalidChangePlan
 	}
 	// This producer freezes the original revision-one wire byte-for-byte. Do not

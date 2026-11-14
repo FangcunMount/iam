@@ -55,3 +55,8 @@ func PolicyPayloadVersion(payload []byte) (int64, error) {
 	}
 	return data.Version, nil
 }
+
+// PolicyVersionWireMetadata preserves the existing policy subscriber envelope.
+func PolicyVersionWireMetadata(version int64) map[string]string {
+	return map[string]string{"event_type": AuthzVersionChanged, "aggregate_type": "PolicyVersion", "aggregate_id": strconv.FormatInt(version, 10), "source": "iam-outbox-relay"}
+}
