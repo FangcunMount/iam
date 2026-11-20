@@ -428,6 +428,9 @@ with tempfile.TemporaryDirectory() as temp:
         rows = [json.loads(line) for line in calls.read_text().splitlines()]
         builds = [a for a in rows if a[:2] == ["buildx", "build"]]
         build, = builds
+        labels = [build[i + 1] for i, arg in enumerate(build) if arg == "--label"]
+        revisions = [label for label in labels if label.startswith("org.opencontainers.image.revision=")]
+        assert revisions == ["org.opencontainers.image.revision=" + sha], revisions
         ghcr = [build[i+1] for i, arg in enumerate(build) if arg == "--tag"]
         expected_tags = {sha, "latest"} if mutable else {sha}
         assert set(ghcr) == {"ghcr.invalid/unit/iam:" + tag for tag in expected_tags}

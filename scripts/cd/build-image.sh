@@ -35,6 +35,7 @@ docker buildx build \
   --file "$DOCKERFILE" \
   --push \
   "$@" \
+  --label "org.opencontainers.image.revision=${DEPLOY_SHA}" \
   --build-arg "VERSION=${DEPLOY_REF}" \
   --build-arg "BUILD_TIME=${BUILD_TIME}" \
   --build-arg "GIT_COMMIT=${DEPLOY_SHA}" \
