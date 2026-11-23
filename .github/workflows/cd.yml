@@ -167,7 +167,6 @@ jobs:
       - name: Read back immutable IAM publication
         id: immutable_publication
         if: inputs.operation == 'build' || vars.PRODUCTION_DEPLOY_PAUSED == 'true'
-        continue-on-error: true
         run: |
           python3 scripts/cd/verify-immutable-publication.py "$DEPLOY_SHA" \
             "${DOCKER_REGISTRY}/${DOCKER_REPOSITORY}/iam" \
@@ -176,11 +175,12 @@ jobs:
             > "$RUNNER_TEMP/iam-immutable-publication.json"
 
       - name: Archive immutable IAM publication
-        if: steps.immutable_publication.outcome != 'skipped'
+        if: always() && (steps.immutable_publication.outcome == 'success' || steps.immutable_publication.outcome == 'failure')
         uses: actions/upload-artifact@v7
         with:
           name: iam-immutable-publication-${{ env.DEPLOY_SHA }}
           path: ${{ runner.temp }}/iam-immutable-publication.json
+          if-no-files-found: error
 
   deploy:
     name: Deploy to Production

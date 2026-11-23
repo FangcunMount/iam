@@ -189,6 +189,23 @@ for paused, reuse, plan, build, deployment, expected in [
 # regardless of whether the repository pause variable is enabled.
 import itertools
 
+receipt_step = workflow.split("      - name: Read back immutable IAM publication\n", 1)[1]
+receipt_step, archive_step = receipt_step.split("      - name: Archive immutable IAM publication\n", 1)
+archive_step = archive_step.split("\n  deploy:", 1)[0]
+assert "continue-on-error" not in receipt_step, "a failed immutable readback must fail the build job"
+assert "if-no-files-found: error" in archive_step
+archive_condition = re.search(r"^        if: (.+)$", archive_step, flags=re.M)[1]
+for status, outcome in itertools.product((True, False), ("success", "failure", "skipped", "cancelled", "")):
+    # Actions injects success() if the expression has no explicit status check.
+    explicit_status = "always()" in archive_condition
+    expression = archive_condition.replace("always()", "True")
+    expression = expression.replace("steps.immutable_publication.outcome", repr(outcome))
+    archive = (status or explicit_status) and eval(
+        expression.replace("&&", "and").replace("||", "or"), {"__builtins__": {}}
+    )
+    assert archive == (outcome in ("success", "failure")), (status, outcome)
+print("IAM immutable publication status and diagnostic archiving passed")
+
 condition_start = workflow.index("    if: |\n", workflow.index("\n  deploy:\n"))
 condition_end = workflow.index("\n    env:", condition_start)
 condition = workflow[condition_start:condition_end].split("\n", 1)[1].strip()
