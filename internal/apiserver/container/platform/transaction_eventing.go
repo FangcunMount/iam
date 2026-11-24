@@ -9,6 +9,8 @@ import (
 	"github.com/FangcunMount/iam/v5/internal/apiserver/eventing"
 	"github.com/FangcunMount/iam/v5/internal/apiserver/infra/messaging"
 	journal "github.com/FangcunMount/iam/v5/internal/apiserver/infra/mysql/authzoperation"
+	"github.com/FangcunMount/iam/v5/internal/apiserver/infra/mysql/bootstrapdelivery"
+	"github.com/FangcunMount/iam/v5/internal/apiserver/infra/mysql/eventoutbox"
 	"github.com/FangcunMount/iam/v5/internal/apiserver/infra/mysql/messageprotocol"
 	hostuow "github.com/FangcunMount/iam/v5/internal/apiserver/infra/mysql/uow/authz"
 	"github.com/FangcunMount/iam/v5/pkg/eventcatalog"
@@ -29,6 +31,7 @@ type TransactionEventing struct {
 	Writer                   *hostuow.PlannedUnitOfWork
 	runtime                  *TransactionRuntime
 	maintenance              *operationMaintenance
+	bootstrap                *bootstrapDelivery
 	normal                   normalTransactionPeer
 	mu                       sync.Mutex
 	started, ready, stopping bool
@@ -106,8 +109,13 @@ func NewTransactionEventing(deps EventingDeps, catalog *eventcatalog.Catalog, ma
 		if err := operations.CheckReady(check); err != nil {
 			return err
 		}
-		return checkTransactionHandoff(check, deps.DB, config.Limits.CheckTimeout)
+		return eventoutbox.CheckTransactionHandoff(check, deps.DB)
 	}}
+	owner.bootstrap = &bootstrapDelivery{
+		delivery: bootstrapdelivery.NewDelivery(pool, local.Store(), runtime, topic, config.Routes[0].PhysicalTopic, config.Routes[0].Revision),
+		interval: config.Limits.ReconcileInterval, budget: config.Limits.Lease, required: deps.Messaging.RequireFreshBootstrap,
+		stop: make(chan struct{}), done: make(chan struct{}),
+	}
 	owner.Writer, err = hostuow.NewPlannedUnitOfWork(local, runtime, hostuow.PlanConfig{LogicalTopic: topic, PhysicalTopic: config.Routes[0].PhysicalTopic, NamingScheme: config.Routes[0].NamingScheme, Routes: trustedRoutes, Sends: config.Limits.Sends, ProofBudget: config.Limits.CheckTimeout, Admission: owner.admitted, MaintenancePrincipal: maintenancePrincipal, Journal: operations, OperationLease: config.Limits.Lease})
 	if err != nil {
 		return nil, err
@@ -138,7 +146,7 @@ func (o *TransactionEventing) admitted() bool {
 	o.mu.Lock()
 	ready := o.ready && !o.stopping
 	o.mu.Unlock()
-	return ready && o.runtime.Stats().Ready
+	return ready && o.bootstrap.ready() && o.runtime.Stats().Ready
 }
 func (o *TransactionEventing) Start(ctx context.Context) error {
 	o.mu.Lock()
@@ -154,6 +162,9 @@ func (o *TransactionEventing) Start(ctx context.Context) error {
 		err = o.preflight(ctx)
 	}
 	if err == nil {
+		err = o.bootstrap.check(ctx)
+	}
+	if err == nil {
 		err = o.runtime.Start(ctx)
 	}
 	o.mu.Lock()
@@ -164,6 +175,9 @@ func (o *TransactionEventing) Start(ctx context.Context) error {
 	}
 	if err == nil && !interrupted && o.maintenance != nil {
 		err = o.maintenance.start()
+	}
+	if err == nil && !interrupted {
+		o.bootstrap.start()
 	}
 	o.mu.Lock()
 	stopped := o.stopping
@@ -187,6 +201,7 @@ func (o *TransactionEventing) StopAdmission() {
 	o.stopping = true
 	o.ready = false
 	o.mu.Unlock()
+	o.bootstrap.stopAdmission()
 	o.Writer.StopAdmission()
 }
 func (o *TransactionEventing) CheckReady(context.Context) error {
@@ -196,6 +211,9 @@ func (o *TransactionEventing) CheckReady(context.Context) error {
 	// A temporary write pause is independent of protocol/read availability.
 	if !ready || !o.runtime.sender.Stats().Ready {
 		return ErrTransactionAdmissionClosed
+	}
+	if !o.bootstrap.ready() {
+		return errBootstrapDeliveryPending
 	}
 	return nil
 }
@@ -226,6 +244,9 @@ func (o *TransactionEventing) Stop(ctx context.Context) error {
 	return o.closeClients(ctx)
 }
 func (o *TransactionEventing) closeClients(ctx context.Context) error {
+	if err := o.bootstrap.close(ctx); err != nil {
+		return err
+	}
 	if err := o.maintenance.close(ctx); err != nil {
 		return err
 	}
@@ -256,7 +277,7 @@ func (o *TransactionEventing) SetAdmission(open bool) error {
 func (o *TransactionEventing) Stats() rocketmq.TransactionStats {
 	stats := o.runtime.Stats()
 	o.mu.Lock()
-	stats.Ready = stats.Ready && o.ready && !o.stopping
+	stats.Ready = stats.Ready && o.ready && !o.stopping && o.bootstrap.ready()
 	o.mu.Unlock()
 	return stats
 }

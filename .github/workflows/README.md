@@ -42,7 +42,7 @@ cd.yml
 | 脚本 | 用途 |
 | --- | --- |
 | `scripts/cd/image-metadata.sh` | 统一 `SERVICE=apiserver` 的镜像名、compose service、包名和健康检查元数据 |
-| `scripts/cd/build-image.sh` | 使用 buildx 构建并推送 GHCR 镜像，带 `latest` 和提交 SHA tag |
+| `scripts/cd/build-image.sh` | 使用 buildx 构建并推送 GHCR 镜像。普通发布更新提交 SHA、`latest` 和共享构建缓存。暂停或仅构建时只推送提交 SHA，缓存仍可读取。 |
 | `scripts/cd/push-dockerhub.sh` | 将 GHCR 镜像同步到 Docker Hub |
 | `scripts/cd/push-acr.sh` | 将 GHCR 镜像同步到阿里云 ACR |
 | `scripts/cd/export-image.sh` | Mac mini 从 ACR 有界重试 pull，失败后回退 GHCR，并导出 tarball |

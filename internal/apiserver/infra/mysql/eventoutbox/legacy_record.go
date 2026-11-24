@@ -20,5 +20,5 @@ type OutboxPO struct {
 }
 
 func (OutboxPO) TableName() string {
-	return "domain_event_outbox"
+	return legacyOutboxTable
 }

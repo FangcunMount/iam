@@ -79,6 +79,17 @@ func (r *TransactionRuntime) Reserve(ctx context.Context, q transaction.Request,
 	}
 	return r.sender.Reserve(ctx, q, p)
 }
+func (r *TransactionRuntime) Retry(ctx context.Context, authorization transaction.RetryAuthorization) (transaction.Reservation, error) {
+	if !r.admitted() {
+		return transaction.Reservation{}, ErrTransactionAdmissionClosed
+	}
+	sender, ok := r.sender.(transaction.AuthorizedSender)
+	if !ok {
+		return transaction.Reservation{}, transaction.ErrBinding
+	}
+	return sender.Retry(ctx, authorization)
+}
+
 func (r *TransactionRuntime) Execute(ctx context.Context, e transaction.Execution, local transaction.LocalExecutor) (transaction.Result, error) {
 	if !r.admitted() {
 		return transaction.InitialResult(e), ErrTransactionAdmissionClosed

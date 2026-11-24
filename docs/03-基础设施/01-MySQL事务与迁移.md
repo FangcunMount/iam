@@ -115,17 +115,18 @@ Base 的 duplicate translator 仅在对应 helper/显式调用处生效，不覆
 
 `DatabaseManager.Initialize`初始化业务 GORM/Redis registry 后执行 runMigrations。迁移关闭、MySQL 获取失败或 nil 时，下层直接跳过，没有读取 release/degraded 条件；完整标准 Prepare 后续还有可靠消息和模块门禁。初始化阶段的 nil 返回不能独立证明服务可用，详见 [启动组合根](../01-运行时/01-启动与组合根.md)。
 
-可执行迁移时，先 ensureDatabase，再创建独立 `sql.DB`、Ping、运行嵌入脚本，避免 migrator.Close 关闭业务 GORM pool。迁移连接启用 multiStatements、固定 UTC+8，会单独占用连接额度；Run/RunTo不接收ctx，IAM未设置driver StatementTimeout，脚本使用Background。pool数量、连接寿命和GET_LOCK的10秒等待都没有提供整条迁移的截止时间。
+可执行迁移时，先 ensureDatabase，再创建独立 `sql.DB` 运行嵌入脚本。连接启用 multiStatements、固定 UTC+8。启动入口 `RunFresh`、普通 `Run` 和 `RunTo` 以同一个迁移锁串行化数据库检查和推进。锁等待 10 秒，整个脚本执行仍没有统一截止时间。
 
-创建migrate driver时会先ensureVersionTable，可能创建schema_migrations，随后才进入IAM的dirty/no-change判断，所以一次“没有新migration”调用也不能概括为只读。正常Close会关闭传入sql.DB，这不是借用宿主pool的接口。driver从pool借到专用Conn后若初始化失败，锁定版本未在该失败支路显式归还Conn，createMigrate也没有成功实例可Close；外层DB.Close不能替代该借用Conn的归还合同。本篇只登记源码资源窗口，未故障注入。
+创建 migrate driver 时可能创建 `schema_migrations`。迁移器借用并归还一条专用连接，保留调用方 pool 的所有权。无法确认锁释放时丢弃该连接。
 
-这里有两个数据库名称输入：DSN 使用 `mysql.database`；ensureDatabase 与驱动 DatabaseName/迁移 advisory lock 使用 `migration.database`。MigrationOptions.Validate 没有相等校验，驱动也不据非空 DatabaseName 切换连接的默认库。因此需先核对两者及实际 `DATABASE()` 一致，不能靠 typed config 或日志中的名称确认目标。
+DSN 使用 `mysql.database`，启动配置另有 `migration.database`。迁移器在推进前核对实际 `DATABASE()` 和配置一致，并以实际选中库名生成迁移锁。
 
-| 起点 | Run 的路径 | 准备事实 |
+| 起点 | 启动迁移路径 | 准备事实 |
 | --- | --- | --- |
-| version=0，配置 FreshStages，除 journal 外无表 | Migrate(31) → prepare；Migrate(33) → prepare；Migrate(35) → prepare；Up 最新 | 空库证明只在这次 Run 开始做；31准备旧授权租户基线，33独立角色/bootstrap DML，35条件退役准备 |
-| version=0，但存在其他表且配置 stages | 拒绝 fresh bootstrap | 不按“没有 journal”猜测是新库 |
-| 已有非零 version | 跳过全部 FreshStages，直接 Up | 既有环境需事先完成相应维护/回执条件 |
+| 未认领空库 | `RunFresh` 登记库名和服务器身份，按 31、33、35 准备后继续 Up | 31 进度与准备事务共同提交，33 和 35 复用原回执续跑 |
+| 已认领且未完成 | 同一数据库身份重新持锁，从持久阶段继续 | 普通 `Run` 和 `RunTo` 拒绝跳过 |
+| 未认领且版本为零但存在应用表 | 拒绝冷启动 | 保留已存在的表与数据 |
+| 已有非零版本且无冷启动认领 | 走原升级路径 | 保留对应维护和回执前置条件 |
 | clean 最新版本 | ErrNoChange 后重新读当前 version | 只表示源中没有更高 migration，未重新验证全部表/数据 |
 
 `configs/mysql/bootstrap.sql`含基线 DML，不含 DDL。手工重放要求当前完整链，但真实空库启动已在33阶段执行它；重放也会覆盖固定 User 的资料/status并清除 deleted_at，幂等不能理解为无副作用。历史物理起点的覆盖缺口见 [Identity 迁移索引](../02-业务模块/01-Identity/05-分层架构与代码索引.md#52-一个未被当前-fixture-覆盖的历史起点)。
@@ -139,17 +140,13 @@ Base 的 duplicate translator 仅在对应 helper/显式调用处生效，不覆
 | 失败位置 | 可能保留什么 | 下一步依据 |
 | --- | --- | --- |
 | SQL body / clean journal 更新失败 | 目标 dirty、此前版本与部分物理变化；clean 标记失败时 body 也可能已执行完 | 保存 journal/结构/数据/错误，再选择完成前进或恢复 |
-| FreshStage 的 prepare 失败 | 该 stage 的 schema 已 clean；准备事务按自身合同结算 | 重启时非零起点跳过 stages，需核对准备/receipt 断点 |
+| 冷启动阶段准备失败 | 当前阶段 schema 可为 clean，准备事实按原事务或归档回执结算 | 以已认领库身份、阶段记录和原回执决定续跑 |
 | Up 成功后读取新 version 失败 | schema 可能已推进，Run 返回错误 | 重读实际目标，不猜回滚 |
 | 事务 commit 或命令交付失败 | 持久事实与返回结果可能不一致 | 用已绑定目标的事实/receipt 判定，避免盲目重跑 |
 
-FreshStage 的 prepare 在 `Migrate(stage)`返回并释放该次 advisory lock后运行，使用业务 GORM 连接；不同 stage 调用也各有锁边界。它们没有共用整条 fresh 链的事务或排他锁。标准启动应由单一迁移 owner 执行。这里有三个具体源码窗口，本篇均未做故障/并发实验：
+启动迁移从空库检查到最后一个阶段使用同一持锁物理连接。阶段 31 在事务外准备表，在原事务内提交角色数据、准备回执和阶段进度。阶段 33 的业务提交和继承归档仍分开，续跑先验证原回执和事实。阶段 35 的原应用回执用于重复调用。历史上未登记冷启动进度的旧库沿原有升级约束处理，发现缺失回执时先独立核对。
 
-- 31阶段 `PrepareBootstrapTenant` 虽写在 GORM Transaction 内，却先做 DML，再执行普通 `CREATE TABLE`，最后写 marker。MySQL 的[隐式提交规则](https://dev.mysql.com/doc/refman/8.0/en/implicit-commit.html)使前序变更可能在 marker/最终提交失败时已持久化，不能套用纯 DML 用例的全回滚合同。
-- 33阶段先提交独立角色数据、事件与 applied receipt，再调用 ArchiveInheritance。归档失败可留下 clean33和applied事实；重启跳过准备，到34的archive gate仍可能失败并留下dirty34。
-- 两个runner都先在锁外看到version0/空库，A已推进40，B随后调用通用 `Migrate(31)`。该接口在锁内读取当前版本后允许向下走；38–40空表条件允许时可先执行部分down，再在不可逆步骤拒绝。单次锁并未将“空库判定＋整条准备链”串行化。
-
-`Run`在普通 Up error 分支返回 `(versionBefore, false, error)`，即使前面已成功应用若干版本；因此 `applied=false`不能证明零写入。dirty记录的是migration的TargetVersion：向上尝试19会记dirty19，向下执行19脚本、目标18时会先记dirty18。它不能单独定位失败SQL或已完成物理结构。IAM没有提供自动Force或显式Down入口；RunTo的方向检查和FreshStages仍调用可双向Migrate，不能据封装名称推导并发下绝不退回。具体处置步骤归 [Dirty 运维](../05-工程质量与运维/03-迁移发布与数据库运维.md#3-dirty-处置)。
+普通 Up 出错时，返回的 `applied` 可能为 false，但较早版本已写入。dirty 记录迁移目标版本，须结合实际物理结构、原回执和日志判定。方向检查与迁移执行共用同一把锁。具体处置见 [Dirty 运维](../05-工程质量与运维/03-迁移发布与数据库运维.md#3-dirty-处置)。
 
 ## 9. 最新版本、维护回执与可逆性分开维护
 
@@ -166,7 +163,7 @@ FreshStage 的 prepare 在 `Migrate(stage)`返回并释放该次 advisory lock�
 | 000042 事务消息协议 | 独立 rm_tx_binding/request/execution/witness；二进制身份，rm_tx_expiry有界扫描；不安装owner binding，不转换旧Outbox | Down拒绝删除协议证据；配置/owner/store_id/epoch须显式冻结，运行时不DDL。M3业务接入仍未完成 |
 | 000043 发布协议门禁 | 独立 host control row，默认 outbox；事务模式须显式绑定 owner/store/epoch/m3-1，原根事务持有共享锁 | 不自动切换 provider，不删除 SDK 证据；Down 拒绝删除门禁。旧二进制仍须停写，切换工具另行验收 |
 | 000044 业务操作凭证 | 独立 iam_authz_operations 保存完整赢家计划、原输入摘要、执行资格与原事务结果，支持无变更操作 | 不扫描发布、不重做业务；过期仅竞争中止，原根事务共同提交事实与结果；公开幂等接口另需接线验证 |
-| authorization-migrate 的 RunTo | 锁外检查目标低于当前version则拒绝，随后调用可双向Migrate；不执行FreshStages | 顺序调用拒绝倒退；其他runner在检查后推进时仍有窗口，要求单一owner |
+| authorization-migrate 的 RunTo | 持锁读取现版本和冷启动记录，拒绝倒退及未完成冷启动 | 已认领的冷启动由启动迁移入口续跑 |
 | Database Operations/status | 当前脚本接受 clean38/39/40并核对对应对象 | status是结构检查，workflow已经没有 migrate动作 |
 
 000030同名冲突触发断言时尚未修改持久用户名，但这项局部前置不意味着所有迁移失败都无持久副作用。SQL注释、up/down配对与成功退出都不足以证明数据可逆。已发布脚本原则上保持不可变，以新 forward migration修复；历史000029补丁作为有记录的例外保留。执行入口与历史证据见 [数据库运维](../05-工程质量与运维/03-迁移发布与数据库运维.md)。
@@ -180,7 +177,6 @@ FreshStage 的 prepare 在 `Migrate(stage)`返回并释放该次 advisory lock�
 | Required 内层失败后宿主仍继续 | 显式保存点，或共享 rollback-only 状态；统一错误传播合同 | 保存点允许局部失败；rollback-only拒绝整笔提交，需明确调用方预期 |
 | carrier误用或裸事务基座提前hook | 显式事务owner/作用域，校验基础DB与状态，或限定仅接收根DB | 扩大端口与测试面；不能只增加一次 RequireTx 判断 |
 | 授权提交后快照滞后 | 提交者登记after-commit唤醒 + durable版本事件；必要时返回/等待已加载版本 | hook只能降低本机延迟，持久重试和请求级版本屏障仍各有代价 |
-| FreshStages断点和方向窗口 | 用持久stage receipt与后置断言恢复；在完整准备期间控制单runner与业务停写，同一锁内重判方向 | 已完成准备的识别、重入与锁范围必须显式设计；拆出prepare中的DDL |
 | 自动启动DDL与滚动代码耦合 | 独立受控migration runner，按expand/backfill/cutover/contract发布 | 需要release orchestration与所有活跃writer的兼容矩阵 |
 | database名称与执行预算不明确 | 启动校验实际目标一致，为连接/锁/脚本/准备分别设置预算 | 超时不等于零副作用；仍需断点证据和恢复策略 |
 

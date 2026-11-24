@@ -189,6 +189,23 @@ for paused, reuse, plan, build, deployment, expected in [
 # regardless of whether the repository pause variable is enabled.
 import itertools
 
+receipt_step = workflow.split("      - name: Read back immutable IAM publication\n", 1)[1]
+receipt_step, archive_step = receipt_step.split("      - name: Archive immutable IAM publication\n", 1)
+archive_step = archive_step.split("\n  deploy:", 1)[0]
+assert "continue-on-error" not in receipt_step, "a failed immutable readback must fail the build job"
+assert "if-no-files-found: error" in archive_step
+archive_condition = re.search(r"^        if: (.+)$", archive_step, flags=re.M)[1]
+for status, outcome in itertools.product((True, False), ("success", "failure", "skipped", "cancelled", "")):
+    # Actions injects success() if the expression has no explicit status check.
+    explicit_status = "always()" in archive_condition
+    expression = archive_condition.replace("always()", "True")
+    expression = expression.replace("steps.immutable_publication.outcome", repr(outcome))
+    archive = (status or explicit_status) and eval(
+        expression.replace("&&", "and").replace("||", "or"), {"__builtins__": {}}
+    )
+    assert archive == (outcome in ("success", "failure")), (status, outcome)
+print("IAM immutable publication status and diagnostic archiving passed")
+
 condition_start = workflow.index("    if: |\n", workflow.index("\n  deploy:\n"))
 condition_end = workflow.index("\n    env:", condition_start)
 condition = workflow[condition_start:condition_end].split("\n", 1)[1].strip()
@@ -249,7 +266,67 @@ for ref, revision, digest, config, expected in [
         assert (result.returncode == 0) == expected, result.stderr
         if expected:
             assert output.read_text().strip() == "reuse=false"
+        if ref != "refs/heads/main":
+            values["DEPLOY_OPERATION"] = "deploy"
+            for rejected_ref in (ref, "refs/heads/Main"):
+                values["GITHUB_REF"] = rejected_ref
+                result = subprocess.run(["bash", "-c", planner], env=values, capture_output=True)
+                assert result.returncode != 0 and not output.exists()
 print("IAM build-only deployment refusal and planner cases passed")
+
+# Only the named repository's successful main push CI can start an automatic plan.
+plan_condition = workflow.split("\n  plan:\n    if: >-\n", 1)[1].split("\n    runs-on:", 1)[0]
+same_repository = "FangcunMount/iam"
+for event, ref, source_event, head_repo, branch, conclusion, expected in [
+    ("workflow_dispatch", "refs/heads/main", "", "", "", "", True),
+    ("workflow_dispatch", "refs/heads/topic", "", "", "", "", False),
+    ("workflow_run", "refs/heads/main", "push", same_repository, "main", "success", True),
+    ("workflow_run", "refs/heads/main", "pull_request", same_repository, "main", "success", False),
+    ("workflow_run", "refs/heads/main", "workflow_dispatch", same_repository, "main", "success", False),
+    ("workflow_run", "refs/heads/main", "push", "other/iam", "main", "success", False),
+    ("workflow_run", "refs/heads/main", "push", same_repository, "develop", "success", False),
+    ("workflow_run", "refs/heads/main", "push", same_repository, "main", "failure", False),
+]:
+    values = {
+        "github.event_name": event, "github.ref": ref, "github.repository": same_repository,
+        "github.event.workflow_run.event": source_event,
+        "github.event.workflow_run.head_repository.full_name": head_repo,
+        "github.event.workflow_run.head_branch": branch,
+        "github.event.workflow_run.conclusion": conclusion,
+    }
+    expression = plan_condition
+    for key in sorted(values, key=len, reverse=True):
+        expression = expression.replace(key, repr(values[key]))
+    expression = " ".join(expression.replace("&&", "and").replace("||", "or").split())
+    assert eval(expression, {"__builtins__": {}}) is expected, values
+
+with tempfile.TemporaryDirectory() as temporary:
+    directory = pathlib.Path(temporary)
+    subprocess.run(["git", "init", "-q"], cwd=directory, check=True)
+
+    def fixture_commit(message):
+        subprocess.run(
+            ["git", "-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid",
+             "commit", "--allow-empty", "-qm", message], cwd=directory, check=True,
+        )
+        return subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=directory, text=True).strip()
+
+    approved = fixture_commit("approved main snapshot")
+    subprocess.run(["git", "update-ref", "refs/remotes/origin/main", approved], cwd=directory, check=True)
+    unapproved = fixture_commit("outside the approved main history")
+    for revision, expected in [(approved, True), (unapproved, False), ("not-a-sha", False)]:
+        output = directory / "plan-output"
+        output.unlink(missing_ok=True)
+        values = dict(os.environ, GITHUB_EVENT_NAME="workflow_run", DEPLOY_OPERATION="",
+                      REQUESTED_REVISION="", CANDIDATE_DIGEST="", CANDIDATE_CONFIG_ID="",
+                      DEPLOY_SHA=revision, GITHUB_OUTPUT=str(output))
+        result = subprocess.run(["bash", "-c", planner], cwd=directory, env=values, capture_output=True)
+        assert (result.returncode == 0) is expected
+        if expected:
+            assert output.read_text().strip() == "reuse=false"
+        else:
+            assert not output.exists()
+print("IAM source, event and checked-out main ancestry cases passed")
 
 # Exercise the actual isolated-authentication setup, including plugin discovery.
 auth_anchor = workflow.index(
@@ -326,3 +403,62 @@ else:raise SystemExit(2)
             ]
             assert all(c[0] == "buildx" for c in calls)
         print(repo, "isolated-plugin", mode, "passed")
+
+# Exercise the complete make cd-image recipe with a fake Docker transport.
+# This covers GHCR, Docker Hub, and ACR without touching any registry.
+build_step = workflow.split("      - name: Build and publish image\n", 1)[1].split("\n  deploy:", 1)[0]
+policy = re.search(r"PUBLISH_LATEST: \$\{\{ (.*?) \}\}", build_step)[1]
+for operation, paused in itertools.product(("build", "deploy", ""), ("true", "false", "")):
+    values = {"inputs.operation": operation, "vars.PRODUCTION_DEPLOY_PAUSED": paused}
+    expression = policy
+    for key, value in values.items():
+        expression = expression.replace(key, repr(value))
+    setting = eval(expression.replace("&&", "and").replace("||", "or"), {"__builtins__": {}})
+    assert setting == ("true" if operation != "build" and paused != "true" else "false")
+
+with tempfile.TemporaryDirectory() as temp:
+    folder = pathlib.Path(temp).resolve()
+    calls = folder / "calls"
+    docker = folder / "docker"
+    docker.write_text(
+        "#!/usr/bin/env python3\n"
+        "import json, os, sys\n"
+        "with open(os.environ['CALLS'], 'a') as out: out.write(json.dumps(sys.argv[1:])+'\\n')\n"
+    )
+    docker.chmod(0o755)
+    env = dict(os.environ, PATH=f"{folder}:{os.environ['PATH']}", CALLS=str(calls),
+               SERVICE="apiserver", DEPLOY_REF="main", DEPLOY_SHA="b" * 40,
+               DOCKER_REGISTRY="ghcr.invalid", DOCKER_REPOSITORY="unit",
+               DOCKERHUB_USERNAME="hub-unit", ALIYUN_ACR_REGISTRY="acr.invalid",
+               ALIYUN_ACR_NAMESPACE="unit", WWW_UID="3000", WWW_GID="3000")
+    env.pop("PUBLISH_LATEST", None)
+    sha = env["DEPLOY_SHA"]
+    for setting, mutable in ((None, True), ("true", True), ("false", False), ("invalid", None)):
+        calls.unlink(missing_ok=True)
+        setting_env = {} if setting is None else {"PUBLISH_LATEST": setting}
+        run = subprocess.run(["make", "-s", "cd-image"], cwd=ROOT, env={**env, **setting_env},
+                             capture_output=True, text=True, timeout=25)
+        if mutable is None:
+            assert run.returncode != 0 and not calls.exists(), run.stderr
+            continue
+        assert run.returncode == 0, run.stderr
+        rows = [json.loads(line) for line in calls.read_text().splitlines()]
+        builds = [a for a in rows if a[:2] == ["buildx", "build"]]
+        build, = builds
+        labels = [build[i + 1] for i, arg in enumerate(build) if arg == "--label"]
+        revisions = [label for label in labels if label.startswith("org.opencontainers.image.revision=")]
+        assert revisions == ["org.opencontainers.image.revision=" + sha], revisions
+        ghcr = [build[i+1] for i, arg in enumerate(build) if arg == "--tag"]
+        expected_tags = {sha, "latest"} if mutable else {sha}
+        assert set(ghcr) == {"ghcr.invalid/unit/iam:" + tag for tag in expected_tags}
+        cache_read = [build[i + 1] for i, arg in enumerate(build) if arg == "--cache-from"]
+        cache_write = [build[i + 1] for i, arg in enumerate(build) if arg == "--cache-to"]
+        cache_ref = "type=registry,ref=ghcr.invalid/unit/iam:buildcache"
+        assert cache_read == [cache_ref]
+        assert cache_write == ([cache_ref + ",mode=max,ignore-error=true"] if mutable else [])
+        pushes = [arg[1] for arg in rows if arg[0] == "push"]
+        assert set(pushes) == {base + "/iam:" + tag for base in ("hub-unit", "acr.invalid/unit")
+                              for tag in expected_tags}
+        assert len(pushes) == 2 * len(expected_tags)
+        assert len([a for a in rows if a[0] == "pull" and a[1] == "ghcr.invalid/unit/iam:" + sha]) == 2
+print("IAM build and publish labels passed for default, frozen, and invalid settings")
