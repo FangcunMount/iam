@@ -24,6 +24,7 @@ docker pull "$SRC"
 for tag do
   target="${DST_BASE}:$tag"
   docker tag "$SRC" "$target"
-  docker push "$target"
+  # ACR rejected the attestation manifest bundled in the OCI index.
+  docker push --platform linux/amd64 "$target"
   printf 'Image pushed: %s\n' "$target"
 done
