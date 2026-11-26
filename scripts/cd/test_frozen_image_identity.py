@@ -456,9 +456,11 @@ with tempfile.TemporaryDirectory() as temp:
         cache_ref = "type=registry,ref=ghcr.invalid/unit/iam:buildcache"
         assert cache_read == [cache_ref]
         assert cache_write == ([cache_ref + ",mode=max,ignore-error=true"] if mutable else [])
-        pushes = [arg[1] for arg in rows if arg[0] == "push"]
-        assert set(pushes) == {base + "/iam:" + tag for base in ("hub-unit", "acr.invalid/unit")
-                              for tag in expected_tags}
-        assert len(pushes) == 2 * len(expected_tags)
+        pushes = [tuple(args) for args in rows if args[0] == "push"]
+        hub_pushes = {("push", "hub-unit/iam:" + tag) for tag in expected_tags}
+        acr_pushes = {("push", "--platform", "linux/amd64", "acr.invalid/unit/iam:" + tag)
+                      for tag in expected_tags}
+        expected_pushes = hub_pushes | acr_pushes
+        assert len(pushes) == len(expected_pushes) and set(pushes) == expected_pushes
         assert len([a for a in rows if a[0] == "pull" and a[1] == "ghcr.invalid/unit/iam:" + sha]) == 2
 print("IAM build and publish labels passed for default, frozen, and invalid settings")
