@@ -31,7 +31,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer listener.Close()
+	defer func() { _ = listener.Close() }()
 	log.Print("NSQ test proxy ready")
 	for {
 		client, err := listener.Accept()
@@ -43,13 +43,13 @@ func main() {
 }
 
 func handle(client net.Conn, upstreamAddress, armFile, topic string) {
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 	broker, err := net.DialTimeout("tcp", upstreamAddress, 5*time.Second)
 	if err != nil {
 		log.Printf("connect broker: %v", err)
 		return
 	}
-	defer broker.Close()
+	defer func() { _ = broker.Close() }()
 	var dropOK atomic.Bool
 	done := make(chan struct{})
 	go func() {
