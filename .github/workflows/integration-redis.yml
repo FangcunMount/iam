@@ -1,0 +1,66 @@
+name: IAM Redis integration
+
+on:
+  pull_request:
+    paths:
+      - internal/apiserver/infra/cache/redis/**
+      - internal/apiserver/domain/authn/**
+      - go.mod
+      - go.sum
+      - .github/workflows/integration-redis.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: iam-redis-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  redis-contracts:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      redis:
+        image: redis:7.4.11
+        ports: ['127.0.0.1:6379:6379']
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=2s --health-timeout=2s --health-retries=30
+    env:
+      GOTOOLCHAIN: local
+      GOFLAGS: -mod=readonly
+      IAM_TEST_REDIS_ADDR: 127.0.0.1:6379
+      IAM_TEST_REDIS_OWNED: '1'
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Real Redis adapter contracts and exact key cleanup
+        run: |
+          set -euo pipefail
+          go test -race -tags=integration -p 1 -count=1 -timeout=3m -json \
+            ./internal/apiserver/infra/cache/redis -run '^TestRealRedis' \
+            | tee "$RUNNER_TEMP/redis-contracts.jsonl"
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          rows = [json.loads(line) for line in Path(os.environ['RUNNER_TEMP'], 'redis-contracts.jsonl').read_text().splitlines()]
+          expected = {'TestRealRedisSessionIndexesAndRevocation', 'TestRealRedisChallengeIsConsumedOnce', 'TestRealRedisRefreshTokenLifecycle'}
+          passed = {r['Test'] for r in rows if r.get('Action') == 'pass' and r.get('Test')}
+          assert passed == expected, (passed, expected)
+          assert not any(r.get('Action') in ('fail', 'skip') for r in rows), 'failure or unexpected skip'
+          cleaned = {r.get('Test') for r in rows if 'OWNED_REDIS_KEYS_CLEANED' in r.get('Output', '')}
+          assert cleaned == expected, 'exact key cleanup was not verified for every contract'
+          print('Real Redis contracts:3 passed,0 failed,0 skipped; all owned keys removed')
+          PY
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: iam-redis-${{ github.sha }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/redis-contracts.jsonl
+          if-no-files-found: error
+          retention-days: 14
